@@ -1,94 +1,92 @@
 # DevAtlas
 
-DevAtlas 是一个本地优先的代码仓库分析平台。当前版本支持导入 ZIP、本地文件夹和公开 GitHub 仓库，并使用 Tree-sitter 在本地提取 Python、TypeScript 和 JavaScript 的函数、类、方法及导入关系。
+> 本地优先的代码仓库智能分析平台：从仓库导入、结构解析与代码搜索，到依赖图谱、质量检测和 Markdown 分析报告，全流程默认在本机完成。
 
-## 当前进度
+[![CI](https://github.com/Boomfreezing/DevAtlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Boomfreezing/DevAtlas/actions/workflows/ci.yml)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![FastAPI](https://img.shields.io/badge/FastAPI-Python_3.13-009688?logo=fastapi&logoColor=white)
+![SQLite](https://img.shields.io/badge/Storage-SQLite-003B57?logo=sqlite&logoColor=white)
+![Playwright](https://img.shields.io/badge/E2E-Playwright-2EAD33?logo=playwright&logoColor=white)
 
-- [x] React + TypeScript 管理台
-- [x] Terminal CLI 深色设计系统与响应式终端布局
-- [x] FastAPI REST API
-- [x] SQLite 项目与文件模型
-- [x] ZIP 上传、大小限制和路径穿越防护
-- [x] 本地项目文件夹导入
-- [x] 公开 GitHub 仓库 URL 导入
-- [x] GitHub 域名、重定向、超时和下载大小限制
-- [x] Tree-sitter Python、TypeScript、JavaScript 结构解析
-- [x] 函数、类、接口、方法和行号提取
-- [x] `import`、`from`、`require` 依赖提取
-- [x] 项目内相对依赖解析
-- [x] 解析问题记录与旧项目重新分析
-- [x] 递归文件扫描和忽略目录
-- [x] 主要语言、文件数量与代码行数统计
-- [x] 按函数、类和模块切分代码片段
-- [x] BM25 项目内代码搜索
-- [x] 返回文件路径、行号、代码片段、相关性得分和耗时
-- [x] 模块依赖图 API 与交互式 SVG 图谱
-- [x] 图谱缩放、路径筛选和节点入度/出度详情
-- [x] 基于强连通分量的循环依赖检测
-- [x] 六条代码质量规则与百分制评分
-- [x] 按严重级别和规则筛选的结构化质量报告
-- [x] 每项问题包含文件、行号、指标、阈值与修复建议
-- [x] 一键生成并下载本地 Markdown 综合分析报告
-- [x] 持久化后台分析任务和阶段进度
-- [x] ZIP、文件夹与 GitHub 任务式导入
-- [x] 服务中断任务恢复与失败清理
-- [x] 文件哈希增量分析与未改动文件快速跳过
-- [x] 新增、修改、删除文件识别和按需结构刷新
-- [x] 项目列表、详情和删除
-- [x] Pytest 单元及接口测试
-- [x] Playwright 真实前后端端到端测试
-- [x] 可复现增量分析性能评测脚本与报告
-- [x] Docker Compose 配置
-- [x] GitHub Actions 持续集成
-- [ ] 本地向量搜索
-
-完整阶段安排参见 [项目推进计划](./docs/PROJECT_PLAN.md)。性能测试口径与实测数据参见 [性能评测](./docs/PERFORMANCE.md)。
-
-## 项目展示
+DevAtlas 面向需要快速理解陌生代码仓库的开发者。它可以导入 ZIP、本地文件夹或公开 GitHub 仓库，通过 Tree-sitter 提取 Python、TypeScript 和 JavaScript 的符号与依赖关系，并提供可解释、可复现的本地分析结果。默认模式无需 API Key；需要更深入的报告时，可选接入 Ollama 或 OpenAI Responses API。
 
 ![DevAtlas 仓库概览](./docs/assets/devatlas-dashboard.png)
 
-![DevAtlas 代码质量报告](./docs/assets/devatlas-quality.png)
+## 项目亮点
 
-- [文档导航](./docs/README.md)
-- [系统架构与关键设计取舍](./docs/ARCHITECTURE.md)
-- [项目推进计划](./docs/PROJECT_PLAN.md)
-- [性能评测](./docs/PERFORMANCE.md)
-- [依赖图谱截图](./docs/assets/devatlas-graph.png)
-- [代码搜索截图](./docs/assets/devatlas-search.png)
-- [2～3 分钟演示脚本](./docs/DEMO_SCRIPT.md)
-- [发布与简历交付清单](./docs/DELIVERY.md)
+| 能力 | 实现 |
+|---|---|
+| 多来源仓库接入 | ZIP、本地文件夹、公开 GitHub URL；后台任务展示阶段与进度 |
+| 代码结构解析 | Tree-sitter 提取函数、类、接口、方法、行号与导入关系，不执行被分析代码 |
+| 本地代码搜索 | BM25 按相关性返回文件、行号、代码片段、得分和查询耗时 |
+| 架构可视化 | 交互式 SVG 依赖图、路径筛选、节点出入度和循环依赖检测 |
+| 质量检测 | 6 条确定性规则、百分制评分、严重级别筛选和可执行修复建议 |
+| 智能分析报告 | 本地规则引擎开箱即用；可选 Ollama / OpenAI Responses 增强；支持预览与导出 Markdown |
+| 增量分析 | 元数据快路径 + SHA-256 内容确认，仅重新解析实际变化的文件 |
+| 工程化交付 | SQLite 持久化、Docker Compose、Pytest/Vitest/Playwright、GitHub Actions CI |
 
-## 技术栈
+## 可量化结果
 
-- 前端：React 19、TypeScript、Vite
-- 后端：Python、FastAPI、SQLAlchemy
-- 数据库：SQLite
-- 测试：Pytest、Vitest、Playwright
-- 交付：Docker Compose
+| 指标 | 结果 |
+|---|---:|
+| 后端自动化测试 | 29 项 |
+| 后端测试覆盖率 | 85% |
+| 前端自动化测试 | 7 项 |
+| 主流程端到端测试 | Playwright 1 项，覆盖导入、报告、搜索与增量分析 |
+| 中型仓库无变化增量分析 | 10.90 ms 中位数，较全量最高加速 **15.41×** |
+| 大型仓库无变化增量分析 | 929 个文件、40,515 行，287.54 ms 中位数 |
 
-## 仓库结构
+性能数据来自本地可复现脚本，完整环境、样本和适用边界见 [性能评测](./docs/PERFORMANCE.md)。
 
-```text
-DevAtlas/
-├─ backend/                 FastAPI、SQLAlchemy、Tree-sitter 与后端测试
-├─ frontend/                React、TypeScript、Vitest 与 Playwright
-├─ docs/                    架构、计划、性能、演示和项目截图
-│  └─ assets/               README 与演示使用的可复现截图
-├─ scripts/                 性能评测等维护脚本
-├─ data/                    SQLite、仓库文件和报告（运行时数据，不提交）
-├─ .github/workflows/       GitHub Actions 持续集成
-├─ .env.example             本地配置模板
-└─ docker-compose.yml       一键容器化启动
+## 工作流程
+
+```mermaid
+flowchart LR
+    A[ZIP / 本地文件夹 / GitHub] --> B[安全接入与后台任务]
+    B --> C[文件扫描与 SHA-256]
+    C --> D[Tree-sitter 结构解析]
+    D --> E[(SQLite)]
+    E --> F[BM25 代码搜索]
+    E --> G[依赖图与循环检测]
+    E --> H[质量评分]
+    F --> I[本地或模型增强报告]
+    G --> I
+    H --> I
 ```
 
-根目录 `data/` 是本地开发和 Docker 共用的唯一运行数据目录。数据库、导入的仓库、模型配置和测试产物均已通过 `.gitignore` 排除，只有用于保留目录结构的 `.gitkeep` 文件进入版本控制。
+系统设计、分析时序与关键取舍见 [架构文档](./docs/ARCHITECTURE.md)。
 
-## 本地开发
+## 界面预览
 
-### 1. 启动后端
+| 依赖图谱 | 质量检测 |
+|---|---|
+| ![依赖图谱](./docs/assets/devatlas-graph.png) | ![质量检测](./docs/assets/devatlas-quality.png) |
 
-在 PowerShell 中执行：
+| BM25 代码搜索 | 分析报告 |
+|---|---|
+| ![代码搜索](./docs/assets/devatlas-search.png) | ![分析报告](./docs/assets/devatlas-report.png) |
+
+更多界面包括 [API 配置](./docs/assets/devatlas-provider-config.png) 和 [移动端布局](./docs/assets/devatlas-mobile.png)。
+
+## 快速开始
+
+### 环境要求
+
+- Python 3.11+（CI 使用 3.13）
+- Node.js 20.19+ 或 22.12+（CI 使用 24）
+- npm
+- 可选：Docker Desktop、Ollama
+
+### 本地开发
+
+1. 克隆项目并进入目录：
+
+```bash
+git clone https://github.com/Boomfreezing/DevAtlas.git
+cd DevAtlas
+```
+
+2. 启动后端：
 
 ```powershell
 cd backend
@@ -98,14 +96,7 @@ python -m pip install -e ".[dev]"
 python -m uvicorn app.main:app --reload
 ```
 
-后端地址：<http://localhost:8000>  
-接口文档：<http://localhost:8000/docs>
-
-后端从仓库根目录读取可选的 `.env`，所有相对数据路径也统一以仓库根目录解析。可先复制 `.env.example` 为 `.env` 再按需修改。
-
-### 2. 启动前端
-
-打开另一个 PowerShell：
+3. 在另一个终端启动前端：
 
 ```powershell
 cd frontend
@@ -113,89 +104,134 @@ npm install
 npm run dev
 ```
 
-前端地址：<http://localhost:5173>
+打开：
 
-Vite 会把 `/api` 请求代理到本地 FastAPI 服务。
+- Web：<http://localhost:5173>
+- API：<http://localhost:8000>
+- Swagger：<http://localhost:8000/docs>
 
-项目导入后可在详情页选择“增量分析”或“全量”。增量分析先用文件大小和纳秒级修改时间快速判断，元数据变化时再以 SHA-256 内容哈希确认；只有新增或内容变化的源文件会重新执行 Tree-sitter 解析，删除文件对应的符号、依赖、问题和搜索片段会同步清理。
+后端从仓库根目录读取可选的 `.env`。如需覆盖默认配置，先将 `.env.example` 复制为 `.env`。
 
-## Docker 启动
+### Docker Compose
 
-如果已经安装 Docker Desktop：
-
-```powershell
+```bash
 docker compose up --build
 ```
 
-访问 <http://localhost:8080>。SQLite 数据库和上传的仓库保存在根目录的 `data/` 中。
+访问 <http://localhost:8080>。数据库、导入仓库和报告配置统一保存在根目录 `data/`，且不会进入版本控制。
 
-## 测试
+## 报告接口与成本
 
-从仓库根目录运行完整验证（文档链接、后端覆盖率、前端测试、构建和端到端测试）：
+| 接口 | 默认状态 | 成本与说明 |
+|---|---|---|
+| DevAtlas 本地规则引擎 | 可直接使用 | 免费、无需模型、API Key 或网络请求 |
+| Ollama 本地模型服务 | 配置后启用 | 模型在本机或局域网运行，需先安装并下载模型 |
+| OpenAI Responses API | 配置后启用 | 按供应商计费；支持 OpenAI 官方或实现 Responses 协议的兼容网关 |
+
+OpenAI Responses 入口不直接兼容 DeepSeek、Claude 等供应商的原生协议；接入这些原生 API 需要增加 Chat Completions 或 Anthropic Messages 适配器。
+
+服务地址、模型和认证信息可直接在“分析报告”页面配置并测试。配置保存在 `data/report-providers.json`：API Key 不通过查询接口回传、不写入前端代码，也不提交到 Git。
+
+## 增量分析设计
+
+1. 比较文件大小与纳秒级修改时间，快速跳过确定未变化的文件。
+2. 元数据发生变化时计算 SHA-256，区分时间戳变化与内容变化。
+3. 仅对新增或内容变化的源文件重新执行 Tree-sitter 解析。
+4. 删除文件时同步清理符号、依赖、解析问题和搜索片段。
+5. 内容实际变化后刷新依赖解析与 BM25 索引。
+
+## 测试与验证
+
+从仓库根目录执行完整验证：
 
 ```powershell
 .\scripts\verify_project.ps1
 ```
 
-也可以分别执行：
+或分别运行：
 
 ```powershell
+# 后端测试与覆盖率
 cd backend
-python -m pytest
+python -m pytest --cov=app --cov-fail-under=85
 
+# 前端单元测试、构建和端到端测试
 cd ..\frontend
 npm test
 npm run build
 npm run test:e2e
 ```
 
-端到端测试会使用系统 Chrome，自动创建唯一的临时项目，并在测试结束后通过 API 删除该项目。CI 中会安装 Playwright Chromium 后执行同一套测试。
+CI 在每次 `push` 和 Pull Request 时分别执行后端、前端与 e2e 三组任务。Playwright 测试覆盖从本地文件夹导入，到报告生成、Markdown 下载、BM25 搜索和无变化增量分析的核心用户路径。
 
-如需重新生成 README 展示截图，可执行 `npm run capture:assets`。该命令会在 8010/5174 端口启动隔离环境，不读取或修改日常使用的项目数据库。
+重新生成 README 截图：
+
+```bash
+cd frontend
+npm run capture:assets
+```
+
+截图任务使用 8010/5174 端口的隔离环境，不读取或修改日常项目数据库。
 
 ## API 概览
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/projects` | 项目列表 |
-| POST | `/api/projects` | 上传 ZIP 并分析 |
-| POST | `/api/projects/folder` | 上传本地文件夹并分析 |
-| POST | `/api/projects/github` | 下载公开 GitHub 仓库并分析 |
-| POST | `/api/projects/jobs/zip` | 创建 ZIP 后台分析任务 |
-| POST | `/api/projects/jobs/folder` | 创建文件夹后台分析任务 |
-| POST | `/api/projects/jobs/github` | 创建 GitHub 后台分析任务 |
-| GET | `/api/projects/jobs/{job_id}` | 查询任务阶段、进度与结果 |
-| GET | `/api/projects/{id}` | 项目及文件详情 |
-| GET | `/api/projects/{id}/structure` | 函数、类、依赖和解析问题 |
-| GET | `/api/projects/{id}/search?q=关键词&limit=10` | BM25 项目内代码搜索 |
-| GET | `/api/projects/{id}/dependency-graph?limit=40` | 模块依赖图与循环依赖 |
-| GET | `/api/projects/{id}/quality?limit=300` | 质量评分、规则命中与修复建议 |
-| GET | `/api/projects/report-generators` | 查询报告生成接口、可用状态与成本标签 |
-| PUT | `/api/projects/report-generators/{provider}` | 从界面保存服务地址、模型和脱敏认证配置 |
-| POST | `/api/projects/report-generators/{provider}/test` | 测试 Ollama 或 OpenAI Responses API 连接 |
-| GET | `/api/projects/{id}/report?generator=local` | 生成可预览的针对性智能分析报告 |
-| GET | `/api/projects/{id}/report.md` | 生成并下载本地 Markdown 综合报告 |
-| POST | `/api/projects/{id}/incremental-reanalyze` | 检测文件变化并按需重新解析 |
-| POST | `/api/projects/{id}/reanalyze` | 重新执行代码结构解析 |
-| DELETE | `/api/projects/{id}` | 删除项目和本地数据 |
+| `GET` | `/api/health` | 健康检查 |
+| `GET / POST` | `/api/projects` | 获取项目 / 上传 ZIP 并分析 |
+| `POST` | `/api/projects/folder` | 导入本地文件夹 |
+| `POST` | `/api/projects/github` | 下载公开 GitHub 仓库 |
+| `GET` | `/api/projects/jobs/{job_id}` | 查询后台任务阶段和进度 |
+| `GET` | `/api/projects/{id}/structure` | 获取符号、依赖和解析问题 |
+| `GET` | `/api/projects/{id}/search` | BM25 项目内搜索 |
+| `GET` | `/api/projects/{id}/dependency-graph` | 依赖图与循环依赖 |
+| `GET` | `/api/projects/{id}/quality` | 质量评分与修复建议 |
+| `GET` | `/api/projects/{id}/report` | 生成可预览分析报告 |
+| `GET` | `/api/projects/{id}/report.md` | 下载 Markdown 报告 |
+| `POST` | `/api/projects/{id}/incremental-reanalyze` | 增量重新分析 |
 
-“分析报告”是独立的项目功能页。默认选择免费的本地智能分析接口，无需 API Key，报告会结合项目规模、依赖热点、质量评分、测试文件信号和解析完整度生成针对性结论。Ollama 本地模型服务与 OpenAI Responses API 可以直接在接口卡片中填写地址、模型和认证信息，并执行连接测试；配置成功后即可选择该接口增强报告。Responses 入口不直接兼容 DeepSeek、Claude 等供应商的原生协议，需要额外的 Chat Completions 或 Anthropic Messages 适配器。
+完整交互式接口定义可在后端启动后访问 `/docs`。
 
-接口配置保存在本机后端的 `data/report-providers.json`（已被 Git 忽略）。API Key 不会通过查询接口回传，也不会写入前端代码。若项目被部署为多人服务，建议进一步改用操作系统凭据存储或专用密钥管理服务。
+## 仓库结构
 
-报告生成后可在页面中直接预览。点击“导出 MD”会在支持 File System Access API 的 Chromium 浏览器中打开系统保存窗口，允许选择目录和文件名；其他浏览器自动回退为普通下载。
+```text
+DevAtlas/
+├─ backend/                 FastAPI、SQLAlchemy、Tree-sitter 与 Pytest
+├─ frontend/                React、TypeScript、Vitest 与 Playwright
+├─ docs/                    架构、性能、演示、发布清单与截图
+│  └─ assets/               README 使用的可复现界面截图
+├─ scripts/                 完整验证与性能评测脚本
+├─ data/                    SQLite、导入仓库和模型配置（运行时数据）
+├─ .github/workflows/       GitHub Actions CI
+├─ .env.example             无敏感信息的配置模板
+└─ docker-compose.yml       容器化启动配置
+```
+
+## 文档
+
+- [文档导航](./docs/README.md)
+- [系统架构](./docs/ARCHITECTURE.md)
+- [项目推进计划](./docs/PROJECT_PLAN.md)
+- [性能评测](./docs/PERFORMANCE.md)
+- [2～3 分钟演示脚本](./docs/DEMO_SCRIPT.md)
+- [发布与简历交付清单](./docs/DELIVERY.md)
 
 ## 安全边界
 
-- 支持 ZIP、本地文件夹和公开 GitHub 仓库根地址。
-- 默认上传限制为 50 MB。
-- 解压前检查绝对路径和 `..` 路径穿越。
-- 默认忽略 `.git`、`node_modules`、`dist`、`build` 等目录。
-- 只扫描已知的文本和源代码扩展名。
-- 所有分析均在本地完成，不调用付费大模型 API。
-- Markdown 报告使用确定性规则和已有分析数据生成，无需配置模型或 API Key。
-- GitHub 导入只下载默认分支的源文件，不执行仓库代码。
-- 旧版本已经导入的项目可在详情面板点击“全量”生成结构数据，后续使用“增量分析”更新。
+- ZIP 解压前检查绝对路径与 `..` 路径穿越，默认上传上限 50 MB。
+- GitHub 导入限制仓库根地址、重定向、超时与下载大小，只下载默认分支，不执行仓库代码。
+- 默认忽略 `.git`、`node_modules`、`dist`、`build` 等目录，只扫描已知文本和源代码扩展名。
+- SQLite、导入仓库、API Key、生成报告、依赖与测试产物均通过 `.gitignore` 排除。
+- 默认分析完全在本地运行；只有主动选择并配置在线模型时才会发起模型请求。
 
-本项目仍处于开发阶段，不建议用它分析不可信且包含敏感信息的仓库。
+不建议将尚未审查、包含高度敏感信息的仓库交给公开部署的 DevAtlas 实例分析。
+
+## Roadmap
+
+- [x] 仓库多来源导入与后台任务
+- [x] Tree-sitter 结构解析、BM25 搜索、依赖图与质量检测
+- [x] 增量分析、Markdown 报告和可选模型增强
+- [x] Docker Compose 与 GitHub Actions CI
+- [ ] 本地向量搜索与混合检索
+- [ ] 增加更多语言解析器和报告协议适配器
+- [ ] 正式版本发布与演示视频
