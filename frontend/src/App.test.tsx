@@ -1,0 +1,308 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import App from "./App";
+
+
+describe("App", () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/");
+    Object.defineProperty(window.URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:devatlas-report") });
+    Object.defineProperty(window.URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    window.history.replaceState({}, "", "/");
+    Reflect.deleteProperty(window, "showSaveFilePicker");
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("shows the empty repository state after loading", async () => {
+    render(<App />);
+
+    expect(await screen.findByText("还没有导入仓库")).toBeTruthy();
+    expect(screen.getAllByText("项目管理").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /代码搜索/ })).toHaveProperty("disabled", true);
+  });
+
+  it("offers ZIP, folder and GitHub import sources", async () => {
+    render(<App />);
+    await screen.findByText("还没有导入仓库");
+
+    fireEvent.click(document.querySelector(".primary-button") as HTMLButtonElement);
+
+    expect(screen.getByRole("button", { name: /压缩包/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /本地文件夹/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /GitHub/ })).toBeTruthy();
+  });
+
+  it("keeps the feature section and project list stable while switching projects", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const projects = [1, 2].map((id) => ({
+      id,
+      name: id === 1 ? "alpha" : "beta",
+      source_filename: `${id === 1 ? "alpha" : "beta"}/`,
+      status: "ready",
+      primary_language: "Python",
+      file_count: 1,
+      code_line_count: 8,
+      created_at: timestamp,
+      updated_at: timestamp,
+    }));
+    const structure = {
+      symbol_count: 1,
+      class_count: 0,
+      function_count: 1,
+      import_count: 0,
+      resolved_import_count: 0,
+      issue_count: 1,
+      symbols: [],
+      imports: [],
+      issues: [{ id: 1, file_id: 1, file_path: "src/core/main.py", message: "Tree-sitter found one or more syntax errors." }],
+    };
+    const graph = {
+      total_node_count: 0,
+      total_edge_count: 0,
+      internal_import_count: 0,
+      external_import_count: 0,
+      cycle_count: 0,
+      truncated: false,
+      nodes: [],
+      edges: [],
+      cycles: [],
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json(projects);
+      if (url.includes("/dependency-graph")) return Response.json(graph);
+      if (url.endsWith("/structure")) return Response.json(structure);
+      const project = projects.find((item) => url.endsWith(`/api/projects/${item.id}`));
+      if (project) {
+        return Response.json({
+          ...project,
+          files: [{ id: project.id, relative_path: "src/core/main.py", extension: ".py", language: "Python", size_bytes: 80, line_count: 8, content_hash: "hash" }],
+        });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("alpha"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("alpha"));
+    expect(document.querySelector(".panel-heading h2")?.textContent).toBe("仓库概览");
+    expect(document.querySelector(".detail-title h3")?.textContent).toBe("仓库扫描已完成");
+    expect(screen.getByRole("tree", { name: "仓库文件树" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /src 目录/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /core 目录/ }).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: /core 目录/ }));
+    expect(screen.getByText("main.py")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^问题 / }));
+    expect(screen.getByText("Tree-sitter found one or more syntax errors.")).toBeTruthy();
+    expect(document.querySelector(".issue-chinese-note")?.textContent).toContain("符号和依赖统计可能不完整");
+    expect(screen.queryByText("处理建议")).toBeNull();
+    expect(new URLSearchParams(window.location.search).get("project")).toBe("1");
+    fireEvent.click(screen.getByRole("button", { name: /依赖图谱/ }));
+
+    expect(await screen.findByText("没有项目内依赖")).toBeTruthy();
+    expect(document.querySelector(".topbar h1")?.textContent).toBe("alpha");
+    expect(document.querySelector(".panel-heading h2")?.textContent).toBe("依赖图谱");
+    expect(document.querySelector(".project-panel")).toBeNull();
+    expect(document.querySelector(".content-grid")?.className).toContain("workspace-single");
+    expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("alpha/依赖图谱");
+    expect(new URLSearchParams(window.location.search).get("section")).toBe("graph");
+
+    fireEvent.click(document.querySelector(".project-trigger") as HTMLButtonElement);
+    fireEvent.click(screen.getByText("beta"));
+    await waitFor(() => expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("beta"));
+    expect(screen.getByRole("button", { name: /依赖图谱/ }).className).toContain("active");
+    expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("beta/依赖图谱");
+    expect(new URLSearchParams(window.location.search).get("project")).toBe("2");
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/projects/2/dependency-graph"), undefined);
+  });
+
+  it("restores the project and feature section from the URL", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = {
+      id: 7,
+      name: "restored-repo",
+      source_filename: "restored-repo/",
+      status: "ready",
+      primary_language: "TypeScript",
+      file_count: 1,
+      code_line_count: 12,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/7")) return Response.json({ ...project, files: [] });
+      if (url.endsWith("/structure")) return Response.json({ symbol_count: 0, class_count: 0, function_count: 0, import_count: 0, resolved_import_count: 0, issue_count: 0, symbols: [], imports: [], issues: [] });
+      if (url.includes("/dependency-graph")) return Response.json({ total_node_count: 0, total_edge_count: 0, internal_import_count: 0, external_import_count: 0, cycle_count: 0, truncated: false, nodes: [], edges: [], cycles: [] });
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState({}, "", "/?section=graph&project=7&tab=imports");
+
+    render(<App />);
+
+    expect(await screen.findByText("没有项目内依赖")).toBeTruthy();
+    expect(document.querySelector(".project-trigger")?.textContent).toContain("restored-repo");
+    expect(screen.getByRole("button", { name: /依赖图谱/ }).className).toContain("active");
+    expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("restored-repo/依赖图谱");
+
+    window.history.pushState({}, "", "/?section=projects&project=7&tab=imports");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /^依赖 / }).className).toContain("active"));
+    expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("restored-repo/依赖");
+  });
+
+  it("shows feature loading errors inside the workspace", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = { id: 3, name: "broken-graph", source_filename: "broken-graph/", status: "ready", primary_language: "Python", file_count: 0, code_line_count: 0, created_at: timestamp, updated_at: timestamp };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/3")) return Response.json({ ...project, files: [] });
+      if (url.endsWith("/structure")) return Response.json({ symbol_count: 0, class_count: 0, function_count: 0, import_count: 0, resolved_import_count: 0, issue_count: 0, symbols: [], imports: [], issues: [] });
+      if (url.includes("/dependency-graph")) return Response.json({ detail: "图谱服务暂时不可用" }, { status: 503 });
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("broken-graph"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("broken-graph"));
+    fireEvent.click(screen.getByRole("button", { name: /依赖图谱/ }));
+
+    expect((await screen.findByRole("alert")).className).toContain("workspace-error");
+    expect(document.querySelector(".error-banner")).toBeNull();
+  });
+
+  it("keeps full analysis in the overview and reloads quality when reopened", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = { id: 9, name: "quality-repo", source_filename: "quality-repo/", status: "ready", primary_language: "Python", file_count: 1, code_line_count: 20, created_at: timestamp, updated_at: timestamp };
+    const structure = { symbol_count: 1, class_count: 0, function_count: 1, import_count: 0, resolved_import_count: 0, issue_count: 0, symbols: [], imports: [], issues: [] };
+    const qualityReport = {
+      score: 100,
+      grade: "A",
+      total_findings: 0,
+      severity_counts: { error: 0, warning: 0, info: 0 },
+      rule_counts: { long_function: 0 },
+      rules: [{ id: "long_function", title: "超长函数", description: "检测过长函数", default_severity: "warning" }],
+      findings: [],
+      truncated: false,
+      elapsed_ms: 1.2,
+    };
+    let qualityRequests = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/reanalyze")) return Response.json(structure);
+      if (url.includes("/quality?")) {
+        qualityRequests += 1;
+        return Response.json(qualityReport);
+      }
+      if (url.endsWith("/structure")) return Response.json(structure);
+      if (url.endsWith("/api/projects/9")) return Response.json({ ...project, files: [] });
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("quality-repo"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("quality-repo"));
+    fireEvent.click(screen.getByRole("button", { name: /质量检测/ }));
+    expect(await screen.findByText("未发现规则命中的质量问题")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "全量" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /仓库概览/ }));
+    const fullAnalysisButton = await screen.findByRole("button", { name: "全量" });
+    fireEvent.click(fullAnalysisButton);
+    await waitFor(() => expect(fullAnalysisButton.hasAttribute("disabled")).toBe(false));
+
+    fireEvent.click(screen.getByRole("button", { name: /质量检测/ }));
+    await waitFor(() => expect(qualityRequests).toBe(2));
+    expect(await screen.findByText("未发现规则命中的质量问题")).toBeTruthy();
+    expect(document.querySelector(".quality-view")).not.toBeNull();
+    expect(document.querySelector(".workspace-error")).toBeNull();
+  });
+
+  it("generates a targeted report and saves it from the dedicated report workspace", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = { id: 10, name: "report-repo", source_filename: "report-repo/", status: "ready", primary_language: "Python", file_count: 1, code_line_count: 20, created_at: timestamp, updated_at: timestamp };
+    const structure = { symbol_count: 0, class_count: 0, function_count: 0, import_count: 0, resolved_import_count: 0, issue_count: 0, symbols: [], imports: [], issues: [] };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/10")) return Response.json({ ...project, files: [] });
+      if (url.endsWith("/structure")) return Response.json(structure);
+      const localProvider = { id: "local", name: "本地智能分析", description: "综合结构与质量数据", endpoint: "/api/projects/{project_id}/report?generator=local", available: true, configured: true, requires_configuration: false, cost_label: "免费 · 默认", base_url: "local://rule-engine", model: "DevAtlas Rules", has_api_key: false, connection_status: "ready", connection_message: "已就绪", tested_at: null };
+      const ollamaProvider = { id: "ollama", name: "Ollama 本地模型服务", description: "本地模型接口", endpoint: "/api/generate", available: false, configured: false, requires_configuration: true, cost_label: "免费 · 本地运行", base_url: "http://127.0.0.1:11434", model: "", has_api_key: false, connection_status: "untested", connection_message: "尚未测试", tested_at: null };
+      if (url.endsWith("/report-generators")) return Response.json([localProvider, ollamaProvider]);
+      if (url.endsWith("/report-generators/ollama/test")) return Response.json({ ok: true, message: "Ollama 连接成功", provider: { ...ollamaProvider, available: true, configured: true, model: "local-code-model", connection_status: "success" } });
+      if (url.endsWith("/report-generators/ollama")) return Response.json({ ...ollamaProvider, available: true, configured: true, model: "local-code-model" });
+      if (url.endsWith("/report?generator=local")) return Response.json({ generator: "local", generated_at: timestamp, filename: "report-repo.md", content: "# report-repo 代码仓库分析报告\n\n## 2. 智能分析结论\n\n- 项目画像" });
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const write = vi.fn(async () => undefined);
+    const close = vi.fn(async () => undefined);
+    const showSaveFilePicker = vi.fn(async () => ({ createWritable: async () => ({ write, close }) }));
+    Object.defineProperty(window, "showSaveFilePicker", { configurable: true, value: showSaveFilePicker });
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("report-repo"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("report-repo"));
+    expect(screen.queryByRole("button", { name: /导出 MD/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /分析报告/ }));
+    expect(await screen.findByText("选择分析接口")).toBeTruthy();
+    expect(document.querySelector(".detail-metrics")).toBeNull();
+    expect(screen.getByText("本地智能分析")).toBeTruthy();
+    expect(screen.getByText("Ollama 本地模型服务")).toBeTruthy();
+    expect(screen.getByLabelText("Markdown 报告预览").textContent).toContain("智能分析结论");
+
+    const ollamaCard = screen.getByText("Ollama 本地模型服务").closest("article") as HTMLElement;
+    expect(ollamaCard.querySelector(".provider-select-button")).toHaveProperty("disabled", true);
+    fireEvent.click(ollamaCard.querySelector(".provider-card-footer button") as HTMLButtonElement);
+    expect(screen.getByText("配置 Ollama 本地模型服务")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("模型名称"), { target: { value: "local-code-model" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存配置" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/report-generators/ollama"), expect.objectContaining({ method: "PUT" })));
+    expect(await screen.findByText("配置已保存到本机后端，请继续测试连接。")).toBeTruthy();
+    await waitFor(() => expect(ollamaCard.querySelector(".provider-select-button")).toHaveProperty("disabled", false));
+    fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
+    expect(await screen.findByText("Ollama 连接成功")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("本地智能分析").closest("button") as HTMLButtonElement);
+    expect(screen.queryByText("配置 Ollama 本地模型服务")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /重新生成/ }));
+    await waitFor(() => expect(screen.getByLabelText("Markdown 报告预览").textContent).toContain("智能分析结论"));
+
+    fireEvent.click(screen.getByRole("button", { name: /导出 MD/ }));
+    await waitFor(() => expect(showSaveFilePicker).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: "report-repo.md" })));
+    expect(write).toHaveBeenCalledWith(expect.any(Blob));
+    expect(close).toHaveBeenCalled();
+    expect(screen.getAllByRole("button", { name: /导出 MD/ })).toHaveLength(1);
+
+    fireEvent.click(document.querySelector(".project-trigger") as HTMLButtonElement);
+    const pickerActions = document.querySelector(".project-picker-actions");
+    expect(pickerActions?.textContent).toContain("管理项目");
+    expect(pickerActions?.textContent).not.toContain("导入");
+  });
+});

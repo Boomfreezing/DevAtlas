@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      DEVATLAS_ENV: production
+      DEVATLAS_DATABASE_URL: sqlite:////data/devatlas.db
+      DEVATLAS_REPOSITORY_ROOT: /data/repositories
+      DEVATLAS_PROVIDER_CONFIG_PATH: /data/report-providers.json
+      DEVATLAS_ALLOWED_ORIGINS: http://localhost:8080
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
