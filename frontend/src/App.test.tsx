@@ -10,6 +10,7 @@ describe("App", () => {
     window.history.replaceState({}, "", "/");
     Object.defineProperty(window.URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:devatlas-report") });
     Object.defineProperty(window.URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -25,6 +26,7 @@ describe("App", () => {
     cleanup();
     window.history.replaceState({}, "", "/");
     Reflect.deleteProperty(window, "showSaveFilePicker");
+    Reflect.deleteProperty(navigator, "clipboard");
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -164,6 +166,7 @@ describe("App", () => {
       if (url.endsWith("/api/projects")) return Response.json([project]);
       if (url.endsWith("/api/projects/5")) return Response.json({ ...project, files: [] });
       if (url.endsWith("/structure")) return Response.json({ symbol_count: 0, class_count: 0, function_count: 0, import_count: 0, resolved_import_count: 0, issue_count: 0, symbols: [], imports: [], issues: [] });
+      if (url.endsWith("/files/1/content")) return Response.json({ file_id: 1, file_path: "src/result-1.ts", language: "TypeScript", size_bytes: 72, total_lines: 3, lines: ["export function result1() {", "  return \"needle\";", "}"] });
       if (url.includes("/search?")) {
         const offset = Number(new URL(url, "http://localhost").searchParams.get("offset") ?? "0");
         const results = Array.from({ length: offset === 0 ? 10 : 2 }, (_, index) => makeResult(offset + index));
@@ -182,6 +185,15 @@ describe("App", () => {
 
     expect(await screen.findByText("显示 10 / 12 条匹配")).toBeTruthy();
     expect(document.querySelectorAll(".search-result")).toHaveLength(10);
+    fireEvent.click(screen.getAllByRole("button", { name: "查看代码" })[0]);
+    expect(await screen.findByRole("dialog", { name: "src/result-1.ts" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "src/result-1.ts 源代码" })).toBeTruthy();
+    expect(document.querySelectorAll(".code-viewer-line")).toHaveLength(3);
+    expect(document.querySelector(".code-viewer-line.highlighted mark")?.textContent).toBe("needle");
+    fireEvent.click(screen.getByRole("button", { name: "复制路径" }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("src/result-1.ts"));
+    fireEvent.click(screen.getByRole("button", { name: "关闭代码查看器" }));
+    expect(screen.queryByRole("dialog", { name: "src/result-1.ts" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /加载更多/ }));
     await waitFor(() => expect(document.querySelectorAll(".search-result")).toHaveLength(12));
     expect(screen.getByText("显示 12 / 12 条匹配")).toBeTruthy();

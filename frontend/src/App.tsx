@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
+import CodeViewer from "./CodeViewer";
 import {
   configureReportGenerator,
   deleteProject,
@@ -20,7 +21,7 @@ import {
   uploadFolder,
   uploadProject,
 } from "./api";
-import type { AnalysisJob, CodeSearchResponse, DependencyGraph, DependencyNode, GeneratedReport, IncrementalAnalysisResult, ParseIssue, ProjectDetail, ProjectFile, ProjectStructure, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult } from "./types";
+import type { AnalysisJob, CodeSearchResponse, CodeSearchResult, DependencyGraph, DependencyNode, GeneratedReport, IncrementalAnalysisResult, ParseIssue, ProjectDetail, ProjectFile, ProjectStructure, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult } from "./types";
 
 type ActiveSection = "projects" | "search" | "graph" | "quality" | "report";
 type ProjectTab = "files" | "symbols" | "imports" | "issues";
@@ -146,6 +147,7 @@ function App() {
   const [searchResponse, setSearchResponse] = useState<CodeSearchResponse | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchLoadingMore, setSearchLoadingMore] = useState(false);
+  const [codeViewerResult, setCodeViewerResult] = useState<CodeSearchResult | null>(null);
   const [dependencyGraph, setDependencyGraph] = useState<DependencyGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
@@ -187,6 +189,10 @@ function App() {
   useEffect(() => {
     void refreshProjects();
   }, [refreshProjects]);
+
+  useEffect(() => {
+    setCodeViewerResult(null);
+  }, [selected?.id]);
 
   const stats = useMemo(
     () => ({
@@ -844,7 +850,7 @@ function App() {
           <span className="status-dot" />
           <div><strong>[LOCAL_MODE]</strong><small>code_stays_on_device</small></div>
         </div>
-        <div className="version">$ devatlas --version<br />v0.8.1</div>
+        <div className="version">$ devatlas --version<br />v0.9.0</div>
       </aside>
 
       <main className={`main-content ${selected || selectingProjectId !== null ? "workspace-mode" : ""}`}>
@@ -1019,7 +1025,7 @@ function App() {
                         <article className="search-result" key={result.chunk_id}>
                           <header>
                             <div><strong>{result.symbol_name ?? result.file_path}</strong><span>{result.file_path} · 第 {result.snippet_start_line}–{result.snippet_end_line} 行</span></div>
-                            <small>{result.kind} · {result.score.toFixed(2)}</small>
+                            <div className="search-result-actions"><small>{result.kind} · {result.score.toFixed(2)}</small><button type="button" onClick={() => setCodeViewerResult(result)}>查看代码</button></div>
                           </header>
                           <pre>{result.snippet}</pre>
                         </article>
@@ -1130,6 +1136,14 @@ function App() {
             </div>
           </section>
         </div>
+      )}
+      {selected && codeViewerResult && (
+        <CodeViewer
+          projectId={selected.id}
+          result={codeViewerResult}
+          query={searchResponse?.query ?? searchQuery}
+          onClose={() => setCodeViewerResult(null)}
+        />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import type { AnalysisJob, CodeSearchResponse, DependencyGraph, GeneratedReport, IncrementalAnalysisResult, ProjectDetail, ProjectStructure, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult } from "./types";
+import type { AnalysisJob, CodeSearchResponse, DependencyGraph, GeneratedReport, IncrementalAnalysisResult, ProjectDetail, ProjectFileContent, ProjectStructure, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult } from "./types";
 
 const API_ROOT = "/api";
 
@@ -24,6 +24,10 @@ export function listProjects(): Promise<ProjectSummary[]> {
 
 export function getProject(id: number): Promise<ProjectDetail> {
   return request<ProjectDetail>(`/projects/${id}`);
+}
+
+export function getProjectFileContent(projectId: number, fileId: number): Promise<ProjectFileContent> {
+  return request<ProjectFileContent>(`/projects/${projectId}/files/${fileId}/content`);
 }
 
 export function getProjectStructure(id: number): Promise<ProjectStructure> {

@@ -84,6 +84,16 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert search_body["results"][0]["symbol_name"] == "hello"
     assert "return 'world'" in search_body["results"][0]["snippet"]
 
+    content = client.get(
+        f"/api/projects/{body['id']}/files/{search_body['results'][0]['file_id']}/content"
+    )
+    assert content.status_code == 200
+    assert content.json()["file_path"] == "main.py"
+    assert content.json()["language"] == "Python"
+    assert content.json()["total_lines"] == 2
+    assert content.json()["lines"] == ["def hello():", "    return 'world'"]
+    assert client.get(f"/api/projects/{body['id']}/files/999999/content").status_code == 404
+
     quality = client.get(f"/api/projects/{body['id']}/quality")
     assert quality.status_code == 200
     assert quality.json()["score"] == 100
@@ -163,6 +173,35 @@ def test_code_search_supports_offset_pagination(client: TestClient) -> None:
     assert len(second_page.json()["results"]) == 1
     assert second_page.json()["offset"] == 1
     assert first_page.json()["results"][0]["chunk_id"] != second_page.json()["results"][0]["chunk_id"]
+
+
+def test_code_viewer_rejects_binary_large_and_missing_files(
+    client: TestClient, tmp_path: Path
+) -> None:
+    archive = make_archive({"viewer/main.py": "def visible():\n    return True\n"})
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("viewer.zip", archive, "application/zip")},
+    ).json()
+    project_id = created["id"]
+    file_id = created["files"][0]["id"]
+    source_path = next((tmp_path / "repositories").rglob("main.py"))
+    content_url = f"/api/projects/{project_id}/files/{file_id}/content"
+
+    source_path.write_bytes(b"\x00binary")
+    binary = client.get(content_url)
+    assert binary.status_code == 400
+    assert "Binary files" in binary.json()["detail"]
+
+    source_path.write_bytes(b"x" * (2 * 1024 * 1024 + 1))
+    oversized = client.get(content_url)
+    assert oversized.status_code == 400
+    assert "2 MB" in oversized.json()["detail"]
+
+    source_path.unlink()
+    missing = client.get(content_url)
+    assert missing.status_code == 404
+    assert "no longer available" in missing.json()["detail"]
 
 
 def test_queues_zip_analysis_job(client: TestClient) -> None:

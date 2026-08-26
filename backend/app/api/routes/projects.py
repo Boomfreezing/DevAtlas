@@ -19,6 +19,7 @@ from app.schemas.project import (
     GitHubImportRequest,
     IncrementalAnalysisResponse,
     ProjectDetail,
+    ProjectFileContentResponse,
     ProjectStructureResponse,
     ProjectSummary,
     ReportProviderConfigurationRequest,
@@ -29,6 +30,11 @@ from app.services.archive_service import (
     save_and_extract_archive,
 )
 from app.services.folder_service import save_uploaded_folder
+from app.services.file_content_service import (
+    FileContentError,
+    FileContentNotFoundError,
+    load_project_file_content,
+)
 from app.services.github_service import (
     GitHubDownloadError,
     GitHubValidationError,
@@ -256,6 +262,23 @@ def get_project(project_id: int, database: Session = Depends(get_db)) -> Project
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
     return project
+
+
+@router.get(
+    "/{project_id}/files/{file_id}/content",
+    response_model=ProjectFileContentResponse,
+)
+def get_project_file_content(
+    project_id: int,
+    file_id: int,
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    try:
+        return load_project_file_content(database, project_id, file_id)
+    except FileContentNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except FileContentError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
 
 @router.get("/{project_id}/structure", response_model=ProjectStructureResponse)

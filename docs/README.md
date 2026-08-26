@@ -13,6 +13,7 @@
 | [DELIVERY.md](./DELIVERY.md) | GitHub发布、隐私检查和简历交付清单 | 每次正式发布前 |
 | [releases/v0.8.0.md](./releases/v0.8.0.md) | 首个简历展示预发布版本说明 | `v0.8.0` 标签发布时 |
 | [releases/v0.8.1.md](./releases/v0.8.1.md) | 搜索分页与加载更多版本说明 | `v0.8.1` 标签发布时 |
+| [releases/v0.9.0.md](./releases/v0.9.0.md) | 源码查看器与命中定位版本说明 | `v0.9.0` 标签发布时 |
 | [assets/](./assets/) | 仓库概览、搜索、图谱、质量和报告截图 | UI发生明显变化后 |
 
 ## 信息来源原则

@@ -8,6 +8,15 @@ export interface ProjectFile {
   content_hash: string;
 }
 
+export interface ProjectFileContent {
+  file_id: number;
+  file_path: string;
+  language: string | null;
+  size_bytes: number;
+  total_lines: number;
+  lines: string[];
+}
+
 export interface ProjectSummary {
   id: number;
   name: string;

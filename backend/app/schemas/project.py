@@ -15,6 +15,15 @@ class ProjectFileResponse(BaseModel):
     content_hash: str
 
 
+class ProjectFileContentResponse(BaseModel):
+    file_id: int
+    file_path: str
+    language: str | None
+    size_bytes: int
+    total_lines: int
+    lines: list[str]
+
+
 class ProjectSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

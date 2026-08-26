@@ -37,7 +37,7 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
     });
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("项目管理");
-    await expect(page.locator(".version")).toContainText("v0.8.1");
+    await expect(page.locator(".version")).toContainText("v0.9.0");
 
     await page
       .locator(".topbar-actions")
@@ -94,6 +94,14 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
       const match = summary?.match(/显示 ([\d,]+) \/ ([\d,]+) 条匹配/);
       return Boolean(match && match[1] === match[2]);
     }).toBe(true);
+    await page.getByRole("button", { name: "查看代码" }).first().click();
+    const codeViewer = page.getByRole("dialog");
+    await expect(codeViewer).toBeVisible();
+    await expect(codeViewer.getByRole("region", { name: /源代码/ })).toBeVisible();
+    await expect(codeViewer.locator(".code-viewer-line.highlighted").first()).toBeVisible();
+    await expect(codeViewer.locator("mark").first()).toContainText("calculate_total");
+    await codeViewer.getByRole("button", { name: "关闭代码查看器" }).click();
+    await expect(codeViewer).toHaveCount(0);
 
     await page.getByRole("button", { name: /仓库概览/ }).click();
     const overviewPanelBox = await page.locator(".detail-panel").boundingBox();
