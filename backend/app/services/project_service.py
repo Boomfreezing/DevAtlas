@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.project import Project, ProjectFile
 from app.services.repository_scanner import scan_repository
+from app.services.repository_path_service import resolve_project_storage_path
 from app.services.structure_analyzer import analyze_project_structure
 
 
@@ -21,7 +22,7 @@ def create_scanned_project(
     project = Project(
         name=project_name,
         source_filename=source_filename,
-        storage_path=str(repository_path),
+        storage_path=str(repository_path.resolve()),
         status="analyzing" if progress_callback is not None else "ready",
         primary_language=result.primary_language,
         file_count=len(result.files),
@@ -64,7 +65,7 @@ def _notify(
 
 def remove_managed_repository(repository_path: Path, repository_root: Path) -> None:
     root = repository_root.resolve()
-    resolved_path = repository_path.resolve()
+    resolved_path = resolve_project_storage_path(repository_path)
     try:
         relative_path = resolved_path.relative_to(root)
     except ValueError:

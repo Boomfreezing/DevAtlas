@@ -42,6 +42,7 @@ from app.services.github_service import (
     parse_github_repository,
 )
 from app.services.project_service import create_scanned_project, remove_managed_repository
+from app.services.repository_path_service import resolve_project_storage_path
 from app.services.dependency_graph_service import load_dependency_graph
 from app.services.quality_service import build_quality_report
 from app.services.report_service import build_markdown_report
@@ -423,7 +424,7 @@ def delete_project(
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
 
-    storage_path = Path(project.storage_path)
+    storage_path = resolve_project_storage_path(project.storage_path)
     database.delete(project)
     database.commit()
     remove_managed_repository(storage_path, settings.repository_root)

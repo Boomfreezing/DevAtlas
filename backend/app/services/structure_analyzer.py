@@ -1,6 +1,6 @@
 import posixpath
 from collections.abc import Callable
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.analysis import CodeSymbol, ImportRelation, ParseIssue, SearchChunk
 from app.models.project import Project, ProjectFile
 from app.services.code_parser import parse_source, supports_extension
+from app.services.repository_path_service import resolve_project_storage_path
 
 
 MAX_PARSE_FILE_BYTES = 2 * 1024 * 1024
@@ -66,7 +67,7 @@ def _parse_project_files(
     files_to_parse: list[ProjectFile],
     all_files: list[ProjectFile],
 ) -> None:
-    repository_root = Path(project.storage_path).resolve()
+    repository_root = resolve_project_storage_path(project.storage_path)
     file_by_path = {item.relative_path: item for item in all_files}
     module_index = _build_python_module_index(all_files)
 

@@ -1,6 +1,8 @@
 import io
+import sqlite3
 import zipfile
 from collections.abc import Generator
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -12,6 +14,7 @@ from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.main import app
 from app.api.routes import projects as project_routes
+from app.services import repository_path_service
 
 
 @pytest.fixture
@@ -202,6 +205,54 @@ def test_code_viewer_rejects_binary_large_and_missing_files(
     missing = client.get(content_url)
     assert missing.status_code == 404
     assert "no longer available" in missing.json()["detail"]
+
+
+def test_legacy_relative_storage_path_works_from_another_working_directory(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive = make_archive({"legacy/main.py": "def legacy_path():\n    return True\n"})
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("legacy.zip", archive, "application/zip")},
+    ).json()
+    project_id = created["id"]
+    file_id = created["files"][0]["id"]
+
+    database_path = tmp_path / "test.db"
+    with closing(sqlite3.connect(database_path)) as database:
+        absolute_storage = Path(
+            database.execute(
+                "SELECT storage_path FROM projects WHERE id = ?", (project_id,)
+            ).fetchone()[0]
+        )
+        legacy_storage = str(absolute_storage.relative_to(tmp_path))
+        database.execute(
+            "UPDATE projects SET storage_path = ? WHERE id = ?",
+            (legacy_storage, project_id),
+        )
+        database.commit()
+
+    monkeypatch.setattr(repository_path_service, "PROJECT_ROOT", tmp_path)
+    unrelated_working_directory = tmp_path / "backend-working-directory"
+    unrelated_working_directory.mkdir()
+    monkeypatch.chdir(unrelated_working_directory)
+
+    content = client.get(f"/api/projects/{project_id}/files/{file_id}/content")
+    assert content.status_code == 200
+    assert content.json()["lines"][0] == "def legacy_path():"
+
+    incremental = client.post(f"/api/projects/{project_id}/incremental-reanalyze")
+    assert incremental.status_code == 200
+    assert incremental.json()["unchanged_file_count"] == 1
+
+    reanalyzed = client.post(f"/api/projects/{project_id}/reanalyze")
+    assert reanalyzed.status_code == 200
+    assert reanalyzed.json()["symbol_count"] == 1
+
+    repository_container = absolute_storage.parent
+    deleted = client.delete(f"/api/projects/{project_id}")
+    assert deleted.status_code == 204
+    assert not repository_container.exists()
 
 
 def test_queues_zip_analysis_job(client: TestClient) -> None:

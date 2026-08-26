@@ -1,7 +1,5 @@
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-
 from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
@@ -9,6 +7,7 @@ from app.models.analysis import CodeSymbol, ImportRelation, ParseIssue, SearchCh
 from app.models.project import Project, ProjectFile
 from app.services.code_parser import supports_extension
 from app.services.repository_scanner import ScannedFile, scan_repository
+from app.services.repository_path_service import resolve_project_storage_path
 from app.services.search_service import build_project_search_index
 from app.services.structure_analyzer import analyze_project_file_subset
 
@@ -18,7 +17,7 @@ def incrementally_analyze_project(
 ) -> dict[str, object]:
     started = time.perf_counter()
     stored_by_path = {item.relative_path: item for item in project.files}
-    scan = scan_repository(Path(project.storage_path), stored_by_path)
+    scan = scan_repository(resolve_project_storage_path(project.storage_path), stored_by_path)
     scanned_by_path = {item.relative_path: item for item in scan.files}
 
     added_paths = sorted(scanned_by_path.keys() - stored_by_path.keys())

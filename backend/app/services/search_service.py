@@ -3,14 +3,13 @@ import re
 import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from pathlib import Path
-
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models.analysis import CodeSymbol, SearchChunk
 from app.models.project import Project, ProjectFile
 from app.services.code_parser import supports_extension
+from app.services.repository_path_service import resolve_project_storage_path
 
 
 MAX_SEARCH_FILE_BYTES = 2 * 1024 * 1024
@@ -76,7 +75,7 @@ def build_project_search_index(database: Session, project: Project) -> int:
     for symbol in symbols:
         symbols_by_file[symbol.file_id].append(symbol)
 
-    repository_root = Path(project.storage_path).resolve()
+    repository_root = resolve_project_storage_path(project.storage_path)
     chunk_count = 0
     project_files = list(
         database.scalars(
@@ -375,7 +374,7 @@ def _make_snippet(
 
 
 def _cache_key(project: Project) -> tuple[str, int]:
-    return str(project.storage_path), project.id
+    return str(resolve_project_storage_path(project.storage_path)), project.id
 
 
 def _response(

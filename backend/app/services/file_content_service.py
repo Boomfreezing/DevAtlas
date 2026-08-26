@@ -1,9 +1,8 @@
-from pathlib import Path
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.project import Project, ProjectFile
+from app.services.repository_path_service import resolve_project_storage_path
 
 
 MAX_SOURCE_FILE_BYTES = 2 * 1024 * 1024
@@ -29,7 +28,7 @@ def load_project_file_content(
         raise FileContentNotFoundError("Project file not found.")
 
     project_file, storage_path = row
-    repository_root = Path(storage_path).resolve()
+    repository_root = resolve_project_storage_path(storage_path)
     source_path = (repository_root / project_file.relative_path).resolve()
     try:
         source_path.relative_to(repository_root)
