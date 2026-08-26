@@ -331,6 +331,13 @@ h1::after {
   color: var(--terminal-primary);
   background: #070907;
 }
+.search-load-more { border-color: var(--terminal-border); }
+.search-load-more button {
+  border-color: var(--terminal-primary);
+  color: var(--terminal-primary);
+  background: var(--terminal-bg);
+}
+.search-load-more button:hover:not(:disabled) { color: var(--terminal-bg); background: var(--terminal-primary); }
 
 .dependency-stats, .graph-toolbar, .node-inspector, .cycle-list,
 .quality-hero, .severity-summary, .quality-rules article, .quality-toolbar,

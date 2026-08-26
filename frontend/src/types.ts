@@ -81,6 +81,9 @@ export interface CodeSearchResponse {
   query: string;
   indexed_chunks: number;
   total_matches: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
   elapsed_ms: number;
   results: CodeSearchResult[];
 }

@@ -272,6 +272,7 @@ def search_project_code(
     project_id: int,
     q: str = Query(min_length=1, max_length=200),
     limit: int = Query(default=10, ge=1, le=50),
+    offset: int = Query(default=0, ge=0),
     database: Session = Depends(get_db),
 ) -> dict[str, object]:
     statement = (
@@ -282,7 +283,7 @@ def search_project_code(
     project = database.scalar(statement)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
-    return search_project(database, project, q.strip(), limit)
+    return search_project(database, project, q.strip(), limit, offset)
 
 
 @router.get("/{project_id}/dependency-graph", response_model=DependencyGraphResponse)

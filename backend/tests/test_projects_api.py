@@ -127,6 +127,44 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert client.get("/api/projects").json() == []
 
 
+def test_code_search_supports_offset_pagination(client: TestClient) -> None:
+    archive = make_archive(
+        {
+            "search-demo/main.py": (
+                "def first_match():\n"
+                "    return 'shared-search-token'\n\n"
+                "def second_match():\n"
+                "    return 'shared-search-token'\n"
+            )
+        }
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("search-demo.zip", archive, "application/zip")},
+    ).json()
+    search_url = f"/api/projects/{created['id']}/search"
+
+    first_page = client.get(
+        search_url,
+        params={"q": "shared-search-token", "limit": 1, "offset": 0},
+    )
+    second_page = client.get(
+        search_url,
+        params={"q": "shared-search-token", "limit": 1, "offset": 1},
+    )
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    assert first_page.json()["total_matches"] >= 2
+    assert first_page.json()["limit"] == 1
+    assert first_page.json()["offset"] == 0
+    assert first_page.json()["has_more"] is True
+    assert len(first_page.json()["results"]) == 1
+    assert len(second_page.json()["results"]) == 1
+    assert second_page.json()["offset"] == 1
+    assert first_page.json()["results"][0]["chunk_id"] != second_page.json()["results"][0]["chunk_id"]
+
+
 def test_queues_zip_analysis_job(client: TestClient) -> None:
     archive = make_archive(
         {"background/main.py": "def background_work():\n    return 'done'\n"}

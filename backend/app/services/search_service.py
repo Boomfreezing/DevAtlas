@@ -141,7 +141,11 @@ def build_project_search_index(database: Session, project: Project) -> int:
 
 
 def search_project(
-    database: Session, project: Project, query: str, limit: int = 10
+    database: Session,
+    project: Project,
+    query: str,
+    limit: int = 10,
+    offset: int = 0,
 ) -> dict[str, object]:
     started = time.perf_counter()
     indexed_chunks, maximum_chunk_id, indexed_characters = database.execute(
@@ -160,7 +164,7 @@ def search_project(
 
     query_tokens = tokenize(query)
     if not query_tokens or not indexed_chunks:
-        return _response(query, int(indexed_chunks), 0, started, [])
+        return _response(query, int(indexed_chunks), 0, limit, offset, started, [])
 
     index = _load_search_index(
         database, project, (int(indexed_chunks), int(maximum_chunk_id or 0))
@@ -181,7 +185,7 @@ def search_project(
 
     scored.sort(key=lambda item: (-item[0], item[1].file_path, item[1].start_line))
     results = []
-    for score, document in scored[:limit]:
+    for score, document in scored[offset : offset + limit]:
         snippet, snippet_start, snippet_end = _make_snippet(
             document.content, document.start_line, query_tokens
         )
@@ -200,7 +204,15 @@ def search_project(
                 "score": round(score, 4),
             }
         )
-    return _response(query, int(indexed_chunks), len(scored), started, results)
+    return _response(
+        query,
+        int(indexed_chunks),
+        len(scored),
+        limit,
+        offset,
+        started,
+        results,
+    )
 
 
 def _load_search_index(
@@ -370,6 +382,8 @@ def _response(
     query: str,
     indexed_chunks: int,
     total_matches: int,
+    limit: int,
+    offset: int,
     started: float,
     results: list[dict[str, object]],
 ) -> dict[str, object]:
@@ -377,6 +391,9 @@ def _response(
         "query": query,
         "indexed_chunks": indexed_chunks,
         "total_matches": total_matches,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(results) < total_matches,
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
         "results": results,
     }

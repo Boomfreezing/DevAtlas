@@ -100,6 +100,9 @@ class CodeSearchResponse(BaseModel):
     query: str
     indexed_chunks: int
     total_matches: int
+    limit: int
+    offset: int
+    has_more: bool
     elapsed_ms: float
     results: list[CodeSearchResult]
 

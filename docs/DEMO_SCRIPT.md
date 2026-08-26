@@ -63,8 +63,8 @@
 
 讲稿：
 
-> 项目目前有 29 项后端测试，覆盖率 85%，并包含 7 项 Vitest 前端测试、Playwright 真实端到端测试、Docker Compose 和 GitHub Actions。所有性能数字都有脚本和原始样本可以复现。
+> 项目目前有 30 项后端测试，覆盖率 85.62%，并包含 8 项 Vitest 前端测试、Playwright 真实端到端测试、Docker Compose 和 GitHub Actions。所有性能数字都有脚本和原始样本可以复现。
 
 ## 简历项目描述参考
 
-> 独立设计并实现本地代码仓库分析平台 DevAtlas，基于 FastAPI、React、SQLite 与 Tree-sitter 支持多来源仓库导入、跨语言结构解析、BM25 搜索、依赖图和六类质量检测；实现元数据快路径与 SHA-256 增量分析，在 9,553 行项目上将无变化重分析端到端中位耗时从 167.97 ms 降至 10.90 ms（15.41×），后端 29 项测试覆盖率 85%，并通过 Playwright 与 GitHub Actions 验证完整业务流程。
+> 独立设计并实现本地代码仓库分析平台 DevAtlas，基于 FastAPI、React、SQLite 与 Tree-sitter 支持多来源仓库导入、跨语言结构解析、BM25 搜索、依赖图和六类质量检测；实现元数据快路径与 SHA-256 增量分析，在 9,553 行项目上将无变化重分析端到端中位耗时从 167.97 ms 降至 10.90 ms（15.41×），后端 30 项测试覆盖率 85.62%，并通过 Playwright 与 GitHub Actions 验证完整业务流程。

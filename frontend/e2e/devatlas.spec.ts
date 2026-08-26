@@ -9,6 +9,13 @@ interface ProjectSummary {
 test("导入文件夹、搜索代码并执行无变化增量分析", async ({ page, request }, testInfo) => {
   const projectName = `e2e-sample-${Date.now()}`;
   const projectDirectory = testInfo.outputPath(projectName);
+  const helperFunctions = [
+    "def calculate_total(values):\n    return sum(values)",
+    ...Array.from(
+      { length: 11 },
+      (_, index) => `def calculate_order_${index + 1}(values):\n    return calculate_total(values)`,
+    ),
+  ].join("\n\n");
   let projectId: number | undefined;
 
   await mkdir(projectDirectory, { recursive: true });
@@ -19,7 +26,7 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
   );
   await writeFile(
     `${projectDirectory}/helper.py`,
-    "def calculate_total(values):\n    return sum(values)\n",
+    `${helperFunctions}\n`,
     "utf8",
   );
   await writeFile(`${projectDirectory}/README.md`, "# DevAtlas E2E fixture\n", "utf8");
@@ -30,7 +37,7 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
     });
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("项目管理");
-    await expect(page.locator(".version")).toContainText("v0.8.0-m5");
+    await expect(page.locator(".version")).toContainText("v0.8.1");
 
     await page
       .locator(".topbar-actions")
@@ -77,6 +84,16 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
     await page.getByRole("textbox", { name: "代码搜索关键词" }).fill("calculate_total");
     await page.getByRole("button", { name: "搜索", exact: true }).click();
     await expect(page.locator(".search-result").first()).toContainText("calculate_total");
+    await expect(page.locator(".search-result")).toHaveCount(10);
+    await expect(page.locator(".search-summary")).toContainText(/显示 10 \/ \d+ 条匹配/);
+    await page.getByRole("button", { name: /加载更多/ }).click();
+    await expect.poll(async () => page.locator(".search-result").count()).toBeGreaterThan(10);
+    await expect(page.getByRole("button", { name: /加载更多/ })).toHaveCount(0);
+    await expect.poll(async () => {
+      const summary = await page.locator(".search-summary").textContent();
+      const match = summary?.match(/显示 ([\d,]+) \/ ([\d,]+) 条匹配/);
+      return Boolean(match && match[1] === match[2]);
+    }).toBe(true);
 
     await page.getByRole("button", { name: /仓库概览/ }).click();
     const overviewPanelBox = await page.locator(".detail-panel").boundingBox();

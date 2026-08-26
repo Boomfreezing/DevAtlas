@@ -38,8 +38,8 @@ export function incrementalReanalyzeProject(id: number): Promise<IncrementalAnal
   return request<IncrementalAnalysisResult>(`/projects/${id}/incremental-reanalyze`, { method: "POST" });
 }
 
-export function searchProject(id: number, query: string, limit = 10): Promise<CodeSearchResponse> {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
+export function searchProject(id: number, query: string, limit = 10, offset = 0): Promise<CodeSearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) });
   return request<CodeSearchResponse>(`/projects/${id}/search?${params}`);
 }
 

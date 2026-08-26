@@ -145,6 +145,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResponse, setSearchResponse] = useState<CodeSearchResponse | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchLoadingMore, setSearchLoadingMore] = useState(false);
   const [dependencyGraph, setDependencyGraph] = useState<DependencyGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
@@ -531,7 +532,7 @@ function App() {
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selected || !searchQuery.trim()) return;
+    if (!selected || !searchQuery.trim() || searchLoadingMore) return;
     setSearchLoading(true);
     setWorkspaceError(null);
     try {
@@ -540,6 +541,34 @@ function App() {
       setWorkspaceError(requestError instanceof Error ? requestError.message : "代码搜索失败");
     } finally {
       setSearchLoading(false);
+    }
+  }
+
+  async function handleLoadMoreSearchResults() {
+    if (!selected || !searchResponse || searchLoading || searchLoadingMore) return;
+    if (!searchResponse.has_more) return;
+    const query = searchResponse.query;
+    const offset = searchResponse.results.length;
+    setSearchLoadingMore(true);
+    setWorkspaceError(null);
+    try {
+      const nextPage = await searchProject(selected.id, query, 10, offset);
+      setSearchResponse((current) => {
+        if (!current || current.query !== query) return current;
+        const loadedChunkIds = new Set(current.results.map((result) => result.chunk_id));
+        const results = [...current.results, ...nextPage.results.filter((result) => !loadedChunkIds.has(result.chunk_id))];
+        return {
+          ...nextPage,
+          limit: results.length,
+          offset: 0,
+          has_more: results.length < nextPage.total_matches,
+          results,
+        };
+      });
+    } catch (requestError) {
+      setWorkspaceError(requestError instanceof Error ? requestError.message : "加载更多搜索结果失败");
+    } finally {
+      setSearchLoadingMore(false);
     }
   }
 
@@ -815,7 +844,7 @@ function App() {
           <span className="status-dot" />
           <div><strong>[LOCAL_MODE]</strong><small>code_stays_on_device</small></div>
         </div>
-        <div className="version">$ devatlas --version<br />v0.8.0-m5</div>
+        <div className="version">$ devatlas --version<br />v0.8.1</div>
       </aside>
 
       <main className={`main-content ${selected || selectingProjectId !== null ? "workspace-mode" : ""}`}>
@@ -978,11 +1007,11 @@ function App() {
                           placeholder="搜索函数、类名或代码，例如 authentication"
                           aria-label="代码搜索关键词"
                         />
-                        <button disabled={searchLoading || !searchQuery.trim()}>{searchLoading ? "检索中…" : "搜索"}</button>
+                        <button disabled={searchLoading || searchLoadingMore || !searchQuery.trim()}>{searchLoading ? "检索中…" : "搜索"}</button>
                       </form>
                       {searchResponse && (
                         <div className="search-summary">
-                          <span>{formatNumber(searchResponse.total_matches)} 条匹配</span>
+                          <span>显示 {formatNumber(searchResponse.results.length)} / {formatNumber(searchResponse.total_matches)} 条匹配</span>
                           <small>{formatNumber(searchResponse.indexed_chunks)} 个代码片段 · {searchResponse.elapsed_ms.toFixed(1)} ms</small>
                         </div>
                       )}
@@ -997,6 +1026,13 @@ function App() {
                       ))}
                       {!searchResponse && !searchLoading && <div className="mini-empty">输入关键词，在当前仓库的函数、类和模块代码中检索</div>}
                       {searchResponse && searchResponse.results.length === 0 && <div className="mini-empty">没有找到匹配代码，请尝试函数名或更短的关键词</div>}
+                      {searchResponse?.has_more && (
+                        <div className="search-load-more">
+                          <button type="button" onClick={() => void handleLoadMoreSearchResults()} disabled={searchLoading || searchLoadingMore}>
+                            {searchLoadingMore ? "加载中…" : `加载更多（剩余 ${formatNumber(searchResponse.total_matches - searchResponse.results.length)} 条）`}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                   {activeSection === "projects" && projectTab === "files" && <FileTree key={selected.id} files={selected.files} />}

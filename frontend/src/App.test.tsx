@@ -133,6 +133,62 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/projects/2/dependency-graph"), undefined);
   });
 
+  it("shows the displayed search count and loads more results", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = {
+      id: 5,
+      name: "searchable-repo",
+      source_filename: "searchable-repo/",
+      status: "ready",
+      primary_language: "TypeScript",
+      file_count: 12,
+      code_line_count: 120,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    const makeResult = (index: number) => ({
+      chunk_id: index + 1,
+      file_id: index + 1,
+      file_path: `src/result-${index + 1}.ts`,
+      symbol_name: `result${index + 1}`,
+      kind: "function",
+      start_line: 1,
+      end_line: 3,
+      snippet_start_line: 1,
+      snippet_end_line: 3,
+      snippet: `function result${index + 1}() { return "needle"; }`,
+      score: 1 / (index + 1),
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/5")) return Response.json({ ...project, files: [] });
+      if (url.endsWith("/structure")) return Response.json({ symbol_count: 0, class_count: 0, function_count: 0, import_count: 0, resolved_import_count: 0, issue_count: 0, symbols: [], imports: [], issues: [] });
+      if (url.includes("/search?")) {
+        const offset = Number(new URL(url, "http://localhost").searchParams.get("offset") ?? "0");
+        const results = Array.from({ length: offset === 0 ? 10 : 2 }, (_, index) => makeResult(offset + index));
+        return Response.json({ query: "needle", indexed_chunks: 12, total_matches: 12, limit: 10, offset, has_more: offset + results.length < 12, elapsed_ms: 1.2, results });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("searchable-repo"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("searchable-repo"));
+    fireEvent.click(screen.getByRole("button", { name: /代码搜索/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "代码搜索关键词" }), { target: { value: "needle" } });
+    fireEvent.click(screen.getByRole("button", { name: /^搜索$/ }));
+
+    expect(await screen.findByText("显示 10 / 12 条匹配")).toBeTruthy();
+    expect(document.querySelectorAll(".search-result")).toHaveLength(10);
+    fireEvent.click(screen.getByRole("button", { name: /加载更多/ }));
+    await waitFor(() => expect(document.querySelectorAll(".search-result")).toHaveLength(12));
+    expect(screen.getByText("显示 12 / 12 条匹配")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /加载更多/ })).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("offset=10"), undefined);
+  });
+
   it("restores the project and feature section from the URL", async () => {
     const timestamp = "2026-08-26T10:00:00Z";
     const project = {

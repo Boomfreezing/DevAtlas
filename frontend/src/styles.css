@@ -223,6 +223,10 @@ h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
 .search-result header span { display: block; margin-top: 3px; overflow: hidden; color: #949daa; font: 7px Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .search-result header small { flex: 0 0 auto; color: #6976d8; font: 7px Consolas, monospace; }
 .search-result pre { margin: 8px 0 0; padding: 9px 10px; overflow: auto; border: 1px solid #e8ebef; border-radius: 4px; color: #4b5564; background: #f7f8fa; font: 7px/1.55 Consolas, monospace; white-space: pre; }
+.search-load-more { padding: 14px 0 3px; display: flex; justify-content: center; border-top: 1px solid #edf0f3; }
+.search-load-more button { min-width: 180px; height: 34px; padding: 0 16px; border: 1px solid #cfd5e2; border-radius: 5px; color: #5966c9; background: #fff; font-size: 10px; font-weight: 700; }
+.search-load-more button:hover:not(:disabled) { border-color: #7180e7; background: #f4f6ff; }
+.search-load-more button:disabled { opacity: .55; cursor: wait; }
 .dependency-view { padding-top: 13px; }
 .dependency-stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #e4e8ed; background: #fafbfc; }
 .dependency-stats > div { padding: 11px 13px; border-right: 1px solid #e4e8ed; }

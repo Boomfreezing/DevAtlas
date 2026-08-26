@@ -29,9 +29,9 @@ DevAtlas 面向需要快速理解陌生代码仓库的开发者。它可以导�
 
 | 指标 | 结果 |
 |---|---:|
-| 后端自动化测试 | 29 项 |
-| 后端测试覆盖率 | 85% |
-| 前端自动化测试 | 7 项 |
+| 后端自动化测试 | 30 项 |
+| 后端测试覆盖率 | 85.62% |
+| 前端自动化测试 | 8 项 |
 | 主流程端到端测试 | Playwright 1 项，覆盖导入、报告、搜索与增量分析 |
 | 中型仓库无变化增量分析 | 10.90 ms 中位数，较全量最高加速 **15.41×** |
 | 大型仓库无变化增量分析 | 929 个文件、40,515 行，287.54 ms 中位数 |
@@ -183,7 +183,7 @@ npm run capture:assets
 | `POST` | `/api/projects/github` | 下载公开 GitHub 仓库 |
 | `GET` | `/api/projects/jobs/{job_id}` | 查询后台任务阶段和进度 |
 | `GET` | `/api/projects/{id}/structure` | 获取符号、依赖和解析问题 |
-| `GET` | `/api/projects/{id}/search` | BM25 项目内搜索 |
+| `GET` | `/api/projects/{id}/search` | BM25 项目内搜索，支持 `limit` / `offset` 分页 |
 | `GET` | `/api/projects/{id}/dependency-graph` | 依赖图与循环依赖 |
 | `GET` | `/api/projects/{id}/quality` | 质量评分与修复建议 |
 | `GET` | `/api/projects/{id}/report` | 生成可预览分析报告 |
@@ -235,4 +235,5 @@ DevAtlas/
 - [ ] 本地向量搜索与混合检索
 - [ ] 增加更多语言解析器和报告协议适配器
 - [x] `v0.8.0` 首个简历展示预发布版本
+- [x] `v0.8.1` 搜索结果分页、明确展示计数与加载更多
 - [ ] 2～3 分钟演示视频
