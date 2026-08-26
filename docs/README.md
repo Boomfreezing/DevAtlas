@@ -11,6 +11,7 @@
 | [PERFORMANCE.md](./PERFORMANCE.md) | 增量分析评测方法、样本和数据边界 | 重新运行性能评测后 |
 | [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) | 2～3分钟演示流程和简历描述参考 | 页面流程或指标变化后 |
 | [DELIVERY.md](./DELIVERY.md) | GitHub发布、隐私检查和简历交付清单 | 每次正式发布前 |
+| [releases/v0.8.0.md](./releases/v0.8.0.md) | 首个简历展示预发布版本说明 | `v0.8.0` 标签发布时 |
 | [assets/](./assets/) | 仓库概览、搜索、图谱、质量和报告截图 | UI发生明显变化后 |
 
 ## 信息来源原则
