@@ -32,7 +32,10 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
     await expect(page.getByRole("heading", { level: 1 })).toContainText("项目管理");
     await expect(page.locator(".version")).toContainText("v0.8.0-m5");
 
-    await page.getByRole("button", { name: /导入仓库/ }).click();
+    await page
+      .locator(".topbar-actions")
+      .getByRole("button", { name: /导入仓库/ })
+      .click();
     await page.getByRole("button", { name: /本地文件夹/ }).click();
     await page.locator("input[webkitdirectory]").setInputFiles(projectDirectory);
 
