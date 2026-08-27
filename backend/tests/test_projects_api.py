@@ -14,6 +14,7 @@ from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.main import app
 from app.api.routes import projects as project_routes
+from app.services.analysis_cache import analysis_cache_stats, clear_analysis_cache
 from app.services import repository_path_service
 
 
@@ -119,7 +120,7 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert report.status_code == 200
     assert report.headers["content-type"].startswith("text/markdown")
     assert report.headers["content-disposition"].endswith(
-        f'devatlas-project-{body["id"]}-report.md"'
+        f'devatlas-project-{body["id"]}-summary-report.md"'
     )
     assert "# demo 代码仓库分析报告" in report.text
     assert "无需大模型" in report.text
@@ -127,6 +128,12 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert "## 2. 智能分析结论" in report.text
     assert "**项目画像：**" in report.text
     assert "评分采用项目规模归一化" in report.text
+    assert "报告模式：摘要报告" in report.text
+    assert "### 风险范围分布" in report.text
+    assert "### 重点风险模块" in report.text
+    assert "| 风险等级 | 数量 |" in report.text
+    assert "| 高风险 | 0 |" in report.text
+    assert "| 错误 |" not in report.text
 
     generators = client.get("/api/projects/report-generators")
     assert generators.status_code == 200
@@ -138,8 +145,20 @@ def test_project_lifecycle(client: TestClient) -> None:
     preview = client.get(f"/api/projects/{body['id']}/report?generator=local")
     assert preview.status_code == 200
     assert preview.json()["generator"] == "local"
+    assert preview.json()["mode"] == "summary"
     assert preview.json()["filename"].endswith(".md")
     assert "智能分析结论" in preview.json()["content"]
+
+    full_preview = client.get(
+        f"/api/projects/{body['id']}/report", params={"generator": "local", "mode": "full"}
+    )
+    assert full_preview.status_code == 200
+    assert full_preview.json()["mode"] == "full"
+    assert full_preview.json()["filename"].endswith("-full-report.md")
+    assert "报告模式：完整报告" in full_preview.json()["content"]
+    assert client.get(
+        f"/api/projects/{body['id']}/report", params={"mode": "invalid"}
+    ).status_code == 422
 
     unavailable = client.get(f"/api/projects/{body['id']}/report?generator=ollama")
     assert unavailable.status_code == 400
@@ -348,6 +367,7 @@ def test_queues_zip_analysis_job(client: TestClient) -> None:
     project = client.get(f"/api/projects/{job['project_id']}")
     assert project.status_code == 200
     assert project.json()["name"] == "background"
+    assert "files" not in project.json()
 
 
 def test_incrementally_reanalyzes_changed_files(
@@ -397,6 +417,43 @@ def test_incrementally_reanalyzes_changed_files(
     ).json()
     assert unchanged["parsed_file_count"] == 0
     assert unchanged["unchanged_file_count"] == 3
+
+
+def test_analysis_cache_is_invalidated_only_when_project_data_changes(
+    client: TestClient, tmp_path: Path
+) -> None:
+    archive = make_archive({"cache/main.py": "def original():\n    return 1\n"})
+    project_id = client.post(
+        "/api/projects",
+        files={"archive": ("cache.zip", archive, "application/zip")},
+    ).json()["id"]
+    clear_analysis_cache()
+
+    assert client.get(f"/api/projects/{project_id}/quality").status_code == 200
+    assert client.get(f"/api/projects/{project_id}/quality").status_code == 200
+    assert analysis_cache_stats() == {"hits": 1, "misses": 1, "projects": 1}
+
+    assert client.post(f"/api/projects/{project_id}/reanalyze").status_code == 200
+    assert analysis_cache_stats()["projects"] == 0
+    assert client.get(f"/api/projects/{project_id}/quality").status_code == 200
+    assert analysis_cache_stats()["misses"] == 2
+
+    unchanged = client.post(f"/api/projects/{project_id}/incremental-reanalyze")
+    assert unchanged.json()["parsed_file_count"] == 0
+    assert analysis_cache_stats()["projects"] == 1
+    assert client.get(f"/api/projects/{project_id}/quality").status_code == 200
+    assert analysis_cache_stats()["hits"] == 2
+
+    source_file = next((tmp_path / "repositories").rglob("main.py"))
+    source_file.write_text("def changed():\n    return 2\n", encoding="utf-8")
+    changed = client.post(f"/api/projects/{project_id}/incremental-reanalyze")
+    assert changed.json()["changed_file_count"] == 1
+    assert analysis_cache_stats()["projects"] == 0
+
+    assert client.get(f"/api/projects/{project_id}/quality").status_code == 200
+    assert analysis_cache_stats()["misses"] == 3
+    assert client.delete(f"/api/projects/{project_id}").status_code == 204
+    assert analysis_cache_stats()["projects"] == 0
 
 
 def test_rejects_path_traversal_archive(client: TestClient) -> None:
@@ -506,6 +563,29 @@ def test_imports_local_folder(client: TestClient) -> None:
     assert analysis["symbols"][0]["name"] == "read"
     assert analysis["symbols"][0]["file_path"] == "src/main.ts"
 
+    root_tree = client.get(f"/api/projects/{body['id']}/files/tree")
+    assert root_tree.status_code == 200
+    assert root_tree.json()["total_files"] == 3
+    assert [(item["kind"], item["name"], item["file_count"]) for item in root_tree.json()["items"]] == [
+        ("directory", "src", 2),
+        ("file", "README.md", 1),
+    ]
+    src_tree = client.get(
+        f"/api/projects/{body['id']}/files/tree", params={"path": "src"}
+    )
+    assert src_tree.status_code == 200
+    assert [item["path"] for item in src_tree.json()["items"]] == [
+        "src/main.ts",
+        "src/utils.ts",
+    ]
+    assert all(item["id"] for item in src_tree.json()["items"])
+    assert client.get(
+        f"/api/projects/{body['id']}/files/tree", params={"path": "missing"}
+    ).status_code == 404
+    assert client.get(
+        f"/api/projects/{body['id']}/files/tree", params={"path": "../outside"}
+    ).status_code == 400
+
     reanalyzed = client.post(f"/api/projects/{body['id']}/reanalyze")
     assert reanalyzed.status_code == 200
     assert reanalyzed.json()["symbol_count"] == analysis["symbol_count"]
@@ -522,6 +602,7 @@ def test_imports_local_folder(client: TestClient) -> None:
 
 
 def test_detects_python_dependency_cycle(client: TestClient) -> None:
+    clear_analysis_cache()
     archive = make_archive(
         {
             "cycle/main.py": "import alpha\n",
@@ -542,6 +623,23 @@ def test_detects_python_dependency_cycle(client: TestClient) -> None:
     assert body["total_edge_count"] == 3
     assert body["cycle_count"] == 1
     assert set(body["cycles"][0]["paths"]) == {"alpha.py", "beta.py"}
+
+    focused = client.get(
+        f"/api/projects/{project_id}/dependency-graph",
+        params={"cycle": 1, "limit": 5},
+    )
+    assert focused.status_code == 200
+    focused_body = focused.json()
+    assert {node["path"] for node in focused_body["nodes"]} == {"alpha.py", "beta.py"}
+    assert {(edge["source_path"], edge["target_path"]) for edge in focused_body["edges"]} == {
+        ("alpha.py", "beta.py"),
+        ("beta.py", "alpha.py"),
+    }
+    assert focused_body["truncated"] is False
+    assert analysis_cache_stats() == {"hits": 1, "misses": 1, "projects": 1}
+    assert client.get(
+        f"/api/projects/{project_id}/dependency-graph", params={"cycle": 2}
+    ).status_code == 404
 
 
 def test_rejects_non_github_import_url(client: TestClient) -> None:

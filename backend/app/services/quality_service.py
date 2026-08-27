@@ -1,12 +1,14 @@
 import math
 import time
 from collections import Counter, defaultdict
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.analysis import CodeSymbol, ImportRelation
 from app.models.project import ProjectFile
+from app.services.analysis_cache import get_or_create_project_analysis
 from app.services.dependency_graph_service import find_cycles
 
 
@@ -19,6 +21,7 @@ QUALITY_SCORING_MODEL = "size_normalized_v2"
 BASE_SEVERITY_WEIGHTS = {"error": 8.0, "warning": 3.0, "info": 1.0}
 REFERENCE_PROJECT_SIZE = {"files": 50, "code_lines": 10_000, "symbols": 500}
 MAX_RULE_PENALTY = 20.0
+QUALITY_CACHE_NAMESPACE = "quality_report_v1"
 
 QUALITY_RULES = [
     {
@@ -60,10 +63,9 @@ QUALITY_RULES = [
 ]
 
 
-def build_quality_report(
-    database: Session, project_id: int, limit: int = 300
+def _build_quality_report_snapshot(
+    database: Session, project_id: int
 ) -> dict[str, object]:
-    started = time.perf_counter()
     files = list(
         database.scalars(
             select(ProjectFile)
@@ -237,8 +239,41 @@ def build_quality_report(
         },
         "rule_counts": dict(rule_counts),
         "rules": QUALITY_RULES,
-        "findings": findings[:limit],
-        "truncated": len(findings) > limit,
+        "findings": tuple(findings),
+    }
+
+
+def build_quality_report(
+    database: Session,
+    project_id: int,
+    limit: int = 100,
+    offset: int = 0,
+    severity: str | None = None,
+    rule_id: str | None = None,
+) -> dict[str, object]:
+    started = time.perf_counter()
+    snapshot = get_or_create_project_analysis(
+        database,
+        project_id,
+        QUALITY_CACHE_NAMESPACE,
+        lambda: _build_quality_report_snapshot(database, project_id),
+    )
+    findings = cast(tuple[dict[str, object], ...], snapshot["findings"])
+    filtered_findings = [
+        finding
+        for finding in findings
+        if (severity is None or finding["severity"] == severity)
+        and (rule_id is None or finding["rule_id"] == rule_id)
+    ]
+    page = filtered_findings[offset:offset + limit]
+    return {
+        **{key: value for key, value in snapshot.items() if key != "findings"},
+        "filtered_findings": len(filtered_findings),
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(page) < len(filtered_findings),
+        "findings": page,
+        "truncated": offset + len(page) < len(filtered_findings),
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
     }
 
@@ -340,7 +375,7 @@ def _quality_score(
             for rule_id, value in adjusted_rule_penalties.items()
         },
         "explanation": (
-            "错误、警告和提示的基础权重分别为 8、3、1；项目超过参考规模后，"
+            "高风险、中风险和低风险项的基础权重分别为 8、3、1；项目超过参考规模后，"
             "单项权重按规模单位线性递减，每条规则最多扣 20 分；只要存在问题，"
             "最终至少扣 1 分。"
         ),

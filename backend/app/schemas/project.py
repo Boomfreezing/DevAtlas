@@ -24,6 +24,24 @@ class ProjectFileContentResponse(BaseModel):
     lines: list[str]
 
 
+class ProjectFileTreeNodeResponse(BaseModel):
+    kind: str
+    name: str
+    path: str
+    file_count: int
+    id: int | None
+    extension: str | None
+    language: str | None
+    size_bytes: int | None
+    line_count: int | None
+
+
+class ProjectFileTreeResponse(BaseModel):
+    path: str
+    total_files: int
+    items: list[ProjectFileTreeNodeResponse]
+
+
 class ProjectSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -233,6 +251,10 @@ class QualityReportResponse(BaseModel):
     severity_counts: dict[str, int]
     rule_counts: dict[str, int]
     rules: list[QualityRuleResponse]
+    filtered_findings: int
+    limit: int
+    offset: int
+    has_more: bool
     findings: list[QualityFindingResponse]
     truncated: bool
     elapsed_ms: float

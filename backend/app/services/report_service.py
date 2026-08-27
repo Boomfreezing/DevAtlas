@@ -11,20 +11,35 @@ from app.services.structure_analyzer import (
     load_project_symbols,
 )
 
+REPORT_MODES = {"summary", "full"}
+RISK_WEIGHTS = {"error": 8, "warning": 3, "info": 1}
 
-def build_markdown_report(database: Session, project: Project) -> str:
-    """Build a complete local report without an LLM or external network call."""
+
+def build_markdown_report(
+    database: Session, project: Project, mode: str = "summary"
+) -> str:
+    """Build a deterministic local report without an LLM or network call."""
+    if mode not in REPORT_MODES:
+        raise ValueError(f"Unsupported report mode: {mode}")
+    is_full = mode == "full"
+    symbol_limit = 200 if is_full else 30
+    node_limit = 50 if is_full else 10
+    cycle_limit = 50 if is_full else 5
+    finding_limit = 1_000 if is_full else 30
     structure = load_project_structure_summary(database, project.id)
-    symbol_page = load_project_symbols(database, project.id, offset=0, limit=50)
+    symbol_page = load_project_symbols(database, project.id, offset=0, limit=symbol_limit)
     issue_page = load_project_issues(database, project.id, offset=0, limit=100)
     graph = load_dependency_graph(database, project.id, limit=100)
-    quality = build_quality_report(database, project.id, limit=1_000)
+    quality = build_quality_report(database, project.id, limit=20_000)
+    findings = _prioritized_findings(list(quality["findings"]))
+    shown_findings = findings[:finding_limit]
     generated_at = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
     lines = [
         f"# {_text(project.name)} 代码仓库分析报告",
         "",
         "> 生成方式：DevAtlas 本地规则引擎（无需大模型、API Key 或网络请求）  ",
+        f"> 报告模式：{'完整报告' if is_full else '摘要报告（生产代码风险优先）'}  ",
         f"> 生成时间：{generated_at}",
         "",
         "## 1. 项目概览",
@@ -66,7 +81,7 @@ def build_markdown_report(database: Session, project: Project) -> str:
             )
         if symbol_page["has_more"]:
             lines.append(
-                f"\n> 仅展示前 50 个符号，完整分析共 {structure['symbol_count']} 个。"
+                f"\n> 当前模式展示前 {symbol_limit} 个符号，完整分析共 {structure['symbol_count']} 个。"
             )
     else:
         lines.append("当前项目未识别到类、接口、函数或方法。")
@@ -91,7 +106,7 @@ def build_markdown_report(database: Session, project: Project) -> str:
     nodes = list(graph["nodes"])
     if nodes:
         lines.extend(["| 模块 | 入度 | 出度 |", "| --- | ---: | ---: |"])
-        for node in nodes[:20]:
+        for node in nodes[:node_limit]:
             lines.append(
                 f"| `{_code(node['path'])}` | {node['in_degree']} | {node['out_degree']} |"
             )
@@ -101,9 +116,11 @@ def build_markdown_report(database: Session, project: Project) -> str:
     cycles = list(graph["cycles"])
     if cycles:
         lines.extend(["", "### 循环依赖", ""])
-        for index, cycle in enumerate(cycles, start=1):
+        for index, cycle in enumerate(cycles[:cycle_limit], start=1):
             paths = [str(path) for path in cycle["paths"]]
-            lines.append(f"{index}. " + " → ".join([*paths, paths[0]]))
+            lines.append(f"{index}. " + _cycle_description(paths, is_full))
+        if len(cycles) > cycle_limit:
+            lines.append(f"\n> 当前模式展示 {cycle_limit} 个依赖环，完整分析共 {len(cycles)} 个。")
 
     severity_counts = quality["severity_counts"]
     scoring = quality["scoring"]
@@ -119,27 +136,64 @@ def build_markdown_report(database: Session, project: Project) -> str:
                 f"基础扣分 {scoring['base_penalty']} 调整为 {scoring['adjusted_penalty']} 分。"
             ),
             "",
-            "| 严重级别 | 数量 |",
+            "| 风险等级 | 数量 |",
             "| --- | ---: |",
-            f"| 错误 | {severity_counts['error']} |",
-            f"| 警告 | {severity_counts['warning']} |",
-            f"| 提示 | {severity_counts['info']} |",
+            f"| 高风险 | {severity_counts['error']} |",
+            f"| 中风险 | {severity_counts['warning']} |",
+            f"| 低风险 | {severity_counts['info']} |",
             "",
-            "### 质量问题",
+            "### 风险范围分布",
             "",
         ]
     )
-    findings = list(quality["findings"])
-    if findings:
-        lines.extend(["| 级别 | 规则 | 位置 | 问题与建议 |", "| --- | --- | --- | --- |"])
-        for finding in findings:
+    scope_counts = _scope_counts(findings)
+    lines.extend(
+        [
+            "| 范围 | 高风险 | 中风险 | 低风险 | 合计 |",
+            "| --- | ---: | ---: | ---: | ---: |",
+            *_scope_rows(scope_counts),
+            "",
+            "### 重点风险模块",
+            "",
+        ]
+    )
+    risk_modules = _risk_modules(findings, limit=10 if not is_full else 30)
+    if risk_modules:
+        lines.extend(
+            [
+                "| 模块 | 范围 | 高 / 中 / 低 | 主要规则 |",
+                "| --- | --- | ---: | --- |",
+            ]
+        )
+        for module in risk_modules:
+            lines.append(
+                f"| `{_code(module['path'])}` | {module['scope']} | "
+                f"{module['error']} / {module['warning']} / {module['info']} | "
+                f"{_cell('、'.join(module['rules']))} |"
+            )
+    else:
+        lines.append("未发现需要聚合的风险模块。")
+
+    lines.extend(["", "### 质量问题明细", ""])
+    if shown_findings:
+        lines.extend(
+            [
+                "| 级别 | 规则 | 位置 | 判定依据 | 问题与建议 |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for finding in shown_findings:
             location = str(finding["file_path"])
             if finding["start_line"]:
                 location += f":{finding['start_line']}"
             detail = f"{finding['description']} 建议：{finding['suggestion']}"
             lines.append(
-                f"| {_cell(finding['severity'])} | {_cell(finding['title'])} | "
-                f"`{_code(location)}` | {_cell(detail)} |"
+                f"| {_cell(_risk_label(finding['severity']))} | {_cell(finding['title'])} | "
+                f"`{_code(location)}` | {_cell(_finding_basis(finding))} | {_cell(detail)} |"
+            )
+        if len(findings) > len(shown_findings):
+            lines.append(
+                f"\n> 当前模式展示优先级最高的 {len(shown_findings)} 项，完整分析共 {quality['total_findings']} 项。"
             )
     else:
         lines.append("未发现当前规则集命中的质量问题。")
@@ -170,6 +224,131 @@ def build_markdown_report(database: Session, project: Project) -> str:
     return "\n".join(lines)
 
 
+def _finding_scope(path: object) -> str:
+    normalized = str(path).replace("\\", "/").lower()
+    parts = [part for part in normalized.split("/") if part]
+    filename = parts[-1] if parts else ""
+    if (
+        any(part in {"test", "tests", "spec", "specs", "__tests__"} for part in parts)
+        or filename.startswith("test_")
+        or ".test." in filename
+        or ".spec." in filename
+    ):
+        return "test"
+    if (
+        any(part in {"vendor", "generated", "dist", "build"} for part in parts)
+        or ".min." in filename
+    ):
+        return "generated"
+    return "production"
+
+
+def _scope_label(scope: str) -> str:
+    return {"production": "生产代码", "test": "测试代码", "generated": "生成/外部代码"}[scope]
+
+
+def _prioritized_findings(findings: list[dict[str, object]]) -> list[dict[str, object]]:
+    scope_order = {"production": 0, "test": 1, "generated": 2}
+    severity_order = {"error": 0, "warning": 1, "info": 2}
+    return sorted(
+        findings,
+        key=lambda finding: (
+            scope_order[_finding_scope(finding["file_path"])],
+            severity_order.get(str(finding["severity"]), 3),
+            str(finding["file_path"]),
+            int(finding["start_line"] or 0),
+        ),
+    )
+
+
+def _scope_counts(
+    findings: list[dict[str, object]],
+) -> dict[str, dict[str, int]]:
+    counts = {
+        scope: {"error": 0, "warning": 0, "info": 0}
+        for scope in ("production", "test", "generated")
+    }
+    for finding in findings:
+        scope = _finding_scope(finding["file_path"])
+        severity = str(finding["severity"])
+        if severity in counts[scope]:
+            counts[scope][severity] += 1
+    return counts
+
+
+def _scope_rows(counts: dict[str, dict[str, int]]) -> list[str]:
+    rows: list[str] = []
+    for scope in ("production", "test", "generated"):
+        values = counts[scope]
+        total = sum(values.values())
+        rows.append(
+            f"| {_scope_label(scope)} | {values['error']} | {values['warning']} | "
+            f"{values['info']} | {total} |"
+        )
+    return rows
+
+
+def _risk_modules(
+    findings: list[dict[str, object]], limit: int
+) -> list[dict[str, object]]:
+    modules: dict[str, dict[str, object]] = {}
+    for finding in findings:
+        path = str(finding["file_path"])
+        severity = str(finding["severity"])
+        module = modules.setdefault(
+            path,
+            {
+                "path": path,
+                "scope_key": _finding_scope(path),
+                "error": 0,
+                "warning": 0,
+                "info": 0,
+                "score": 0,
+                "rules": set(),
+            },
+        )
+        if severity in RISK_WEIGHTS:
+            module[severity] = int(module[severity]) + 1
+            module["score"] = int(module["score"]) + RISK_WEIGHTS[severity]
+        rules = module["rules"]
+        if isinstance(rules, set):
+            rules.add(str(finding["title"]))
+
+    scope_order = {"production": 0, "test": 1, "generated": 2}
+    ranked = sorted(
+        modules.values(),
+        key=lambda module: (
+            scope_order[str(module["scope_key"])],
+            -int(module["score"]),
+            str(module["path"]),
+        ),
+    )[:limit]
+    for module in ranked:
+        module["scope"] = _scope_label(str(module.pop("scope_key")))
+        module["rules"] = sorted(str(rule) for rule in module["rules"])
+    return ranked
+
+
+def _cycle_description(paths: list[str], is_full: bool) -> str:
+    if not paths:
+        return "空依赖环"
+    if is_full or len(paths) <= 8:
+        return " → ".join([*paths, paths[0]])
+    visible = " → ".join(paths[:6])
+    return f"{visible} → … → {paths[0]}（共 {len(paths)} 个模块）"
+
+
+def _finding_basis(finding: dict[str, object]) -> str:
+    metric = int(finding["metric"])
+    threshold = int(finding["threshold"])
+    if str(finding["rule_id"]) == "CIRCULAR_DEPENDENCY":
+        return f"结构性风险，涉及 {metric} 个模块"
+    if threshold <= 0:
+        return f"实际值 {metric}"
+    exceeded = max(0, round((metric - threshold) / threshold * 100))
+    return f"实际 {metric} / 建议 ≤ {threshold}，超出 {exceeded}%"
+
+
 def _smart_insights(
     project: Project,
     quality: dict[str, object],
@@ -194,7 +373,7 @@ def _smart_insights(
     if score >= 90:
         quality_summary = f"当前质量评分为 {score}/100，规则层面风险较低。"
     elif score >= 70:
-        quality_summary = f"当前质量评分为 {score}/100，共发现 {finding_count} 项问题，建议先处理错误和警告。"
+        quality_summary = f"当前质量评分为 {score}/100，共发现 {finding_count} 项可改进项，建议先处理高风险和中风险项。"
     else:
         quality_summary = f"当前质量评分仅为 {score}/100，共发现 {finding_count} 项问题，应优先安排质量治理。"
 
@@ -244,7 +423,7 @@ def _recommendations(
     if int(graph["cycle_count"]):
         recommendations.append("- 优先拆分循环依赖，提取公共抽象或调整依赖方向。")
     if int(quality["total_findings"]):
-        recommendations.append("- 按错误、警告、提示的顺序处理质量问题，并补充对应测试。")
+        recommendations.append("- 按高风险、中风险、低风险的顺序处理质量问题，并补充对应测试。")
     if int(structure["issue_count"]):
         recommendations.append("- 检查解析失败文件，确认文件编码和语法是否受当前解析器支持。")
     if not recommendations:
@@ -255,6 +434,12 @@ def _recommendations(
 
 def _text(value: object) -> str:
     return str(value).replace("\r", " ").replace("\n", " ").strip()
+
+
+def _risk_label(value: object) -> str:
+    return {"error": "高风险", "warning": "中风险", "info": "低风险"}.get(
+        str(value), str(value)
+    )
 
 
 def _cell(value: object) -> str:

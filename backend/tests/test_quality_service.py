@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from app.core.database import Base
 from app.models.analysis import CodeSymbol, ImportRelation
 from app.models.project import Project, ProjectFile
+from app.services.analysis_cache import analysis_cache_stats, clear_analysis_cache
 from app.services.quality_service import _quality_score, build_quality_report
 
 
 def test_reports_all_quality_rules() -> None:
+    clear_analysis_cache()
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as database:
@@ -87,6 +89,14 @@ def test_reports_all_quality_rules() -> None:
         database.commit()
 
         report = build_quality_report(database, project.id)
+        warning_page = build_quality_report(
+            database, project.id, limit=1, severity="warning"
+        )
+        warning_next_page = build_quality_report(
+            database, project.id, limit=1, offset=1, severity="warning"
+        )
+
+        assert analysis_cache_stats() == {"hits": 2, "misses": 1, "projects": 1}
 
     assert {finding["rule_id"] for finding in report["findings"]} == {
         "LONG_FUNCTION",
@@ -98,6 +108,12 @@ def test_reports_all_quality_rules() -> None:
     }
     assert report["severity_counts"]["error"] >= 1
     assert report["score"] < 100
+    assert warning_page["filtered_findings"] == report["severity_counts"]["warning"]
+    assert len(warning_page["findings"]) == 1
+    assert warning_page["findings"][0]["severity"] == "warning"
+    assert warning_page["has_more"] is True
+    assert warning_next_page["offset"] == 1
+    assert warning_next_page["findings"][0]["id"] != warning_page["findings"][0]["id"]
     assert report["scoring"]["model"] == "size_normalized_v2"
     assert report["scoring"]["size_factor"] == 1
     assert report["scoring"]["project_size"] == {
@@ -105,6 +121,7 @@ def test_reports_all_quality_rules() -> None:
         "code_line_count": 1_420,
         "symbol_count": 2,
     }
+    clear_analysis_cache()
     engine.dispose()
 
 

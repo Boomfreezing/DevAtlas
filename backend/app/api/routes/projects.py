@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
@@ -23,6 +24,7 @@ from app.schemas.project import (
     ParseIssuePageResponse,
     ProjectDetail,
     ProjectFileContentResponse,
+    ProjectFileTreeResponse,
     ProjectStructureResponse,
     ProjectStructureSummaryResponse,
     ProjectSummary,
@@ -33,6 +35,7 @@ from app.services.archive_service import (
     infer_project_name,
     save_and_extract_archive,
 )
+from app.services.analysis_cache import invalidate_project_analysis
 from app.services.folder_service import save_uploaded_folder
 from app.services.file_content_service import (
     FileContentError,
@@ -45,7 +48,11 @@ from app.services.github_service import (
     download_github_repository,
     parse_github_repository,
 )
-from app.services.project_service import create_scanned_project, remove_managed_repository
+from app.services.project_service import (
+    create_scanned_project,
+    load_project_file_tree,
+    remove_managed_repository,
+)
 from app.services.repository_path_service import resolve_project_storage_path
 from app.services.dependency_graph_service import load_dependency_graph
 from app.services.quality_service import build_quality_report
@@ -263,17 +270,27 @@ def test_report_generator(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
 
-@router.get("/{project_id}", response_model=ProjectDetail)
+@router.get("/{project_id}", response_model=ProjectSummary)
 def get_project(project_id: int, database: Session = Depends(get_db)) -> Project:
-    statement = (
-        select(Project)
-        .where(Project.id == project_id)
-        .options(selectinload(Project.files))
-    )
-    project = database.scalar(statement)
+    project = database.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
     return project
+
+
+@router.get("/{project_id}/files/tree", response_model=ProjectFileTreeResponse)
+def get_project_file_tree(
+    project_id: int,
+    path: str = Query(default="", max_length=1_000),
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_project_exists(database, project_id)
+    try:
+        return load_project_file_tree(database, project_id, path)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
 @router.get(
@@ -387,28 +404,48 @@ def search_project_code(
 def get_dependency_graph(
     project_id: int,
     limit: int = Query(default=40, ge=5, le=100),
+    cycle: int | None = Query(default=None, ge=1, le=20),
     database: Session = Depends(get_db),
 ) -> dict[str, object]:
     if database.get(Project, project_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
-    return load_dependency_graph(database, project_id, limit)
+    try:
+        return load_dependency_graph(
+            database,
+            project_id,
+            limit,
+            cycle_index=cycle - 1 if cycle is not None else None,
+        )
+    except IndexError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
 @router.get("/{project_id}/quality", response_model=QualityReportResponse)
 def get_quality_report(
     project_id: int,
-    limit: int = Query(default=300, ge=1, le=1_000),
+    limit: int = Query(default=100, ge=1, le=300),
+    offset: int = Query(default=0, ge=0),
+    severity: str | None = Query(default=None, pattern="^(error|warning|info)$"),
+    rule: str | None = Query(default=None, max_length=80),
     database: Session = Depends(get_db),
 ) -> dict[str, object]:
     if database.get(Project, project_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
-    return build_quality_report(database, project_id, limit)
+    return build_quality_report(
+        database,
+        project_id,
+        limit=limit,
+        offset=offset,
+        severity=severity,
+        rule_id=rule,
+    )
 
 
 @router.get("/{project_id}/report.md", response_class=Response)
 def export_project_report(
     project_id: int,
     generator: str = Query(default="local"),
+    mode: Literal["summary", "full"] = Query(default="summary"),
     database: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> Response:
@@ -420,12 +457,12 @@ def export_project_report(
     project = database.scalar(statement)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
-    report = _generate_report(database, settings, project, generator)
+    report = _generate_report(database, settings, project, generator, mode)
     return Response(
         content=report,
         media_type="text/markdown; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="devatlas-project-{project.id}-report.md"'
+            "Content-Disposition": f'attachment; filename="devatlas-project-{project.id}-{mode}-report.md"'
         },
     )
 
@@ -434,6 +471,7 @@ def export_project_report(
 def generate_project_report(
     project_id: int,
     generator: str = Query(default="local"),
+    mode: Literal["summary", "full"] = Query(default="summary"),
     database: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
@@ -447,9 +485,10 @@ def generate_project_report(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
     return {
         "generator": generator,
+        "mode": mode,
         "generated_at": datetime.now(UTC).isoformat(),
-        "filename": f"devatlas-project-{project.id}-report.md",
-        "content": _generate_report(database, settings, project, generator),
+        "filename": f"devatlas-project-{project.id}-{mode}-report.md",
+        "content": _generate_report(database, settings, project, generator, mode),
     }
 
 
@@ -498,13 +537,18 @@ def delete_project(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
 
     storage_path = resolve_project_storage_path(project.storage_path)
+    invalidate_project_analysis(database, project_id)
     database.delete(project)
     database.commit()
     remove_managed_repository(storage_path, settings.repository_root)
 
 
 def _generate_report(
-    database: Session, settings: Settings, project: Project, generator: str
+    database: Session,
+    settings: Settings,
+    project: Project,
+    generator: str,
+    mode: Literal["summary", "full"],
 ) -> str:
     provider = next(
         (item for item in list_report_providers(settings) if item["id"] == generator), None
@@ -516,7 +560,7 @@ def _generate_report(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Report generator '{generator}' is not configured.",
         )
-    local_report = build_markdown_report(database, project)
+    local_report = build_markdown_report(database, project, mode=mode)
     if generator == "local":
         return local_report
     try:

@@ -14,6 +14,7 @@ import {
   getImportLimits,
   getQualityReport,
   getProject,
+  getProjectFileTree,
   getProjectImports,
   getProjectIssues,
   getProjectStructureSummary,
@@ -32,7 +33,7 @@ import {
 import type { FolderUploadPreparation } from "./api";
 import { formatFolderScanProgress, pickFolderSafely, scanDroppedFolderSafely, supportsSafeFolderDrop, supportsSafeFolderPicker } from "./safeFolderPicker";
 import type { FolderScanProgress } from "./safeFolderPicker";
-import type { AnalysisJob, CodeSearchResponse, CodeSearchResult, CodeSymbol, DependencyGraph, DependencyNode, GeneratedReport, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectDetail, ProjectFile, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, StructurePage } from "./types";
+import type { AnalysisJob, CodeSearchResponse, CodeSearchResult, CodeSymbol, DependencyGraph, DependencyNode, GeneratedReport, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileTreeNode, ProjectFileTreeResponse, ProjectStructureSummary, ProjectSummary, QualityFinding, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, StructurePage } from "./types";
 
 type ActiveSection = "projects" | "search" | "graph" | "quality" | "report";
 type ProjectTab = "files" | "symbols" | "imports" | "issues";
@@ -163,7 +164,7 @@ function App() {
   const initialNavigation = useRef(readNavigationState());
   const [displayScale, setDisplayScale] = useState<DisplayScale>(readDisplayScale);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [selected, setSelected] = useState<ProjectDetail | null>(null);
+  const [selected, setSelected] = useState<ProjectSummary | null>(null);
   const [structure, setStructure] = useState<ProjectStructureSummary | null>(null);
   const [structureLoading, setStructureLoading] = useState(false);
   const [symbolPage, setSymbolPage] = useState<LoadedStructurePage<CodeSymbol> | null>(null);
@@ -181,8 +182,10 @@ function App() {
   const [graphLoading, setGraphLoading] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
   const [qualityLoading, setQualityLoading] = useState(false);
+  const [qualityPageLoading, setQualityPageLoading] = useState(false);
   const [reportGenerators, setReportGenerators] = useState<ReportGenerator[]>([]);
   const [selectedReportGenerator, setSelectedReportGenerator] = useState("local");
+  const [selectedReportMode, setSelectedReportMode] = useState<"summary" | "full">("summary");
   const [generatedReport, setGeneratedReport] = useState<GeneratedReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [activeJob, setActiveJob] = useState<AnalysisJob | null>(null);
@@ -209,6 +212,8 @@ function App() {
   const folderScanAbortRef = useRef<AbortController | null>(null);
   const selectionRequestRef = useRef(0);
   const structurePageRequestRef = useRef(0);
+  const qualityPageRequestRef = useRef(0);
+  const searchRequestRef = useRef(0);
   const initialProjectRestoredRef = useRef(false);
 
   const refreshProjects = useCallback(async () => {
@@ -435,7 +440,7 @@ function App() {
     }
   }
 
-  async function finishImport(created: ProjectDetail) {
+  async function finishImport(created: ProjectSummary) {
     selectionRequestRef.current += 1;
     await refreshProjects();
     setSelected(created);
@@ -515,7 +520,7 @@ function App() {
         setQualityReport(report);
       }
       if (sectionAtAnalysis === "report") {
-        const report = await generateProjectReport(projectId, selectedReportGenerator);
+        const report = await generateProjectReport(projectId, selectedReportGenerator, selectedReportMode);
         if (selectionRequestRef.current !== requestId) return;
         setGeneratedReport(report);
       }
@@ -576,7 +581,7 @@ function App() {
           setQualityReport(report);
         }
         if (sectionAtAnalysis === "report") {
-          const report = await generateProjectReport(projectId, selectedReportGenerator);
+          const report = await generateProjectReport(projectId, selectedReportGenerator, selectedReportMode);
           if (selectionRequestRef.current !== requestId) return;
           setGeneratedReport(report);
         }
@@ -615,6 +620,7 @@ function App() {
     options: { section?: ActiveSection; tab?: ProjectTab; syncUrl?: boolean } = {},
   ) {
     const requestId = ++selectionRequestRef.current;
+    qualityPageRequestRef.current += 1;
     const sectionAtSelection = options.section ?? activeSection;
     const tabAtSelection = options.tab ?? projectTab;
     setActiveSection(sectionAtSelection);
@@ -627,6 +633,7 @@ function App() {
       setSearchResponse(null);
       setDependencyGraph(null);
       setQualityReport(null);
+      setQualityPageLoading(false);
       setGeneratedReport(null);
       setIncrementalResult(null);
       clearStructurePages();
@@ -675,6 +682,7 @@ function App() {
           if (selectionRequestRef.current !== requestId) return;
           setReportGenerators(generators);
           setSelectedReportGenerator("local");
+          setSelectedReportMode("summary");
           setGeneratedReport(report);
         } catch (reportError) {
           setWorkspaceError(reportError instanceof Error ? reportError.message : "无法生成分析报告");
@@ -718,15 +726,26 @@ function App() {
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selected || !searchQuery.trim() || searchLoadingMore) return;
+    if (!selected || !searchQuery.trim() || searchLoading || searchLoadingMore) return;
+    const query = searchQuery.trim();
+    const projectId = selected.id;
+    const selectionId = selectionRequestRef.current;
+    const requestId = ++searchRequestRef.current;
     setSearchLoading(true);
     setWorkspaceError(null);
+    setSearchResponse(null);
+    setCodeViewerResult(null);
     try {
-      setSearchResponse(await searchProject(selected.id, searchQuery.trim()));
+      const response = await searchProject(projectId, query);
+      if (searchRequestRef.current === requestId && selectionRequestRef.current === selectionId) {
+        setSearchResponse(response);
+      }
     } catch (requestError) {
-      setWorkspaceError(requestError instanceof Error ? requestError.message : "代码搜索失败");
+      if (searchRequestRef.current === requestId && selectionRequestRef.current === selectionId) {
+        setWorkspaceError(requestError instanceof Error ? requestError.message : "代码搜索失败");
+      }
     } finally {
-      setSearchLoading(false);
+      if (searchRequestRef.current === requestId) setSearchLoading(false);
     }
   }
 
@@ -735,10 +754,13 @@ function App() {
     if (!searchResponse.has_more) return;
     const query = searchResponse.query;
     const offset = searchResponse.results.length;
+    const selectionId = selectionRequestRef.current;
+    const requestId = ++searchRequestRef.current;
     setSearchLoadingMore(true);
     setWorkspaceError(null);
     try {
       const nextPage = await searchProject(selected.id, query, 10, offset);
+      if (searchRequestRef.current !== requestId || selectionRequestRef.current !== selectionId) return;
       setSearchResponse((current) => {
         if (!current || current.query !== query) return current;
         const loadedChunkIds = new Set(current.results.map((result) => result.chunk_id));
@@ -752,9 +774,11 @@ function App() {
         };
       });
     } catch (requestError) {
-      setWorkspaceError(requestError instanceof Error ? requestError.message : "加载更多搜索结果失败");
+      if (searchRequestRef.current === requestId && selectionRequestRef.current === selectionId) {
+        setWorkspaceError(requestError instanceof Error ? requestError.message : "加载更多搜索结果失败");
+      }
     } finally {
-      setSearchLoadingMore(false);
+      if (searchRequestRef.current === requestId) setSearchLoadingMore(false);
     }
   }
 
@@ -763,7 +787,7 @@ function App() {
     setReportLoading(true);
     setWorkspaceError(null);
     try {
-      const report = await generateProjectReport(selected.id, generator);
+      const report = await generateProjectReport(selected.id, generator, selectedReportMode);
       setGeneratedReport(report);
       return report;
     } catch (requestError) {
@@ -777,6 +801,11 @@ function App() {
   function handleSelectReportGenerator(generator: string) {
     setSelectedReportGenerator(generator);
     if (generatedReport?.generator !== generator) setGeneratedReport(null);
+  }
+
+  function handleSelectReportMode(mode: "summary" | "full") {
+    setSelectedReportMode(mode);
+    if (generatedReport?.mode !== mode) setGeneratedReport(null);
   }
 
   async function handleConfigureReportGenerator(
@@ -856,6 +885,37 @@ function App() {
     }
   }
 
+  async function handleQualityPageRequest(severity: string, rule: string, offset: number, append: boolean) {
+    if (!selected) return;
+    const projectId = selected.id;
+    const requestId = selectionRequestRef.current;
+    const pageRequestId = ++qualityPageRequestRef.current;
+    setQualityPageLoading(true);
+    setWorkspaceError(null);
+    try {
+      const nextPage = await getQualityReport(projectId, 100, offset, severity, rule);
+      if (selectionRequestRef.current !== requestId || qualityPageRequestRef.current !== pageRequestId || selected.id !== projectId) return;
+      setQualityReport((current) => {
+        if (!append || !current) return nextPage;
+        const findings = [...current.findings, ...nextPage.findings];
+        return {
+          ...nextPage,
+          findings,
+          offset: 0,
+          limit: findings.length,
+          has_more: findings.length < nextPage.filtered_findings,
+          truncated: findings.length < nextPage.filtered_findings,
+        };
+      });
+    } catch (requestError) {
+      if (selectionRequestRef.current === requestId && qualityPageRequestRef.current === pageRequestId) {
+        setWorkspaceError(requestError instanceof Error ? requestError.message : "无法加载质量问题");
+      }
+    } finally {
+      if (selectionRequestRef.current === requestId && qualityPageRequestRef.current === pageRequestId) setQualityPageLoading(false);
+    }
+  }
+
   async function handleOpenReport(options: { syncUrl?: boolean } = {}) {
     const requestId = selectionRequestRef.current;
     setActiveSection("report");
@@ -868,7 +928,7 @@ function App() {
     try {
       const [generators, report] = await Promise.all([
         reportGenerators.length ? Promise.resolve(reportGenerators) : getReportGenerators(),
-        generatedReport ? Promise.resolve(generatedReport) : generateProjectReport(selected.id, selectedReportGenerator),
+        generatedReport ? Promise.resolve(generatedReport) : generateProjectReport(selected.id, selectedReportGenerator, selectedReportMode),
       ]);
       if (selectionRequestRef.current !== requestId) return;
       setReportGenerators(generators);
@@ -882,6 +942,7 @@ function App() {
 
   function clearSelectedProject() {
     selectionRequestRef.current += 1;
+    qualityPageRequestRef.current += 1;
     setSelected(null);
     setStructure(null);
     clearStructurePages();
@@ -895,6 +956,7 @@ function App() {
     setStructureLoading(false);
     setGraphLoading(false);
     setQualityLoading(false);
+    setQualityPageLoading(false);
     setReportLoading(false);
   }
 
@@ -1188,7 +1250,7 @@ function App() {
                 </div>
                 {incrementalResult && <IncrementalSummary result={incrementalResult} />}
                 <div className="inspector-tabs">
-                  <button className={projectTab === "files" ? "active" : ""} onClick={() => navigateToProjectTab("files")}>文件 <span title="文件总数">{selected.files.length}</span></button>
+                  <button className={projectTab === "files" ? "active" : ""} onClick={() => navigateToProjectTab("files")}>文件 <span title="文件总数">{selected.file_count}</span></button>
                   <button className={projectTab === "symbols" ? "active" : ""} onClick={() => navigateToProjectTab("symbols")}>符号 <span title="符号总数">{formatAnalysisValue(structure?.symbol_count, structureLoading)}</span></button>
                   <button className={projectTab === "imports" ? "active" : ""} onClick={() => navigateToProjectTab("imports")}>依赖 <span title="导入关系总数">{formatAnalysisValue(structure?.import_count, structureLoading)}</span></button>
                   <button className={projectTab === "issues" ? "active" : ""} onClick={() => navigateToProjectTab("issues")}>问题 <span title="解析问题总数">{formatAnalysisValue(structure?.issue_count, structureLoading)}</span></button>
@@ -1196,17 +1258,19 @@ function App() {
                 </>}
                 <div className={`file-list structure-list ${activeSection !== "projects" ? "feature-content" : ""}`}>
                   {activeSection === "quality" && qualityLoading && <div className="mini-empty"><div className="spinner" />正在执行质量规则…</div>}
-                  {activeSection === "quality" && qualityReport && <QualityReportView report={qualityReport} />}
+                  {activeSection === "quality" && qualityReport && <QualityReportView key={selected.id} report={qualityReport} loading={qualityPageLoading} onRequestPage={handleQualityPageRequest} />}
                   {activeSection === "graph" && graphLoading && <div className="mini-empty"><div className="spinner" />正在聚合项目内依赖…</div>}
-                  {activeSection === "graph" && dependencyGraph && <DependencyGraphView graph={dependencyGraph} />}
+                  {activeSection === "graph" && dependencyGraph && <DependencyGraphView key={selected.id} projectId={selected.id} graph={dependencyGraph} />}
                   {activeSection === "report" && (
                     <ReportWorkspace
                       generators={reportGenerators}
                       selectedGenerator={selectedReportGenerator}
+                      selectedMode={selectedReportMode}
                       report={generatedReport}
                       loading={reportLoading}
                       exporting={exportingReport}
                       onSelectGenerator={handleSelectReportGenerator}
+                      onSelectMode={handleSelectReportMode}
                       onConfigureGenerator={handleConfigureReportGenerator}
                       onTestGenerator={handleTestReportGenerator}
                       onGenerate={() => void handleGenerateReport()}
@@ -1214,7 +1278,7 @@ function App() {
                     />
                   )}
                   {activeSection === "search" && (
-                    <div className="search-pane">
+                    <div className="search-pane" aria-busy={searchLoading || searchLoadingMore}>
                       <form className="search-form" onSubmit={(event) => void handleSearch(event)}>
                         <input
                           value={searchQuery}
@@ -1224,6 +1288,13 @@ function App() {
                         />
                         <button disabled={searchLoading || searchLoadingMore || !searchQuery.trim()}>{searchLoading ? "检索中…" : "搜索"}</button>
                       </form>
+                      {searchLoading && (
+                        <div className="search-progress" role="status" aria-live="polite" aria-label="代码搜索进行中">
+                          <div className="spinner" />
+                          <div><strong>SEARCHING_INDEX</strong><span>正在当前仓库中检索“{searchQuery.trim()}”</span></div>
+                          <code>BM25 · PLEASE_WAIT</code>
+                        </div>
+                      )}
                       {searchResponse && (
                         <div className="search-summary">
                           <span>显示 {formatNumber(searchResponse.results.length)} / {formatNumber(searchResponse.total_matches)} 条匹配</span>
@@ -1250,7 +1321,7 @@ function App() {
                       )}
                     </div>
                   )}
-                  {activeSection === "projects" && projectTab === "files" && <FileTree key={selected.id} files={selected.files} />}
+                  {activeSection === "projects" && projectTab === "files" && <FileTree key={selected.id} projectId={selected.id} totalFiles={selected.file_count} />}
                   {activeSection === "projects" && projectTab !== "files" && activeStructurePage && (
                     <div className="structure-list-summary">
                       <span className="structure-summary-prompt">&gt; list --buffer</span>
@@ -1412,95 +1483,87 @@ function App() {
   );
 }
 
-interface FileTreeNode {
-  kind: "directory" | "file";
-  name: string;
-  path: string;
-  file?: ProjectFile;
-  children: FileTreeNode[];
-  fileCount: number;
-}
+function FileTree({ projectId, totalFiles }: { projectId: number; totalFiles: number }) {
+  const [root, setRoot] = useState<ProjectFileTreeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-interface MutableFileTreeNode {
-  kind: "directory" | "file";
-  name: string;
-  path: string;
-  file?: ProjectFile;
-  children: Map<string, MutableFileTreeNode>;
-}
+  const loadRoot = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRoot(await getProjectFileTree(projectId));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "无法读取仓库文件目录");
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
 
-function buildFileTree(files: ProjectFile[]): FileTreeNode[] {
-  const root = new Map<string, MutableFileTreeNode>();
+  useEffect(() => {
+    void loadRoot();
+  }, [loadRoot]);
 
-  files.forEach((file) => {
-    const normalizedPath = file.relative_path.replaceAll("\\", "/");
-    const parts = normalizedPath.split("/").filter(Boolean);
-    let children = root;
-    let currentPath = "";
-
-    parts.forEach((part, index) => {
-      const isFile = index === parts.length - 1;
-      currentPath = currentPath ? `${currentPath}/${part}` : part;
-      const key = `${isFile ? "file" : "directory"}:${part}`;
-      let node = children.get(key);
-      if (!node) {
-        node = {
-          kind: isFile ? "file" : "directory",
-          name: part,
-          path: currentPath,
-          file: isFile ? file : undefined,
-          children: new Map(),
-        };
-        children.set(key, node);
-      }
-      children = node.children;
-    });
-  });
-
-  const finalize = (nodes: Map<string, MutableFileTreeNode>): FileTreeNode[] => Array.from(nodes.values())
-    .map((node) => {
-      const children = finalize(node.children);
-      return {
-        kind: node.kind,
-        name: node.name,
-        path: node.path,
-        file: node.file,
-        children,
-        fileCount: node.kind === "file" ? 1 : children.reduce((total, child) => total + child.fileCount, 0),
-      };
-    })
-    .sort((left, right) => {
-      if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
-      return left.name.localeCompare(right.name, "zh-CN", { numeric: true });
-    });
-
-  return finalize(root);
-}
-
-function FileTree({ files }: { files: ProjectFile[] }) {
-  const nodes = useMemo(() => buildFileTree(files), [files]);
-  if (nodes.length === 0) return <div className="mini-empty">当前仓库没有可展示的文件</div>;
+  if (loading && !root) return <div className="mini-empty"><div className="spinner" />正在读取仓库根目录…</div>;
+  if (error && !root) {
+    return <div className="mini-empty"><span>{error}</span><button type="button" className="file-tree-retry" onClick={() => void loadRoot()}>[ RETRY ]</button></div>;
+  }
+  if (!root?.items.length) return <div className="mini-empty">当前仓库没有可展示的文件</div>;
 
   return (
-    <div className="file-tree" role="tree" aria-label="仓库文件树">
-      {nodes.map((node) => <FileTreeNodeView key={`${node.kind}:${node.path}`} node={node} depth={0} />)}
-    </div>
+    <>
+      <div className="structure-list-summary file-tree-summary">
+        <span className="structure-summary-prompt">&gt; tree --lazy</span>
+        <span>indexed</span>
+        <strong>{formatNumber(root.total_files || totalFiles)}</strong>
+        <span>files · 展开目录时按需读取</span>
+      </div>
+      <div className="file-tree" role="tree" aria-label="仓库文件树">
+        {root.items.map((node) => <FileTreeNodeView key={`${node.kind}:${node.path}`} projectId={projectId} node={node} />)}
+      </div>
+    </>
   );
 }
 
-function FileTreeNodeView({ node, depth }: { node: FileTreeNode; depth: number }) {
-  const [expanded, setExpanded] = useState(depth === 0);
-  if (node.kind === "file" && node.file) {
+function FileTreeNodeView({ projectId, node }: { projectId: number; node: ProjectFileTreeNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const [children, setChildren] = useState<ProjectFileTreeNode[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (node.kind === "file") {
     return (
       <div className="file-tree-file" role="treeitem" title={node.path}>
         <span className="file-tree-branch">├</span>
         <span className="file-symbol">⌑</span>
         <strong>{node.name}</strong>
-        <span>{node.file.language ?? "Text"}</span>
-        <small>{formatNumber(node.file.line_count)} 行</small>
-        <small>{formatBytes(node.file.size_bytes)}</small>
+        <span>{node.language ?? "Text"}</span>
+        <small>{formatNumber(node.line_count ?? 0)} 行</small>
+        <small>{formatBytes(node.size_bytes ?? 0)}</small>
       </div>
     );
+  }
+
+  async function loadChildren() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await getProjectFileTree(projectId, node.path);
+      setChildren(response.items);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "无法读取该目录");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleDirectory() {
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    if (children === null) await loadChildren();
   }
 
   return (
@@ -1509,17 +1572,20 @@ function FileTreeNodeView({ node, depth }: { node: FileTreeNode; depth: number }
         type="button"
         className="file-tree-directory-button"
         aria-expanded={expanded}
-        aria-label={`${node.name} 目录，${node.fileCount} 个文件，${expanded ? "点击折叠" : "点击展开"}`}
-        onClick={() => setExpanded((current) => !current)}
+        aria-label={`${node.name} 目录，${node.file_count} 个文件，${expanded ? "点击折叠" : "点击展开"}`}
+        onClick={() => void toggleDirectory()}
       >
         <span className="file-tree-toggle">{expanded ? "▾" : "▸"}</span>
         <span className="file-tree-folder">{expanded ? "▱" : "□"}</span>
         <strong>{node.name}</strong>
-        <small>{formatNumber(node.fileCount)} 个文件</small>
+        <small>{formatNumber(node.file_count)} 个文件</small>
       </button>
       {expanded && (
         <div className="file-tree-children" role="group">
-          {node.children.map((child) => <FileTreeNodeView key={`${child.kind}:${child.path}`} node={child} depth={depth + 1} />)}
+          {loading && <div className="file-tree-loading"><div className="spinner" />正在读取目录…</div>}
+          {error && <div className="file-tree-loading"><span>{error}</span><button type="button" className="file-tree-retry" onClick={() => void loadChildren()}>[ RETRY ]</button></div>}
+          {!loading && !error && children?.map((child) => <FileTreeNodeView key={`${child.kind}:${child.path}`} projectId={projectId} node={child} />)}
+          {!loading && !error && children?.length === 0 && <div className="file-tree-loading">空目录</div>}
         </div>
       )}
     </div>
@@ -1559,10 +1625,12 @@ function ParseIssueRow({ issue }: { issue: ParseIssue }) {
 function ReportWorkspace({
   generators,
   selectedGenerator,
+  selectedMode,
   report,
   loading,
   exporting,
   onSelectGenerator,
+  onSelectMode,
   onConfigureGenerator,
   onTestGenerator,
   onGenerate,
@@ -1570,10 +1638,12 @@ function ReportWorkspace({
 }: {
   generators: ReportGenerator[];
   selectedGenerator: string;
+  selectedMode: "summary" | "full";
   report: GeneratedReport | null;
   loading: boolean;
   exporting: boolean;
   onSelectGenerator: (generator: string) => void;
+  onSelectMode: (mode: "summary" | "full") => void;
   onConfigureGenerator: (generator: string, configuration: ReportGeneratorConfiguration) => Promise<ReportGenerator>;
   onTestGenerator: (generator: string) => Promise<ReportGeneratorTestResult>;
   onGenerate: () => void;
@@ -1704,6 +1774,18 @@ function ReportWorkspace({
             {report && <small>{report.filename} · {formatDate(report.generated_at)}</small>}
           </div>
           <div className="report-actions">
+            <label className="report-mode-select">
+              <span>报告范围</span>
+              <select
+                aria-label="报告范围"
+                value={selectedMode}
+                disabled={loading || exporting}
+                onChange={(event) => onSelectMode(event.target.value as "summary" | "full")}
+              >
+                <option value="summary">摘要报告（推荐）</option>
+                <option value="full">完整报告</option>
+              </select>
+            </label>
             <button className="secondary-button" onClick={onGenerate} disabled={loading || exporting || !selectedProvider?.available}>
               <span>↻</span>{loading ? "分析中…" : selectedProvider?.id === "local" ? "重新生成" : "使用当前 API 生成"}
             </button>
@@ -1762,11 +1844,17 @@ function LanguageBadge({ language }: { language: string | null }) {
   return <span className={`language-badge lang-${key}`}><i />{language ?? "Text"}</span>;
 }
 
-function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
+function DependencyGraphView({ projectId, graph }: { projectId: number; graph: DependencyGraph }) {
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(graph.nodes[0]?.id ?? null);
   const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null);
+  const [selectedCycleIndex, setSelectedCycleIndex] = useState<number | null>(null);
+  const [focusedGraph, setFocusedGraph] = useState<DependencyGraph | null>(null);
+  const [cycleFocusLoading, setCycleFocusLoading] = useState(false);
+  const [cycleFocusError, setCycleFocusError] = useState<string | null>(null);
   const [moduleFilter, setModuleFilter] = useState("");
   const [zoom, setZoom] = useState(1);
+  const cycleFocusRequestRef = useRef(0);
+  const activeGraph = focusedGraph ?? graph;
   const width = 900;
   const height = 500;
   const centerX = 440;
@@ -1775,15 +1863,27 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
     () => new Set(graph.cycles.flatMap((cycle) => cycle.file_ids)),
     [graph.cycles],
   );
+  const cyclicEdgeKeys = useMemo(() => {
+    const keys = new Set<string>();
+    graph.cycles.forEach((cycle) => {
+      const members = new Set(cycle.file_ids);
+      activeGraph.edges.forEach((edge) => {
+        if (members.has(edge.source_id) && members.has(edge.target_id)) keys.add(dependencyEdgeKey(edge));
+      });
+    });
+    return keys;
+  }, [activeGraph.edges, graph.cycles]);
+  const selectedCycle = selectedCycleIndex === null ? null : graph.cycles[selectedCycleIndex] ?? null;
   const displayedNodes = useMemo(() => {
     const query = moduleFilter.trim().toLowerCase();
-    return query ? graph.nodes.filter((node) => node.path.toLowerCase().includes(query)) : graph.nodes;
-  }, [graph.nodes, moduleFilter]);
+    return activeGraph.nodes.filter((node) => !query || node.path.toLowerCase().includes(query));
+  }, [activeGraph.nodes, moduleFilter]);
   const displayedNodeIds = useMemo(() => new Set(displayedNodes.map((node) => node.id)), [displayedNodes]);
   const displayedEdges = useMemo(
-    () => graph.edges.filter((edge) => displayedNodeIds.has(edge.source_id) && displayedNodeIds.has(edge.target_id)),
-    [displayedNodeIds, graph.edges],
+    () => activeGraph.edges.filter((edge) => displayedNodeIds.has(edge.source_id) && displayedNodeIds.has(edge.target_id)),
+    [activeGraph.edges, displayedNodeIds],
   );
+  const displayedEdgeKeys = useMemo(() => new Set(displayedEdges.map(dependencyEdgeKey)), [displayedEdges]);
   const positions = useMemo(() => {
     const result = new Map<number, { x: number; y: number }>();
     displayedNodes.forEach((node, index) => {
@@ -1812,6 +1912,48 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
   const selectedEdge = displayedEdges.find((edge) => dependencyEdgeKey(edge) === selectedEdgeKey) ?? null;
   const nodeById = useMemo(() => new Map(displayedNodes.map((node) => [node.id, node])), [displayedNodes]);
 
+  function clearCycleFocus() {
+    cycleFocusRequestRef.current += 1;
+    setSelectedCycleIndex(null);
+    setFocusedGraph(null);
+    setCycleFocusLoading(false);
+    setCycleFocusError(null);
+    setModuleFilter("");
+    setSelectedEdgeKey(null);
+    setSelectedNodeId(graph.nodes[0]?.id ?? null);
+    setZoom(1);
+  }
+
+  async function loadCycleFocus(index: number) {
+    const requestId = ++cycleFocusRequestRef.current;
+    setSelectedCycleIndex(index);
+    setFocusedGraph(null);
+    setCycleFocusLoading(true);
+    setCycleFocusError(null);
+    setModuleFilter("");
+    setSelectedEdgeKey(null);
+    setZoom(1);
+    try {
+      const response = await getDependencyGraph(projectId, 40, index + 1);
+      if (cycleFocusRequestRef.current !== requestId) return;
+      setFocusedGraph(response);
+      setSelectedNodeId(response.nodes[0]?.id ?? null);
+    } catch (requestError) {
+      if (cycleFocusRequestRef.current !== requestId) return;
+      setCycleFocusError(requestError instanceof Error ? requestError.message : "无法加载所选循环依赖");
+    } finally {
+      if (cycleFocusRequestRef.current === requestId) setCycleFocusLoading(false);
+    }
+  }
+
+  function selectCycle(index: number) {
+    if (selectedCycleIndex === index && !cycleFocusError) {
+      clearCycleFocus();
+      return;
+    }
+    void loadCycleFocus(index);
+  }
+
   if (graph.nodes.length === 0) {
     return <div className="dependency-empty"><div className="empty-glyph">◇</div><h3>没有项目内依赖</h3><p>当前仓库只有外部依赖，或导入路径暂时无法解析到项目文件。</p></div>;
   }
@@ -1828,17 +1970,37 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
       <div className="graph-toolbar">
         <label><span>筛选模块</span><input value={moduleFilter} onChange={(event) => setModuleFilter(event.target.value)} placeholder="输入文件名或路径" /></label>
         <small>当前显示 {displayedNodes.length} 个模块 / {displayedEdges.length} 条边</small>
+        {selectedCycle && <button type="button" className="graph-clear-focus" onClick={clearCycleFocus}>退出循环聚焦</button>}
         <div className="zoom-controls"><button onClick={() => setZoom((value) => Math.max(1, value - .25))} disabled={zoom <= 1}>−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(2.5, value + .25))} disabled={zoom >= 2.5}>＋</button></div>
       </div>
+      {selectedCycle && !cycleFocusError && (
+        <div className="graph-focus-status" role="status" aria-busy={cycleFocusLoading}>
+          <strong>FOCUS_CYCLE_{selectedCycleIndex! + 1}</strong>
+          <span>{cycleFocusLoading ? "正在加载该循环的完整节点和依赖边…" : `图中仅保留该循环的 ${displayedNodes.length} 个节点和 ${displayedEdges.length} 条内部依赖边`}</span>
+        </div>
+      )}
+      {cycleFocusError && (
+        <div className="graph-focus-error" role="alert">
+          <span>{cycleFocusError}</span>
+          <button type="button" onClick={() => void loadCycleFocus(selectedCycleIndex!)}>重试</button>
+          <button type="button" onClick={clearCycleFocus}>取消</button>
+        </div>
+      )}
       <div className="graph-legend" role="note" aria-label="依赖图图例">
         <strong>A → B 表示 A 导入并依赖 B</strong>
+        <b className="legend-group-label">NODE</b>
+        <span><i className="legend-node ordinary" />普通模块</span>
+        <span><i className="legend-node cyclic" />循环模块</span>
+        <span><i className="legend-node selected" />当前选中</span>
+        <span><i className="legend-node cyclic-selected" />选中的循环模块</span>
+        <b className="legend-group-label">EDGE</b>
         <span><i className="legend-edge outgoing" />当前模块依赖</span>
         <span><i className="legend-edge incoming" />依赖当前模块</span>
-        <span><i className="legend-edge cyclic" />循环依赖</span>
-        <small>×N 表示两文件间合并后的导入次数 · 点击连线查看文件与行号</small>
+        <span><i className="legend-edge cyclic" />循环依赖边（橙黄色虚线）</span>
+        <small>节点越大表示入度与出度总和越高 · ×N 表示两文件间合并后的导入次数 · 点击连线查看文件与行号</small>
       </div>
       <div className="dependency-layout">
-        <div className="dependency-canvas">
+        <div className="dependency-canvas" aria-busy={cycleFocusLoading}>
           <svg viewBox={`${centerX - width / zoom / 2} ${centerY - height / zoom / 2} ${width / zoom} ${height / zoom}`} role="img" aria-label="项目模块依赖图">
             <defs>
               <marker id="dependency-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
@@ -1856,8 +2018,9 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
               if (!source || !target || !sourceNode || !targetNode) return null;
               const outgoing = edge.source_id === selectedNode?.id;
               const incoming = edge.target_id === selectedNode?.id;
-              const cyclic = graph.cycles.some((cycle) => cycle.file_ids.includes(edge.source_id) && cycle.file_ids.includes(edge.target_id));
-              const reverseExists = displayedEdges.some((candidate) => candidate.source_id === edge.target_id && candidate.target_id === edge.source_id);
+              const edgeKey = dependencyEdgeKey(edge);
+              const cyclic = cyclicEdgeKeys.has(edgeKey);
+              const reverseExists = displayedEdgeKeys.has(`${edge.target_id}-${edge.source_id}`);
               const geometry = dependencyEdgeGeometry(
                 source,
                 target,
@@ -1865,7 +2028,6 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
                 dependencyNodeRadius(targetNode),
                 reverseExists ? (edge.source_id < edge.target_id ? 30 : -30) : (edge.source_id < edge.target_id ? 12 : -12),
               );
-              const edgeKey = dependencyEdgeKey(edge);
               const isSelected = edgeKey === selectedEdgeKey;
               const marker = cyclic ? "dependency-arrow-cyclic" : outgoing ? "dependency-arrow-outgoing" : incoming ? "dependency-arrow-incoming" : "dependency-arrow";
               return (
@@ -1883,7 +2045,7 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
                     }
                   }}
                 >
-                  <title>{edge.source_path} → {edge.target_path} · {edge.import_count} 条导入 · 第 {edge.line_numbers.join("、")} 行</title>
+                  <title>{edge.source_path} → {edge.target_path} · {edge.import_count} 条导入 · 第 {edge.line_numbers.join("、")} 行{cyclic ? " · 循环依赖边" : ""}</title>
                   <path className="edge-hit-area" d={geometry.path} />
                   <path className="edge-line" d={geometry.path} markerEnd={`url(#${marker})`} />
                   <text className="edge-label" x={geometry.label.x} y={geometry.label.y - 5} textAnchor="middle">×{edge.import_count}</text>
@@ -1913,8 +2075,21 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
         </aside>
       </div>
       <section className="cycle-list">
-        <div className="cycle-heading"><strong>循环依赖</strong><span>{graph.cycle_count ? "建议拆分公共模块或调整依赖方向" : "未检测到强连通依赖环"}</span></div>
-        {graph.cycles.map((cycle, index) => <div className="cycle-row" key={cycle.file_ids.join("-")}><strong>环 {index + 1}</strong><span>{cycle.paths.join(" → ")} → {cycle.paths[0]}</span></div>)}
+        <div className="cycle-heading"><strong>循环依赖</strong><span>{graph.cycle_count ? "选择依赖环可在图中单独聚焦，再次点击取消" : "未检测到强连通依赖环"}</span></div>
+        {graph.cycles.map((cycle, index) => (
+          <button
+            type="button"
+            className={`cycle-row ${selectedCycleIndex === index ? "active" : ""}`}
+            aria-pressed={selectedCycleIndex === index}
+            aria-label={`${selectedCycleIndex === index ? "取消聚焦" : "聚焦"}环 ${index + 1}：${cycle.paths.join(" 到 ")}`}
+            key={cycle.file_ids.join("-")}
+            onClick={() => selectCycle(index)}
+          >
+            <strong>环 {index + 1}</strong>
+            <span>{cycle.paths.join(" → ")} → {cycle.paths[0]}</span>
+            <em>{selectedCycleIndex === index && cycleFocusLoading ? "[ LOADING ]" : selectedCycleIndex === index ? "[ FOCUSED ]" : "[ SELECT ]"}</em>
+          </button>
+        ))}
       </section>
     </div>
   );
@@ -1922,6 +2097,15 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
 
 function dependencyNodeRadius(node: DependencyNode): number {
   return 10 + Math.min(8, (node.in_degree + node.out_degree) * 1.4);
+}
+
+export function qualityMetricSummary(finding: QualityFinding): string {
+  if (finding.rule_id === "CIRCULAR_DEPENDENCY") {
+    return `结构性风险 · 涉及 ${finding.metric} 个模块`;
+  }
+  if (finding.threshold <= 0) return `实际值 ${finding.metric}`;
+  const exceededPercent = Math.round(((finding.metric - finding.threshold) / finding.threshold) * 100);
+  return `实际 ${finding.metric} / 建议 ≤ ${finding.threshold} · 超出 ${Math.max(0, exceededPercent)}%`;
 }
 
 function dependencyEdgeKey(edge: DependencyGraph["edges"][number]): string {
@@ -2006,13 +2190,29 @@ function shortFileName(path: string): string {
   return path.split("/").at(-1) ?? path;
 }
 
-function QualityReportView({ report }: { report: QualityReport }) {
+function QualityReportView({
+  report,
+  loading,
+  onRequestPage,
+}: {
+  report: QualityReport;
+  loading: boolean;
+  onRequestPage: (severity: string, rule: string, offset: number, append: boolean) => Promise<void>;
+}) {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [ruleFilter, setRuleFilter] = useState("all");
-  const filteredFindings = report.findings.filter(
-    (finding) => (severityFilter === "all" || finding.severity === severityFilter) && (ruleFilter === "all" || finding.rule_id === ruleFilter),
-  );
-  const severityLabels = { error: "错误", warning: "警告", info: "提示" } as const;
+  const severityLabels = { error: "高风险", warning: "中风险", info: "低风险" } as const;
+  const filteredTotal = report.filtered_findings ?? report.total_findings;
+
+  function changeSeverity(nextSeverity: string) {
+    setSeverityFilter(nextSeverity);
+    void onRequestPage(nextSeverity, ruleFilter, 0, false);
+  }
+
+  function changeRule(nextRule: string) {
+    setRuleFilter(nextRule);
+    void onRequestPage(severityFilter, nextRule, 0, false);
+  }
 
   return (
     <div className="quality-view">
@@ -2028,40 +2228,41 @@ function QualityReportView({ report }: { report: QualityReport }) {
           <strong>{report.score}</strong><span>质量分</span><em>{report.grade}</em>
         </div>
         <div className="quality-overview"><p className="eyebrow">STATIC QUALITY REPORT</p><h3>{report.total_findings ? `发现 ${formatNumber(report.total_findings)} 项可改进问题` : "未发现规则命中的质量问题"}</h3><span>已执行 {report.rules.length} 条规则 · {report.elapsed_ms.toFixed(1)} ms</span></div>
-        <div className="severity-summary"><div className="error"><strong>{report.severity_counts.error}</strong><span>错误</span></div><div className="warning"><strong>{report.severity_counts.warning}</strong><span>警告</span></div><div><strong>{report.severity_counts.info}</strong><span>提示</span></div></div>
-      </section>
-      <section className="quality-scoring-breakdown" aria-label="质量评分依据">
-        <div className="scoring-description">
-          <p className="eyebrow">SCORE_MODEL::{report.scoring.model.toUpperCase()}</p>
-          <strong>按项目规模归一化扣分</strong>
-          <span>{report.scoring.explanation}</span>
-        </div>
-        <div className="scoring-metric"><span>规模系数</span><strong>×{report.scoring.size_factor.toFixed(3)}</strong><small>{formatNumber(report.scoring.project_size.file_count)} 文件 · {formatNumber(report.scoring.project_size.code_line_count)} 行 · {formatNumber(report.scoring.project_size.symbol_count)} 符号</small></div>
-        <div className="scoring-metric"><span>扣分校准</span><strong>{report.scoring.base_penalty.toFixed(1)} → {report.scoring.adjusted_penalty}</strong><small>最终得分 = 100 − 校准后扣分</small></div>
-        <div className="scoring-weights"><span>当前单项权重</span><code>ERR {report.scoring.effective_weights.error.toFixed(2)}</code><code>WARN {report.scoring.effective_weights.warning.toFixed(2)}</code><code>INFO {report.scoring.effective_weights.info.toFixed(2)}</code></div>
+        <div className="severity-summary"><div className="error"><strong>{report.severity_counts.error}</strong><span>高风险</span></div><div className="warning"><strong>{report.severity_counts.warning}</strong><span>中风险</span></div><div><strong>{report.severity_counts.info}</strong><span>低风险</span></div></div>
       </section>
       <section className="quality-rules">
         {report.rules.map((rule) => <article key={rule.id}><div><strong>{rule.title}</strong><code>{rule.id}</code></div><span>{report.rule_counts[rule.id] ?? 0}</span><p>{rule.description}</p></article>)}
       </section>
       <div className="quality-toolbar">
         <strong>问题明细</strong>
-        <span>显示 {filteredFindings.length} / {report.total_findings}</span>
-        <label>严重级别<select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}><option value="all">全部</option><option value="error">错误</option><option value="warning">警告</option><option value="info">提示</option></select></label>
-        <label>检测规则<select value={ruleFilter} onChange={(event) => setRuleFilter(event.target.value)}><option value="all">全部规则</option>{report.rules.map((rule) => <option value={rule.id} key={rule.id}>{rule.title}</option>)}</select></label>
+        <span>当前显示 {report.findings.length} / {filteredTotal}{filteredTotal !== report.total_findings ? `（全部 ${report.total_findings}）` : ""}</span>
+        <label>风险等级<select value={severityFilter} disabled={loading} onChange={(event) => changeSeverity(event.target.value)}><option value="all">全部</option><option value="error">高风险</option><option value="warning">中风险</option><option value="info">低风险</option></select></label>
+        <label>检测规则<select value={ruleFilter} disabled={loading} onChange={(event) => changeRule(event.target.value)}><option value="all">全部规则</option>{report.rules.map((rule) => <option value={rule.id} key={rule.id}>{rule.title}</option>)}</select></label>
       </div>
       <section className="quality-findings">
-        {filteredFindings.map((finding) => (
+        {report.findings.map((finding) => (
           <article className={`quality-finding severity-${finding.severity}`} key={finding.id}>
             <div className="finding-level"><span>{severityLabels[finding.severity]}</span><code>{finding.rule_id}</code></div>
             <div className="finding-main">
-              <header><div><strong>{finding.title}</strong><span>{finding.file_path}{finding.start_line ? ` · 第 ${finding.start_line}${finding.end_line && finding.end_line !== finding.start_line ? `–${finding.end_line}` : ""} 行` : ""}</span></div><small>实际 {finding.metric} / 阈值 {finding.threshold}</small></header>
+              <header><div><strong>{finding.title}</strong><span>{finding.file_path}{finding.start_line ? ` · 第 ${finding.start_line}${finding.end_line && finding.end_line !== finding.start_line ? `–${finding.end_line}` : ""} 行` : ""}</span></div><small>{qualityMetricSummary(finding)}</small></header>
               <p>{finding.description}</p>
               <div className="finding-suggestion"><b>建议</b><span>{finding.suggestion}</span></div>
             </div>
           </article>
         ))}
-        {!filteredFindings.length && <div className="mini-empty">当前筛选条件下没有质量问题</div>}
-        {report.truncated && <div className="graph-notice">问题数量较多，当前仅返回前 {report.findings.length} 项；可通过 API 调整 limit。</div>}
+        {!report.findings.length && !loading && <div className="mini-empty">当前筛选条件下没有质量问题</div>}
+        {loading && <div className="mini-empty"><div className="spinner" />正在读取质量问题…</div>}
+        {report.has_more && (
+          <div className="structure-load-more quality-load-more">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void onRequestPage(severityFilter, ruleFilter, report.findings.length, true)}
+            >
+              {loading ? "LOADING..." : "LOAD_NEXT"} <span>＋{Math.min(100, filteredTotal - report.findings.length)} ROWS</span>
+            </button>
+          </div>
+        )}
       </section>
     </div>
   );

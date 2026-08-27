@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.analysis import CodeSymbol, ImportRelation, ParseIssue, SearchChunk
 from app.models.project import Project, ProjectFile
+from app.services.analysis_cache import invalidate_project_analysis
 from app.services.code_parser import parse_source, supports_extension
 from app.services.repository_path_service import resolve_project_storage_path
 
@@ -19,6 +20,7 @@ def analyze_project_structure(
     project: Project,
     progress_callback: Callable[[str, int, str], None] | None = None,
 ) -> None:
+    invalidate_project_analysis(database, project.id)
     database.execute(delete(SearchChunk).where(SearchChunk.project_id == project.id))
     database.execute(delete(CodeSymbol).where(CodeSymbol.project_id == project.id))
     database.execute(delete(ImportRelation).where(ImportRelation.project_id == project.id))

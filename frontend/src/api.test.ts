@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiRequestError, formatOperationError, getDependencyGraph, getProjectFileContent, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, listProjects, prepareFolderUpload, uploadFolder } from "./api";
+import { ApiRequestError, formatOperationError, generateProjectReport, getDependencyGraph, getProjectFileContent, getProjectFileTree, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, getQualityReport, listProjects, prepareFolderUpload, uploadFolder } from "./api";
 
 
 describe("API error guidance", () => {
@@ -29,6 +29,15 @@ describe("API error guidance", () => {
     await expect(getDependencyGraph(3)).rejects.toThrow(
       "加载依赖图谱失败：图谱服务暂时不可用。建议：确认后端、GitHub 或模型服务正常后重试。",
     );
+  });
+
+  it("requests a complete focused dependency cycle by its one-based index", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ nodes: [], edges: [], cycles: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getDependencyGraph(6, 40, 3);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/6/dependency-graph?limit=40&cycle=3", undefined);
   });
 
   it("explains how to recover when the local backend is unreachable", async () => {
@@ -97,5 +106,32 @@ describe("API error guidance", () => {
       "/api/projects/6/imports?limit=150&offset=150",
       "/api/projects/6/issues?limit=50&offset=0",
     ]);
+  });
+
+  it("requests file-tree directories and filtered quality pages without loading full collections", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json({ items: [], findings: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getProjectFileTree(6);
+    await getProjectFileTree(6, "src/core");
+    await getQualityReport(6, 100, 200, "warning", "large_file");
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "/api/projects/6/files/tree",
+      "/api/projects/6/files/tree?path=src%2Fcore",
+      "/api/projects/6/quality?limit=100&offset=200&severity=warning&rule=large_file",
+    ]);
+  });
+
+  it("passes the selected report mode to the report endpoint", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateProjectReport(6, "local", "full");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/6/report?generator=local&mode=full",
+      undefined,
+    );
   });
 });

@@ -1,4 +1,4 @@
-import type { AnalysisJob, CodeSearchResponse, CodeSymbol, DependencyGraph, GeneratedReport, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectDetail, ProjectFileContent, ProjectStructure, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, StructurePage } from "./types";
+import type { AnalysisJob, CodeSearchResponse, CodeSymbol, DependencyGraph, GeneratedReport, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileContent, ProjectFileTreeResponse, ProjectStructure, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, StructurePage } from "./types";
 
 const API_ROOT = "/api";
 export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
@@ -152,8 +152,8 @@ export function listProjects(): Promise<ProjectSummary[]> {
   return request<ProjectSummary[]>("/projects", "加载项目列表");
 }
 
-export function getProject(id: number): Promise<ProjectDetail> {
-  return request<ProjectDetail>(`/projects/${id}`, "读取项目详情");
+export function getProject(id: number): Promise<ProjectSummary> {
+  return request<ProjectSummary>(`/projects/${id}`, "读取项目详情");
 }
 
 export function getImportLimits(): Promise<ImportLimits> {
@@ -162,6 +162,13 @@ export function getImportLimits(): Promise<ImportLimits> {
 
 export function getProjectFileContent(projectId: number, fileId: number): Promise<ProjectFileContent> {
   return request<ProjectFileContent>(`/projects/${projectId}/files/${fileId}/content`, "打开源码");
+}
+
+export function getProjectFileTree(projectId: number, path = ""): Promise<ProjectFileTreeResponse> {
+  const params = new URLSearchParams();
+  if (path) params.set("path", path);
+  const query = params.size ? `?${params}` : "";
+  return request<ProjectFileTreeResponse>(`/projects/${projectId}/files/tree${query}`, "读取文件目录");
 }
 
 export function getProjectStructure(id: number): Promise<ProjectStructure> {
@@ -200,12 +207,17 @@ export function searchProject(id: number, query: string, limit = 10, offset = 0)
   return request<CodeSearchResponse>(`/projects/${id}/search?${params}`, "搜索代码");
 }
 
-export function getDependencyGraph(id: number, limit = 40): Promise<DependencyGraph> {
-  return request<DependencyGraph>(`/projects/${id}/dependency-graph?limit=${limit}`, "加载依赖图谱");
+export function getDependencyGraph(id: number, limit = 40, cycle?: number): Promise<DependencyGraph> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cycle !== undefined) params.set("cycle", String(cycle));
+  return request<DependencyGraph>(`/projects/${id}/dependency-graph?${params}`, cycle === undefined ? "加载依赖图谱" : "加载循环依赖");
 }
 
-export function getQualityReport(id: number, limit = 500): Promise<QualityReport> {
-  return request<QualityReport>(`/projects/${id}/quality?limit=${limit}`, "生成质量报告");
+export function getQualityReport(id: number, limit = 100, offset = 0, severity = "all", rule = "all"): Promise<QualityReport> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (severity !== "all") params.set("severity", severity);
+  if (rule !== "all") params.set("rule", rule);
+  return request<QualityReport>(`/projects/${id}/quality?${params}`, "生成质量报告");
 }
 
 export function getReportGenerators(): Promise<ReportGenerator[]> {
@@ -224,8 +236,8 @@ export function testReportGenerator(id: string): Promise<ReportGeneratorTestResu
   return request<ReportGeneratorTestResult>(`/projects/report-generators/${encodeURIComponent(id)}/test`, "测试 API 连接", { method: "POST" });
 }
 
-export function generateProjectReport(id: number, generator = "local"): Promise<GeneratedReport> {
-  const params = new URLSearchParams({ generator });
+export function generateProjectReport(id: number, generator = "local", mode: "summary" | "full" = "summary"): Promise<GeneratedReport> {
+  const params = new URLSearchParams({ generator, mode });
   return request<GeneratedReport>(`/projects/${id}/report?${params}`, "生成分析报告");
 }
 

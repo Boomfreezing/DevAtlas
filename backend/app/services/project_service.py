@@ -1,7 +1,9 @@
 import shutil
 from collections.abc import Callable
 from pathlib import Path
+from pathlib import PurePosixPath
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.project import Project, ProjectFile
@@ -73,3 +75,70 @@ def remove_managed_repository(repository_path: Path, repository_root: Path) -> N
     if not relative_path.parts:
         return
     shutil.rmtree(root / relative_path.parts[0], ignore_errors=True)
+
+
+def load_project_file_tree(
+    database: Session, project_id: int, directory: str = ""
+) -> dict[str, object]:
+    """Return only the immediate children of a repository directory."""
+    normalized = _normalize_tree_directory(directory)
+    statement = select(ProjectFile).where(ProjectFile.project_id == project_id)
+    prefix = f"{normalized}/" if normalized else ""
+    if prefix:
+        statement = statement.where(
+            ProjectFile.relative_path.startswith(prefix, autoescape=True)
+        )
+    files = list(database.scalars(statement.order_by(ProjectFile.relative_path)))
+
+    directories: dict[str, dict[str, object]] = {}
+    direct_files: list[dict[str, object]] = []
+    for project_file in files:
+        relative = project_file.relative_path[len(prefix):] if prefix else project_file.relative_path
+        child_name, separator, _ = relative.partition("/")
+        child_path = f"{prefix}{child_name}" if prefix else child_name
+        if separator:
+            node = directories.setdefault(
+                child_name,
+                {
+                    "kind": "directory",
+                    "name": child_name,
+                    "path": child_path,
+                    "file_count": 0,
+                    "id": None,
+                    "extension": None,
+                    "language": None,
+                    "size_bytes": None,
+                    "line_count": None,
+                },
+            )
+            node["file_count"] = int(node["file_count"]) + 1
+        else:
+            direct_files.append(
+                {
+                    "kind": "file",
+                    "name": child_name,
+                    "path": project_file.relative_path,
+                    "file_count": 1,
+                    "id": project_file.id,
+                    "extension": project_file.extension,
+                    "language": project_file.language,
+                    "size_bytes": project_file.size_bytes,
+                    "line_count": project_file.line_count,
+                }
+            )
+
+    if normalized and not files:
+        raise FileNotFoundError(f"Repository directory not found: {normalized}")
+    items = sorted(directories.values(), key=lambda item: str(item["name"]).lower())
+    items.extend(sorted(direct_files, key=lambda item: str(item["name"]).lower()))
+    return {"path": normalized, "total_files": len(files), "items": items}
+
+
+def _normalize_tree_directory(directory: str) -> str:
+    normalized = directory.strip().replace("\\", "/").strip("/")
+    if not normalized:
+        return ""
+    path = PurePosixPath(normalized)
+    if any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError("Repository directory path is invalid.")
+    return path.as_posix()

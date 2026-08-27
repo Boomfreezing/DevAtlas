@@ -33,6 +33,24 @@ export interface ProjectDetail extends ProjectSummary {
   files: ProjectFile[];
 }
 
+export interface ProjectFileTreeNode {
+  kind: "directory" | "file";
+  name: string;
+  path: string;
+  file_count: number;
+  id: number | null;
+  extension: string | null;
+  language: string | null;
+  size_bytes: number | null;
+  line_count: number | null;
+}
+
+export interface ProjectFileTreeResponse {
+  path: string;
+  total_files: number;
+  items: ProjectFileTreeNode[];
+}
+
 export interface CodeSymbol {
   id: number;
   file_id: number;
@@ -187,6 +205,10 @@ export interface QualityReport {
   rule_counts: Record<string, number>;
   rules: QualityRule[];
   findings: QualityFinding[];
+  filtered_findings: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
   truncated: boolean;
   elapsed_ms: number;
 }
@@ -256,6 +278,7 @@ export interface ReportGeneratorTestResult {
 
 export interface GeneratedReport {
   generator: string;
+  mode: "summary" | "full";
   generated_at: string;
   filename: string;
   content: string;

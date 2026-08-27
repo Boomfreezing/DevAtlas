@@ -2,10 +2,41 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import App from "./App";
+import App, { qualityMetricSummary } from "./App";
 
 
 describe("App", () => {
+  it("describes threshold excess and circular dependencies without calling them errors", () => {
+    expect(qualityMetricSummary({
+      id: "LONG_FUNCTION:1",
+      rule_id: "LONG_FUNCTION",
+      severity: "warning",
+      title: "超长函数",
+      description: "函数过长",
+      suggestion: "拆分函数",
+      file_id: 1,
+      file_path: "main.py",
+      start_line: 1,
+      end_line: 100,
+      metric: 100,
+      threshold: 80,
+    })).toBe("实际 100 / 建议 ≤ 80 · 超出 25%");
+    expect(qualityMetricSummary({
+      id: "CIRCULAR_DEPENDENCY:1",
+      rule_id: "CIRCULAR_DEPENDENCY",
+      severity: "error",
+      title: "循环依赖",
+      description: "形成依赖环",
+      suggestion: "调整依赖方向",
+      file_id: 1,
+      file_path: "main.py",
+      start_line: 1,
+      end_line: 1,
+      metric: 3,
+      threshold: 0,
+    })).toBe("结构性风险 · 涉及 3 个模块");
+  });
+
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     window.localStorage.clear();
@@ -158,6 +189,15 @@ describe("App", () => {
         const items = structure.issues;
         return Response.json({ total: items.length, limit: 150, offset: 0, has_more: false, items });
       }
+      if (url.endsWith("/api/projects/1/files/tree")) {
+        return Response.json({ path: "", total_files: 1, items: [{ kind: "directory", name: "src", path: "src", file_count: 1, id: null, extension: null, language: null, size_bytes: null, line_count: null }] });
+      }
+      if (url.endsWith("/api/projects/1/files/tree?path=src")) {
+        return Response.json({ path: "src", total_files: 1, items: [{ kind: "directory", name: "core", path: "src/core", file_count: 1, id: null, extension: null, language: null, size_bytes: null, line_count: null }] });
+      }
+      if (url.endsWith("/api/projects/1/files/tree?path=src%2Fcore")) {
+        return Response.json({ path: "src/core", total_files: 1, items: [{ kind: "file", name: "main.py", path: "src/core/main.py", file_count: 1, id: 1, extension: ".py", language: "Python", size_bytes: 80, line_count: 8 }] });
+      }
       const project = projects.find((item) => url.endsWith(`/api/projects/${item.id}`));
       if (project) {
         return Response.json({
@@ -174,11 +214,13 @@ describe("App", () => {
     await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("alpha"));
     expect(document.querySelector(".panel-heading h2")?.textContent).toBe("仓库概览");
     expect(document.querySelector(".detail-title h3")?.textContent).toBe("仓库扫描已完成");
-    expect(screen.getByRole("tree", { name: "仓库文件树" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /src 目录/ }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: /core 目录/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(await screen.findByRole("tree", { name: "仓库文件树" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /src 目录/ }).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: /src 目录/ }));
+    expect((await screen.findByRole("button", { name: /core 目录/ })).getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: /core 目录/ }));
-    expect(screen.getByText("main.py")).toBeTruthy();
+    expect(await screen.findByText("main.py")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/1/files/tree?path=src%2Fcore", undefined);
     fireEvent.click(screen.getByRole("button", { name: /^符号 / }));
     await waitFor(() => expect(document.querySelectorAll(".symbol-row")).toHaveLength(150));
     expect(document.querySelector(".structure-list-summary")?.textContent).toContain("shown150/ total 151 rows");
@@ -245,6 +287,7 @@ describe("App", () => {
       if (url.endsWith("/files/1/content")) return Response.json({ file_id: 1, file_path: "src/result-1.ts", language: "TypeScript", size_bytes: 72, total_lines: 3, lines: ["export function result1() {", "  return \"needle\";", "}"] });
       if (url.includes("/search?")) {
         const offset = Number(new URL(url, "http://localhost").searchParams.get("offset") ?? "0");
+        if (offset === 0) await new Promise((resolve) => setTimeout(resolve, 20));
         const results = Array.from({ length: offset === 0 ? 10 : 2 }, (_, index) => makeResult(offset + index));
         return Response.json({ query: "needle", indexed_chunks: 12, total_matches: 12, limit: 10, offset, has_more: offset + results.length < 12, elapsed_ms: 1.2, results });
       }
@@ -259,6 +302,8 @@ describe("App", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "代码搜索关键词" }), { target: { value: "needle" } });
     fireEvent.click(screen.getByRole("button", { name: /^搜索$/ }));
 
+    expect(await screen.findByRole("status", { name: "代码搜索进行中" })).toBeTruthy();
+    expect(screen.getByText("正在当前仓库中检索“needle”")).toBeTruthy();
     expect(await screen.findByText("显示 10 / 12 条匹配")).toBeTruthy();
     expect(document.querySelectorAll(".search-result")).toHaveLength(10);
     fireEvent.click(screen.getAllByRole("button", { name: "查看代码" })[0]);
@@ -341,19 +386,21 @@ describe("App", () => {
     const timestamp = "2026-08-26T10:00:00Z";
     const project = { id: 8, name: "dependency-demo", source_filename: "dependency-demo/", status: "ready", primary_language: "Python", file_count: 2, code_line_count: 20, created_at: timestamp, updated_at: timestamp };
     const graph = {
-      total_node_count: 2,
-      total_edge_count: 2,
-      internal_import_count: 3,
+      total_node_count: 3,
+      total_edge_count: 3,
+      internal_import_count: 4,
       external_import_count: 0,
       cycle_count: 1,
       truncated: false,
       nodes: [
         { id: 1, path: "src/a.py", language: "Python", in_degree: 1, out_degree: 1 },
-        { id: 2, path: "src/b.py", language: "Python", in_degree: 1, out_degree: 1 },
+        { id: 2, path: "src/b.py", language: "Python", in_degree: 1, out_degree: 2 },
+        { id: 3, path: "src/c.py", language: "Python", in_degree: 1, out_degree: 0 },
       ],
       edges: [
         { source_id: 1, target_id: 2, source_path: "src/a.py", target_path: "src/b.py", import_count: 2, line_numbers: [2, 5] },
         { source_id: 2, target_id: 1, source_path: "src/b.py", target_path: "src/a.py", import_count: 1, line_numbers: [3] },
+        { source_id: 2, target_id: 3, source_path: "src/b.py", target_path: "src/c.py", import_count: 1, line_numbers: [8] },
       ],
       cycles: [{ file_ids: [1, 2], paths: ["src/a.py", "src/b.py"] }],
     };
@@ -362,6 +409,9 @@ describe("App", () => {
       if (url.endsWith("/api/projects")) return Response.json([project]);
       if (url.endsWith("/api/projects/8")) return Response.json({ ...project, files: [] });
       if (url.endsWith("/structure/summary")) return Response.json({ symbol_count: 0, class_count: 0, function_count: 0, import_count: 3, resolved_import_count: 3, issue_count: 0 });
+      if (url.includes("/dependency-graph") && url.includes("cycle=1")) {
+        return Response.json({ ...graph, truncated: false, nodes: graph.nodes.slice(0, 2), edges: graph.edges.slice(0, 2) });
+      }
       if (url.includes("/dependency-graph")) return Response.json(graph);
       return new Response(null, { status: 404 });
     }));
@@ -372,17 +422,32 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /依赖图谱/ }));
 
     expect(await screen.findByText("A → B 表示 A 导入并依赖 B")).toBeTruthy();
+    expect(screen.getByText("普通模块")).toBeTruthy();
+    expect(screen.getByText("选中的循环模块")).toBeTruthy();
+    expect(screen.getByText("循环依赖边（橙黄色虚线）")).toBeTruthy();
+    expect(screen.getByText(/节点越大表示入度与出度总和越高/)).toBeTruthy();
     const inspector = document.querySelector(".node-inspector");
     expect(inspector?.textContent).toContain("当前模块依赖");
     expect(inspector?.textContent).toContain("依赖当前模块");
-    expect(document.querySelectorAll(".dependency-edge")).toHaveLength(2);
+    expect(document.querySelectorAll(".dependency-edge")).toHaveLength(3);
+    expect(document.querySelectorAll(".dependency-edge.cyclic")).toHaveLength(2);
     expect(document.querySelector(".dependency-edge .edge-line")?.getAttribute("d")).toContain(" Q ");
     expect(screen.getByText("×2")).toBeTruthy();
+
+    const cycleButton = screen.getByRole("button", { name: /聚焦环 1/ });
+    fireEvent.click(cycleButton);
+    expect(await screen.findByText("图中仅保留该循环的 2 个节点和 2 条内部依赖边")).toBeTruthy();
+    expect(document.querySelectorAll(".dependency-node")).toHaveLength(2);
+    expect(document.querySelectorAll(".dependency-edge")).toHaveLength(2);
+    expect(cycleButton.getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "src/a.py 导入并依赖 src/b.py，2 条导入" }));
     expect(await screen.findByText("a.py → b.py")).toBeTruthy();
     expect(screen.getByText("第 2 行、第 5 行")).toBeTruthy();
     expect(screen.getByRole("button", { name: "返回模块详情" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "退出循环聚焦" }));
+    expect(document.querySelectorAll(".dependency-node")).toHaveLength(3);
+    expect(document.querySelectorAll(".dependency-edge")).toHaveLength(3);
   });
 
   it("keeps full analysis in the overview and reloads quality when reopened", async () => {
@@ -434,8 +499,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /质量检测/ }));
     expect(await screen.findByText("未发现规则命中的质量问题")).toBeTruthy();
     expect(screen.getByRole("meter", { name: "质量评分 100 分，评级 A" }).classList.contains("grade-a")).toBe(true);
-    expect(screen.getByRole("region", { name: "质量评分依据" }).textContent).toContain("规模系数×1.000");
-    expect(screen.getByRole("region", { name: "质量评分依据" }).textContent).toContain("ERR 8.00");
+    expect(screen.queryByRole("region", { name: "质量评分依据" })).toBeNull();
     expect(screen.queryByRole("button", { name: "全量" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /仓库概览/ }));
@@ -448,6 +512,73 @@ describe("App", () => {
     expect(await screen.findByText("未发现规则命中的质量问题")).toBeTruthy();
     expect(document.querySelector(".quality-view")).not.toBeNull();
     expect(document.querySelector(".workspace-error")).toBeNull();
+  });
+
+  it("loads quality findings in server-filtered pages", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = { id: 10, name: "large-quality-repo", source_filename: "large-quality-repo/", status: "ready", primary_language: "TypeScript", file_count: 200, code_line_count: 80_000, created_at: timestamp, updated_at: timestamp };
+    const structure = { symbol_count: 2_000, class_count: 100, function_count: 1_900, import_count: 600, resolved_import_count: 550, issue_count: 0 };
+    const findings = Array.from({ length: 150 }, (_, index) => ({
+      id: `LONG_FUNCTION:${index + 1}`,
+      rule_id: "LONG_FUNCTION",
+      severity: "warning",
+      title: "超长函数",
+      description: `函数包含 ${100 + index} 行代码。`,
+      suggestion: "拆分为职责单一的辅助函数。",
+      file_id: index + 1,
+      file_path: `src/module-${index + 1}.ts`,
+      start_line: 1,
+      end_line: 100 + index,
+      metric: 100 + index,
+      threshold: 80,
+    }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/10")) return Response.json(project);
+      if (url.endsWith("/structure/summary")) return Response.json(structure);
+      if (url.includes("/quality?")) {
+        const params = new URL(url, "http://localhost").searchParams;
+        const offset = Number(params.get("offset") ?? "0");
+        const limit = Number(params.get("limit") ?? "100");
+        const page = findings.slice(offset, offset + limit);
+        return Response.json({
+          score: 82,
+          grade: "B",
+          scoring: { model: "size_normalized_v2", size_factor: 0.2, scale_units: 5, project_size: { file_count: 200, code_line_count: 80_000, symbol_count: 2_000 }, reference_size: { file_count: 50, code_line_count: 10_000, symbol_count: 500 }, base_weights: { error: 8, warning: 3, info: 1 }, effective_weights: { error: 1.6, warning: 0.6, info: 0.2 }, base_penalty: 100, adjusted_penalty: 18, rule_penalties: { LONG_FUNCTION: 18 }, explanation: "规模归一化" },
+          total_findings: findings.length,
+          filtered_findings: findings.length,
+          limit,
+          offset,
+          has_more: offset + page.length < findings.length,
+          severity_counts: { error: 0, warning: findings.length, info: 0 },
+          rule_counts: { LONG_FUNCTION: findings.length },
+          rules: [{ id: "LONG_FUNCTION", title: "超长函数", description: "函数或方法过长。", default_severity: "warning" }],
+          findings: page,
+          truncated: offset + page.length < findings.length,
+          elapsed_ms: 4.2,
+        });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("large-quality-repo"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("large-quality-repo"));
+    fireEvent.click(screen.getByRole("button", { name: /质量检测/ }));
+    await waitFor(() => expect(document.querySelectorAll(".quality-finding")).toHaveLength(100));
+    expect(document.querySelector(".quality-toolbar")?.textContent).toContain("当前显示 100 / 150");
+
+    fireEvent.click(screen.getByRole("button", { name: /LOAD_NEXT/ }));
+    await waitFor(() => expect(document.querySelectorAll(".quality-finding")).toHaveLength(150));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/quality?limit=100&offset=100"), undefined);
+
+    expect(screen.getAllByText("中风险").length).toBeGreaterThan(0);
+    expect(screen.getByText("实际 100 / 建议 ≤ 80 · 超出 25%")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("风险等级"), { target: { value: "warning" } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("severity=warning"), undefined));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("offset=0"), undefined);
   });
 
   it("generates a targeted report and saves it from the dedicated report workspace", async () => {
@@ -464,7 +595,10 @@ describe("App", () => {
       if (url.endsWith("/report-generators")) return Response.json([localProvider, ollamaProvider]);
       if (url.endsWith("/report-generators/ollama/test")) return Response.json({ ok: true, message: "Ollama 连接成功", provider: { ...ollamaProvider, available: true, configured: true, model: "local-code-model", connection_status: "success" } });
       if (url.endsWith("/report-generators/ollama")) return Response.json({ ...ollamaProvider, available: true, configured: true, model: "local-code-model" });
-      if (url.endsWith("/report?generator=local")) return Response.json({ generator: "local", generated_at: timestamp, filename: "report-repo.md", content: "# report-repo 代码仓库分析报告\n\n## 2. 智能分析结论\n\n- 项目画像" });
+      if (url.includes("/report?generator=local")) {
+        const mode = new URL(url, "http://localhost").searchParams.get("mode") ?? "summary";
+        return Response.json({ generator: "local", mode, generated_at: timestamp, filename: `report-repo-${mode}.md`, content: `# report-repo 代码仓库分析报告\n\n> 报告模式：${mode}\n\n## 2. 智能分析结论\n\n- 项目画像` });
+      }
       return new Response(null, { status: 404 });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -484,6 +618,7 @@ describe("App", () => {
     expect(screen.getByText("本地智能分析")).toBeTruthy();
     expect(screen.getByText("Ollama 本地模型服务")).toBeTruthy();
     expect(screen.getByLabelText("Markdown 报告预览").textContent).toContain("智能分析结论");
+    expect(screen.getByLabelText("报告范围")).toHaveProperty("value", "summary");
 
     const ollamaCard = screen.getByText("Ollama 本地模型服务").closest("article") as HTMLElement;
     expect(ollamaCard.querySelector(".provider-select-button")).toHaveProperty("disabled", true);
@@ -502,8 +637,14 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /重新生成/ }));
     await waitFor(() => expect(screen.getByLabelText("Markdown 报告预览").textContent).toContain("智能分析结论"));
 
+    fireEvent.change(screen.getByLabelText("报告范围"), { target: { value: "full" } });
+    expect(screen.queryByLabelText("Markdown 报告预览")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /重新生成/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("mode=full"), undefined));
+    expect(screen.getByLabelText("Markdown 报告预览").textContent).toContain("报告模式：full");
+
     fireEvent.click(screen.getByRole("button", { name: /导出 MD/ }));
-    await waitFor(() => expect(showSaveFilePicker).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: "report-repo.md" })));
+    await waitFor(() => expect(showSaveFilePicker).toHaveBeenCalledWith(expect.objectContaining({ suggestedName: "report-repo-full.md" })));
     expect(write).toHaveBeenCalledWith(expect.any(Blob));
     expect(close).toHaveBeenCalled();
     expect(screen.getAllByRole("button", { name: /导出 MD/ })).toHaveLength(1);

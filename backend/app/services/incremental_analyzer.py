@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.analysis import CodeSymbol, ImportRelation, ParseIssue, SearchChunk
 from app.models.project import Project, ProjectFile
+from app.services.analysis_cache import invalidate_project_analysis
 from app.services.code_parser import supports_extension
 from app.services.repository_scanner import ScannedFile, scan_repository
 from app.services.repository_path_service import resolve_project_storage_path
@@ -54,6 +55,7 @@ def incrementally_analyze_project(
             started,
         )
 
+    invalidate_project_analysis(database, project.id)
     deleted_files = [stored_by_path[path] for path in deleted_paths]
     deleted_ids = [item.id for item in deleted_files]
     if deleted_ids:
