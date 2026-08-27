@@ -152,6 +152,33 @@ h1::after {
   animation: terminal-blink 1s steps(1, end) infinite;
 }
 
+.display-scale-control {
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text);
+  background: #070907;
+}
+.display-scale-control button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 0;
+  color: var(--terminal-primary);
+  background: transparent;
+}
+.display-scale-control button::before { content: "["; color: var(--terminal-faint); }
+.display-scale-control button::after { content: "]"; color: var(--terminal-faint); }
+.display-scale-control button:hover:not(:disabled) {
+  color: var(--terminal-bg);
+  background: var(--terminal-primary);
+}
+.display-scale-control button:hover:not(:disabled)::before,
+.display-scale-control button:hover:not(:disabled)::after { color: var(--terminal-bg); }
+.display-scale-control button:disabled { color: var(--terminal-faint); }
+.display-scale-control output { border-color: var(--terminal-border); }
+.display-scale-control output small { color: var(--terminal-faint); text-transform: uppercase; }
+.display-scale-control output strong { color: var(--terminal-primary); text-shadow: 0 0 4px rgba(51, 255, 0, .4); }
+
 .primary-button, .secondary-button, .source-button, .github-input-row button {
   border: 1px solid var(--terminal-primary);
   color: var(--terminal-primary);
@@ -286,6 +313,35 @@ h1::after {
 .inspector-tabs button.active::after { display: none; }
 .inspector-tabs button span { color: var(--terminal-faint); }
 
+.structure-list-summary {
+  justify-content: flex-start;
+  border-bottom: 1px dashed var(--terminal-border);
+  color: var(--terminal-muted);
+  background: #070907;
+  text-transform: uppercase;
+}
+.structure-list-summary .structure-summary-prompt {
+  margin-right: auto;
+  color: var(--terminal-secondary);
+}
+.structure-list-summary strong { color: var(--terminal-primary); text-shadow: 0 0 4px rgba(51, 255, 0, .35); }
+.structure-load-more {
+  border-top: 1px dashed var(--terminal-border);
+  background: var(--terminal-bg);
+}
+.structure-load-more button {
+  border: 1px solid var(--terminal-primary);
+  color: var(--terminal-primary);
+  background: transparent;
+  font-family: inherit;
+  text-transform: uppercase;
+}
+.structure-load-more button::before { content: "[ "; }
+.structure-load-more button::after { content: " ]"; }
+.structure-load-more button span { color: var(--terminal-muted); }
+.structure-load-more button:hover { color: var(--terminal-bg); border-color: var(--terminal-primary); background: var(--terminal-primary); }
+.structure-load-more button:hover span { color: var(--terminal-bg); }
+
 .file-row, .symbol-row, .import-row, .issue-row, .search-result { border-color: var(--terminal-border); }
 .file-row strong, .symbol-row strong, .import-row strong, .issue-row strong, .search-result strong { color: var(--terminal-text); }
 .file-row div span, .file-row small, .symbol-row div span, .import-row div span,
@@ -362,7 +418,7 @@ h1::after {
 .code-viewer-line mark { color: var(--terminal-bg); background: var(--terminal-primary); }
 
 .dependency-stats, .graph-toolbar, .node-inspector, .cycle-list,
-.quality-hero, .severity-summary, .quality-rules article, .quality-toolbar,
+.quality-hero, .severity-summary, .quality-scoring-breakdown, .quality-rules article, .quality-toolbar,
 .quality-findings, .quality-finding {
   border-color: var(--terminal-border);
   color: var(--terminal-text);
@@ -382,32 +438,45 @@ h1::after {
   border-color: var(--terminal-border);
   background: radial-gradient(circle at center, #102010, #070907 70%);
 }
-.dependency-canvas line { stroke: var(--terminal-muted); opacity: .55; }
-.dependency-canvas line.highlighted { stroke: var(--terminal-primary); }
-.dependency-canvas line.cyclic { stroke: var(--terminal-secondary); }
-.dependency-canvas marker path { fill: var(--terminal-muted); }
+.graph-legend { border-color: var(--terminal-border); color: var(--terminal-muted); background: var(--terminal-panel); }
+.graph-legend strong { color: var(--terminal-primary); }
+.graph-legend small { color: var(--terminal-muted); }
+.dependency-edge .edge-line { stroke: var(--terminal-muted); }
+.dependency-edge:hover .edge-line, .dependency-edge:focus .edge-line, .dependency-edge.selected .edge-line { stroke: var(--terminal-primary); }
+.dependency-edge.outgoing .edge-line { stroke: #48d982; }.dependency-edge.incoming .edge-line { stroke: #62a1ff; }.dependency-edge.cyclic .edge-line { stroke: var(--terminal-secondary); }
+.dependency-edge .edge-label { fill: var(--terminal-muted); stroke: var(--terminal-bg); }
+.dependency-edge:hover .edge-label, .dependency-edge:focus .edge-label, .dependency-edge.selected .edge-label { fill: var(--terminal-primary); }
+.dependency-edge.outgoing .edge-label { fill: #48d982; }.dependency-edge.incoming .edge-label { fill: #62a1ff; }.dependency-edge.cyclic .edge-label { fill: var(--terminal-secondary); }
+.dependency-canvas #dependency-arrow path { fill: var(--terminal-muted); }.dependency-canvas #dependency-arrow-outgoing path { fill: #48d982; }.dependency-canvas #dependency-arrow-incoming path { fill: #62a1ff; }.dependency-canvas #dependency-arrow-cyclic path { fill: var(--terminal-secondary); }
 .dependency-node circle { fill: var(--terminal-bg); stroke: var(--terminal-primary); filter: none; }
 .dependency-node:hover circle, .dependency-node.selected circle { fill: var(--terminal-primary); stroke: var(--terminal-primary); }
 .dependency-node.cyclic circle { fill: var(--terminal-bg); stroke: var(--terminal-secondary); }
 .dependency-node.cyclic.selected circle { fill: var(--terminal-secondary); stroke: var(--terminal-secondary); }
 .dependency-node text { fill: var(--terminal-text); stroke: var(--terminal-bg); }
 .node-inspector h3, .neighbor-list strong, .cycle-heading strong { color: var(--terminal-primary); }
-.neighbor-list > div, .cycle-row { border-color: var(--terminal-border); }
+.cycle-row { border-color: var(--terminal-border); }
+.neighbor-list > button { border-color: var(--terminal-border); color: var(--terminal-text); }.neighbor-list > button:hover { background: #102010; }
+.neighbor-group h4, .neighbor-list strong, .edge-lines strong { color: var(--terminal-primary); }
+.neighbor-group h4 span, .neighbor-list small, .edge-lines span { color: var(--terminal-muted); }
+.edge-direction-detail code, .edge-metrics, .edge-lines { border-color: var(--terminal-border); color: var(--terminal-text); background: var(--terminal-bg); }
+.edge-direction-detail span, .edge-metrics strong { color: var(--terminal-primary); }.edge-metrics div { border-color: var(--terminal-border); }.edge-metrics span { color: var(--terminal-muted); }
+.edge-inspector-back { border-color: var(--terminal-primary); color: var(--terminal-primary); background: transparent; }.edge-inspector-back:hover { color: var(--terminal-bg); background: var(--terminal-primary); }
 .cycle-heading { background: var(--terminal-panel); }
-.neighbor-list > div > span { color: var(--terminal-primary); }
 .neighbor-list small, .cycle-heading span, .cycle-row span { color: var(--terminal-muted); }
 .cycle-row strong { color: var(--terminal-secondary); }
 
-.quality-score, .quality-score.grade-c, .quality-score.grade-d, .quality-score.grade-f {
-  border: 1px solid var(--terminal-primary);
-  color: var(--terminal-primary);
+.quality-score {
+  border-color: var(--quality-grade-color);
+  color: var(--quality-grade-color);
   background: var(--terminal-bg);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--quality-grade-color) 18%, transparent);
 }
-.quality-score strong { color: var(--terminal-primary); }
+.quality-score strong { color: var(--quality-grade-color); }
 .quality-score span { color: var(--terminal-muted); }
-.quality-score em, .quality-score.grade-c em, .quality-score.grade-d em, .quality-score.grade-f em {
+.quality-score em {
   color: var(--terminal-bg);
-  background: var(--terminal-primary);
+  background: var(--quality-grade-color);
+  box-shadow: 0 0 0 3px var(--terminal-panel);
 }
 .quality-overview h3, .quality-rules strong, .quality-toolbar > strong,
 .finding-main header strong { color: var(--terminal-primary); }
@@ -416,6 +485,10 @@ h1::after {
 .severity-summary strong, .quality-rules article > span { color: var(--terminal-primary); }
 .severity-summary .error strong { color: var(--terminal-error); }
 .severity-summary .warning strong { color: var(--terminal-secondary); }
+.quality-scoring-breakdown > div { border-color: var(--terminal-primary); background: var(--terminal-bg); }
+.scoring-description strong, .scoring-metric strong { color: var(--terminal-primary); }
+.scoring-description > span, .scoring-metric span, .scoring-metric small, .scoring-weights > span { color: var(--terminal-muted); }
+.scoring-weights code { border-color: var(--terminal-border); color: var(--terminal-primary); background: #071007; }
 .quality-toolbar select {
   border-color: var(--terminal-border);
   color: var(--terminal-primary);
@@ -504,6 +577,21 @@ h1::after {
 }
 .source-pane h3 { color: var(--terminal-primary); }
 .source-pane p, .github-pane small { color: var(--terminal-muted); }
+.folder-preview-heading > span { color: var(--terminal-bg); background: var(--terminal-primary); }
+.folder-preview-stats { border-color: var(--terminal-border); }
+.folder-preview-stats > div, .folder-preview-stats .accepted { border-color: var(--terminal-border); background: var(--terminal-panel); }
+.folder-preview-stats span, .folder-preview-stats small, .folder-preview-breakdown { color: var(--terminal-muted); }
+.folder-preview-stats strong, .folder-preview-stats .accepted strong { color: var(--terminal-primary); }
+.folder-preview-stats .ignored strong { color: var(--terminal-secondary); }
+.folder-preview-breakdown { border: 1px solid var(--terminal-border); background: transparent; }
+.folder-scanning > strong { color: var(--terminal-secondary); }
+.folder-skipped-names, .folder-picker-warning { color: var(--terminal-secondary); }
+.folder-drop-zone { border-color: var(--terminal-border); color: var(--terminal-muted); background: transparent; }
+.folder-drop-zone > span, .folder-drop-zone strong { color: var(--terminal-primary); }
+.folder-drop-zone small { color: var(--terminal-muted); }
+.folder-drop-zone.active { border-color: var(--terminal-secondary); background: color-mix(in srgb, var(--terminal-secondary) 8%, transparent); }
+.folder-choice-divider { color: var(--terminal-muted); }
+.folder-choice-divider::before, .folder-choice-divider::after { background: var(--terminal-border); }
 .github-pane label { color: var(--terminal-text); }
 .modal-footer { border-top-color: var(--terminal-border); color: var(--terminal-muted); background: var(--terminal-panel); }
 .modal-footer strong { color: var(--terminal-primary); }

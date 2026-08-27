@@ -13,14 +13,18 @@ from app.models.analysis import AnalysisJob
 from app.models.project import Project
 from app.schemas.project import (
     AnalysisJobResponse,
+    CodeSymbolPageResponse,
     CodeSearchResponse,
     DependencyGraphResponse,
     QualityReportResponse,
     GitHubImportRequest,
     IncrementalAnalysisResponse,
+    ImportRelationPageResponse,
+    ParseIssuePageResponse,
     ProjectDetail,
     ProjectFileContentResponse,
     ProjectStructureResponse,
+    ProjectStructureSummaryResponse,
     ProjectSummary,
     ReportProviderConfigurationRequest,
 )
@@ -56,7 +60,14 @@ from app.services.report_provider_service import (
 from app.services.job_service import run_github_job, run_repository_job
 from app.services.incremental_analyzer import incrementally_analyze_project
 from app.services.search_service import search_project
-from app.services.structure_analyzer import analyze_project_structure, load_project_structure
+from app.services.structure_analyzer import (
+    analyze_project_structure,
+    load_project_imports,
+    load_project_issues,
+    load_project_structure,
+    load_project_structure_summary,
+    load_project_symbols,
+)
 
 router = APIRouter()
 
@@ -291,6 +302,68 @@ def get_project_structure(
     return load_project_structure(database, project_id)
 
 
+@router.get(
+    "/{project_id}/structure/summary",
+    response_model=ProjectStructureSummaryResponse,
+)
+def get_project_structure_summary(
+    project_id: int, database: Session = Depends(get_db)
+) -> dict[str, int]:
+    _ensure_project_exists(database, project_id)
+    return load_project_structure_summary(database, project_id)
+
+
+@router.get("/{project_id}/symbols", response_model=CodeSymbolPageResponse)
+def get_project_symbols(
+    project_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=150, ge=1, le=500),
+    q: str | None = Query(default=None, max_length=200),
+    kind: str | None = Query(default=None, pattern="^(class|interface|function|method)$"),
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_project_exists(database, project_id)
+    return load_project_symbols(
+        database,
+        project_id,
+        offset=offset,
+        limit=limit,
+        query=q.strip() if q and q.strip() else None,
+        kind=kind,
+    )
+
+
+@router.get("/{project_id}/imports", response_model=ImportRelationPageResponse)
+def get_project_imports(
+    project_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=150, ge=1, le=500),
+    q: str | None = Query(default=None, max_length=200),
+    scope: str = Query(default="all", pattern="^(all|internal|external)$"),
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_project_exists(database, project_id)
+    return load_project_imports(
+        database,
+        project_id,
+        offset=offset,
+        limit=limit,
+        query=q.strip() if q and q.strip() else None,
+        scope=scope,
+    )
+
+
+@router.get("/{project_id}/issues", response_model=ParseIssuePageResponse)
+def get_project_issues(
+    project_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=150, ge=1, le=500),
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_project_exists(database, project_id)
+    return load_project_issues(database, project_id, offset=offset, limit=limit)
+
+
 @router.get("/{project_id}/search", response_model=CodeSearchResponse)
 def search_project_code(
     project_id: int,
@@ -380,7 +453,7 @@ def generate_project_report(
     }
 
 
-@router.post("/{project_id}/reanalyze", response_model=ProjectStructureResponse)
+@router.post("/{project_id}/reanalyze", response_model=ProjectStructureSummaryResponse)
 def reanalyze_project(
     project_id: int, database: Session = Depends(get_db)
 ) -> dict[str, object]:
@@ -394,7 +467,7 @@ def reanalyze_project(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
     analyze_project_structure(database, project)
     database.commit()
-    return load_project_structure(database, project_id)
+    return load_project_structure_summary(database, project_id)
 
 
 @router.post(
@@ -491,3 +564,8 @@ def _create_job(database: Session, source_type: str, source_label: str) -> Analy
 
 def _session_factory(database: Session) -> sessionmaker[Session]:
     return sessionmaker(bind=database.get_bind(), autoflush=False, expire_on_commit=False)
+
+
+def _ensure_project_exists(database: Session, project_id: int) -> None:
+    if database.get(Project, project_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")

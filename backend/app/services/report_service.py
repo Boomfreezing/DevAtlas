@@ -5,12 +5,18 @@ from sqlalchemy.orm import Session
 from app.models.project import Project
 from app.services.dependency_graph_service import load_dependency_graph
 from app.services.quality_service import build_quality_report
-from app.services.structure_analyzer import load_project_structure
+from app.services.structure_analyzer import (
+    load_project_issues,
+    load_project_structure_summary,
+    load_project_symbols,
+)
 
 
 def build_markdown_report(database: Session, project: Project) -> str:
     """Build a complete local report without an LLM or external network call."""
-    structure = load_project_structure(database, project.id)
+    structure = load_project_structure_summary(database, project.id)
+    symbol_page = load_project_symbols(database, project.id, offset=0, limit=50)
+    issue_page = load_project_issues(database, project.id, offset=0, limit=100)
     graph = load_dependency_graph(database, project.id, limit=100)
     quality = build_quality_report(database, project.id, limit=1_000)
     generated_at = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
@@ -50,16 +56,18 @@ def build_markdown_report(database: Session, project: Project) -> str:
         "### 主要符号",
         "",
     ]
-    symbols = list(structure["symbols"])
+    symbols = list(symbol_page["items"])
     if symbols:
         lines.extend(["| 类型 | 符号 | 文件 | 行号 |", "| --- | --- | --- | ---: |"])
-        for symbol in symbols[:50]:
+        for symbol in symbols:
             lines.append(
                 f"| {_cell(symbol['kind'])} | `{_code(symbol['qualified_name'])}` | "
                 f"`{_code(symbol['file_path'])}` | {symbol['start_line']}–{symbol['end_line']} |"
             )
-        if len(symbols) > 50:
-            lines.append(f"\n> 仅展示前 50 个符号，完整分析共 {len(symbols)} 个。")
+        if symbol_page["has_more"]:
+            lines.append(
+                f"\n> 仅展示前 50 个符号，完整分析共 {structure['symbol_count']} 个。"
+            )
     else:
         lines.append("当前项目未识别到类、接口、函数或方法。")
 
@@ -98,12 +106,18 @@ def build_markdown_report(database: Session, project: Project) -> str:
             lines.append(f"{index}. " + " → ".join([*paths, paths[0]]))
 
     severity_counts = quality["severity_counts"]
+    scoring = quality["scoring"]
     lines.extend(
         [
             "",
             "## 5. 代码质量",
             "",
             f"**质量评分：{quality['score']} / 100（等级 {quality['grade']}）**",
+            "",
+            (
+                f"> 评分采用项目规模归一化：规模系数 ×{scoring['size_factor']}，"
+                f"基础扣分 {scoring['base_penalty']} 调整为 {scoring['adjusted_penalty']} 分。"
+            ),
             "",
             "| 严重级别 | 数量 |",
             "| --- | ---: |",
@@ -130,11 +144,13 @@ def build_markdown_report(database: Session, project: Project) -> str:
     else:
         lines.append("未发现当前规则集命中的质量问题。")
 
-    issues = list(structure["issues"])
+    issues = list(issue_page["items"])
     lines.extend(["", "## 6. 解析问题", ""])
     if issues:
         for issue in issues:
             lines.append(f"- `{_code(issue.file_path)}`：{_text(issue.message)}")
+        if issue_page["has_more"]:
+            lines.append(f"\n> 仅展示前 100 个解析问题，完整分析共 {structure['issue_count']} 个。")
     else:
         lines.append("未记录解析问题。")
 

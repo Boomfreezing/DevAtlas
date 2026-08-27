@@ -10,7 +10,10 @@ IGNORED_DIRECTORIES = {
     ".git",
     ".idea",
     ".mypy_cache",
+    ".next",
+    ".nuxt",
     ".pytest_cache",
+    ".ruff_cache",
     ".venv",
     ".vscode",
     "__pycache__",
@@ -20,6 +23,7 @@ IGNORED_DIRECTORIES = {
     "node_modules",
     "target",
     "vendor",
+    "venv",
 }
 
 LANGUAGE_BY_EXTENSION = {

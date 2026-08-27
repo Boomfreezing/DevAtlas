@@ -1,3 +1,4 @@
+import math
 import time
 from collections import Counter, defaultdict
 
@@ -14,6 +15,10 @@ LARGE_CLASS_LINES = 500
 LARGE_FILE_LINES = 1_000
 TOO_MANY_IMPORTS = 25
 HIGH_FAN_OUT = 10
+QUALITY_SCORING_MODEL = "size_normalized_v2"
+BASE_SEVERITY_WEIGHTS = {"error": 8.0, "warning": 3.0, "info": 1.0}
+REFERENCE_PROJECT_SIZE = {"files": 50, "code_lines": 10_000, "symbols": 500}
+MAX_RULE_PENALTY = 20.0
 
 QUALITY_RULES = [
     {
@@ -214,10 +219,16 @@ def build_quality_report(
     )
     severity_counts = Counter(str(item["severity"]) for item in findings)
     rule_counts = Counter(str(item["rule_id"]) for item in findings)
-    score = _quality_score(findings)
+    score, scoring = _quality_score(
+        findings,
+        file_count=len(files),
+        code_line_count=sum(item.line_count for item in files),
+        symbol_count=len(symbols),
+    )
     return {
         "score": score,
         "grade": _grade(score),
+        "scoring": scoring,
         "total_findings": len(findings),
         "severity_counts": {
             "error": severity_counts["error"],
@@ -264,14 +275,77 @@ def _severity(metric: int, threshold: int, error_multiplier: int) -> str:
     return "error" if metric > threshold * error_multiplier else "warning"
 
 
-def _quality_score(findings: list[dict[str, object]]) -> int:
-    penalties_by_rule: dict[str, int] = defaultdict(int)
-    weights = {"error": 8, "warning": 3, "info": 1}
+def _quality_score(
+    findings: list[dict[str, object]],
+    *,
+    file_count: int,
+    code_line_count: int,
+    symbol_count: int,
+) -> tuple[int, dict[str, object]]:
+    """Score findings with lower per-item weights as the analyzed project grows."""
+    scale_units = max(
+        1.0,
+        file_count / REFERENCE_PROJECT_SIZE["files"],
+        code_line_count / REFERENCE_PROJECT_SIZE["code_lines"],
+        symbol_count / REFERENCE_PROJECT_SIZE["symbols"],
+    )
+    size_factor = 1 / scale_units
+    effective_weights = {
+        severity: weight * size_factor
+        for severity, weight in BASE_SEVERITY_WEIGHTS.items()
+    }
+    base_penalties_by_rule: dict[str, float] = defaultdict(float)
+    adjusted_penalties_by_rule: dict[str, float] = defaultdict(float)
     for finding in findings:
         rule_id = str(finding["rule_id"])
-        penalties_by_rule[rule_id] += weights[str(finding["severity"])]
-    penalty = sum(min(20, value) for value in penalties_by_rule.values())
-    return max(0, 100 - penalty)
+        severity = str(finding["severity"])
+        base_penalties_by_rule[rule_id] += BASE_SEVERITY_WEIGHTS[severity]
+        adjusted_penalties_by_rule[rule_id] += effective_weights[severity]
+
+    base_penalty = sum(
+        min(MAX_RULE_PENALTY, value) for value in base_penalties_by_rule.values()
+    )
+    adjusted_rule_penalties = {
+        rule_id: min(MAX_RULE_PENALTY, value)
+        for rule_id, value in adjusted_penalties_by_rule.items()
+    }
+    adjusted_penalty = min(
+        100,
+        math.ceil(sum(adjusted_rule_penalties.values())) if findings else 0,
+    )
+    score = max(0, 100 - adjusted_penalty)
+    scoring = {
+        "model": QUALITY_SCORING_MODEL,
+        "size_factor": round(size_factor, 3),
+        "scale_units": round(scale_units, 2),
+        "project_size": {
+            "file_count": file_count,
+            "code_line_count": code_line_count,
+            "symbol_count": symbol_count,
+        },
+        "reference_size": {
+            "file_count": REFERENCE_PROJECT_SIZE["files"],
+            "code_line_count": REFERENCE_PROJECT_SIZE["code_lines"],
+            "symbol_count": REFERENCE_PROJECT_SIZE["symbols"],
+        },
+        "base_weights": BASE_SEVERITY_WEIGHTS,
+        "effective_weights": {
+            severity: round(weight, 2)
+            for severity, weight in effective_weights.items()
+        },
+        "base_penalty": round(base_penalty, 2),
+        "adjusted_penalty": adjusted_penalty,
+        "rule_penalties": {
+            rule_id: round(value, 2)
+            for rule_id, value in adjusted_rule_penalties.items()
+        },
+        "explanation": (
+            "错误、警告和提示的基础权重分别为 8、3、1；项目超过参考规模后，"
+            "单项权重按规模单位线性递减，每条规则最多扣 20 分；只要存在问题，"
+            "最终至少扣 1 分。"
+        ),
+    }
+    return score, scoring
 
 
 def _grade(score: int) -> str:

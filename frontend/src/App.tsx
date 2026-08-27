@@ -3,29 +3,41 @@ import type { FormEvent } from "react";
 
 import CodeViewer from "./CodeViewer";
 import {
+  DEFAULT_IMPORT_LIMITS,
   configureReportGenerator,
   deleteProject,
   formatOperationError,
+  formatUploadSize,
   generateProjectReport,
   getAnalysisJob,
   getDependencyGraph,
+  getImportLimits,
   getQualityReport,
   getProject,
-  getProjectStructure,
+  getProjectImports,
+  getProjectIssues,
+  getProjectStructureSummary,
+  getProjectSymbols,
   getReportGenerators,
   importGitHubProject,
   incrementalReanalyzeProject,
   listProjects,
+  prepareFolderUpload,
   reanalyzeProject,
   searchProject,
   testReportGenerator,
   uploadFolder,
   uploadProject,
 } from "./api";
-import type { AnalysisJob, CodeSearchResponse, CodeSearchResult, DependencyGraph, DependencyNode, GeneratedReport, IncrementalAnalysisResult, ParseIssue, ProjectDetail, ProjectFile, ProjectStructure, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult } from "./types";
+import type { FolderUploadPreparation } from "./api";
+import { formatFolderScanProgress, pickFolderSafely, scanDroppedFolderSafely, supportsSafeFolderDrop, supportsSafeFolderPicker } from "./safeFolderPicker";
+import type { FolderScanProgress } from "./safeFolderPicker";
+import type { AnalysisJob, CodeSearchResponse, CodeSearchResult, CodeSymbol, DependencyGraph, DependencyNode, GeneratedReport, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectDetail, ProjectFile, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, StructurePage } from "./types";
 
 type ActiveSection = "projects" | "search" | "graph" | "quality" | "report";
 type ProjectTab = "files" | "symbols" | "imports" | "issues";
+type DisplayScale = 90 | 100 | 110 | 120;
+type LoadedStructurePage<T> = StructurePage<T> & { projectId: number };
 
 interface NavigationState {
   section: ActiveSection;
@@ -50,6 +62,17 @@ const PROJECT_TAB_LABELS: Record<ProjectTab, string> = {
 
 const ACTIVE_SECTIONS: ActiveSection[] = ["projects", "search", "graph", "quality", "report"];
 const PROJECT_TABS: ProjectTab[] = ["files", "symbols", "imports", "issues"];
+const DISPLAY_SCALES: DisplayScale[] = [90, 100, 110, 120];
+const STRUCTURE_ROWS_INCREMENT = 150;
+
+function readDisplayScale(): DisplayScale {
+  try {
+    const stored = Number(window.localStorage.getItem("devatlas-display-scale"));
+    return DISPLAY_SCALES.includes(stored as DisplayScale) ? stored as DisplayScale : 100;
+  } catch {
+    return 100;
+  }
+}
 
 function readNavigationState(): NavigationState {
   const params = new URLSearchParams(window.location.search);
@@ -138,10 +161,15 @@ async function saveMarkdownFile(report: GeneratedReport): Promise<void> {
 
 function App() {
   const initialNavigation = useRef(readNavigationState());
+  const [displayScale, setDisplayScale] = useState<DisplayScale>(readDisplayScale);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [selected, setSelected] = useState<ProjectDetail | null>(null);
-  const [structure, setStructure] = useState<ProjectStructure | null>(null);
+  const [structure, setStructure] = useState<ProjectStructureSummary | null>(null);
   const [structureLoading, setStructureLoading] = useState(false);
+  const [symbolPage, setSymbolPage] = useState<LoadedStructurePage<CodeSymbol> | null>(null);
+  const [importPage, setImportPage] = useState<LoadedStructurePage<ImportRelation> | null>(null);
+  const [issuePage, setIssuePage] = useState<LoadedStructurePage<ParseIssue> | null>(null);
+  const [structureRowsLoading, setStructureRowsLoading] = useState(false);
   const [activeSection, setActiveSection] = useState<ActiveSection>(initialNavigation.current.section);
   const [projectTab, setProjectTab] = useState<ProjectTab>(initialNavigation.current.tab);
   const [searchQuery, setSearchQuery] = useState("");
@@ -168,12 +196,19 @@ function App() {
   const [importOpen, setImportOpen] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [importMode, setImportMode] = useState<"zip" | "folder" | "github">("zip");
+  const [importLimits, setImportLimits] = useState<ImportLimits>(DEFAULT_IMPORT_LIMITS);
+  const [folderSelection, setFolderSelection] = useState<{ files: File[]; preview: FolderUploadPreparation } | null>(null);
+  const [folderScanning, setFolderScanning] = useState(false);
+  const [folderScanProgress, setFolderScanProgress] = useState<FolderScanProgress | null>(null);
+  const [folderDropActive, setFolderDropActive] = useState(false);
   const [githubUrl, setGithubUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const folderScanAbortRef = useRef<AbortController | null>(null);
   const selectionRequestRef = useRef(0);
+  const structurePageRequestRef = useRef(0);
   const initialProjectRestoredRef = useRef(false);
 
   const refreshProjects = useCallback(async () => {
@@ -192,8 +227,86 @@ function App() {
   }, [refreshProjects]);
 
   useEffect(() => {
+    void getImportLimits().then(setImportLimits).catch(() => setImportLimits(DEFAULT_IMPORT_LIMITS));
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.displayScale = String(displayScale);
+    try {
+      window.localStorage.setItem("devatlas-display-scale", String(displayScale));
+    } catch {
+      // The visual setting still works when storage is disabled.
+    }
+  }, [displayScale]);
+
+  const adjustDisplayScale = (direction: -1 | 1) => {
+    const currentIndex = DISPLAY_SCALES.indexOf(displayScale);
+    const nextIndex = Math.min(DISPLAY_SCALES.length - 1, Math.max(0, currentIndex + direction));
+    setDisplayScale(DISPLAY_SCALES[nextIndex]);
+  };
+
+  useEffect(() => {
     setCodeViewerResult(null);
   }, [selected?.id]);
+
+  function clearStructurePages() {
+    structurePageRequestRef.current += 1;
+    setSymbolPage(null);
+    setImportPage(null);
+    setIssuePage(null);
+    setStructureRowsLoading(false);
+  }
+
+  async function loadStructurePage(tab: ProjectTab, reset: boolean, projectId = selected?.id) {
+    if (!projectId || tab === "files") return;
+    const currentPage = tab === "symbols" ? symbolPage : tab === "imports" ? importPage : issuePage;
+    const offset = reset || currentPage?.projectId !== projectId ? 0 : currentPage.items.length;
+    const requestId = ++structurePageRequestRef.current;
+    const selectionId = selectionRequestRef.current;
+    setStructureRowsLoading(true);
+    setWorkspaceError(null);
+    try {
+      const nextPage = tab === "symbols"
+        ? await getProjectSymbols(projectId, STRUCTURE_ROWS_INCREMENT, offset)
+        : tab === "imports"
+          ? await getProjectImports(projectId, STRUCTURE_ROWS_INCREMENT, offset)
+          : await getProjectIssues(projectId, STRUCTURE_ROWS_INCREMENT, offset);
+      if (structurePageRequestRef.current !== requestId || selectionRequestRef.current !== selectionId) return;
+      const loadedPage = {
+        ...nextPage,
+        offset: 0,
+        items: reset || currentPage?.projectId !== projectId
+          ? nextPage.items
+          : [...currentPage.items, ...nextPage.items],
+        projectId,
+      };
+      loadedPage.has_more = loadedPage.items.length < loadedPage.total;
+      loadedPage.limit = loadedPage.items.length;
+      if (tab === "symbols") setSymbolPage(loadedPage as LoadedStructurePage<CodeSymbol>);
+      else if (tab === "imports") setImportPage(loadedPage as LoadedStructurePage<ImportRelation>);
+      else setIssuePage(loadedPage as LoadedStructurePage<ParseIssue>);
+    } catch (requestError) {
+      if (structurePageRequestRef.current === requestId && selectionRequestRef.current === selectionId) {
+        setWorkspaceError(requestError instanceof Error ? requestError.message : "无法加载结构列表");
+      }
+    } finally {
+      if (structurePageRequestRef.current === requestId) setStructureRowsLoading(false);
+    }
+  }
+
+  const activeStructurePageProjectId = projectTab === "symbols"
+    ? symbolPage?.projectId
+    : projectTab === "imports"
+      ? importPage?.projectId
+      : projectTab === "issues"
+        ? issuePage?.projectId
+        : undefined;
+
+  useEffect(() => {
+    if (!selected || activeSection !== "projects" || projectTab === "files") return;
+    if (activeStructurePageProjectId === selected.id) return;
+    void loadStructurePage(projectTab, true, selected.id);
+  }, [selected?.id, activeSection, projectTab, activeStructurePageProjectId]);
 
   const stats = useMemo(
     () => ({
@@ -215,7 +328,7 @@ function App() {
     setUploading(true);
     setError(null);
     try {
-      const job = await uploadProject(file);
+      const job = await uploadProject(file, importLimits);
       await monitorJob(job);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "上传失败");
@@ -226,21 +339,79 @@ function App() {
     }
   }
 
-  async function handleFolderUpload(fileList: FileList | null) {
+  function handleFolderSelection(fileList: FileList | null) {
     const files = Array.from(fileList ?? []);
     if (files.length === 0) return;
 
+    setError(null);
+    try {
+      setFolderSelection({ files, preview: prepareFolderUpload(files, importLimits) });
+    } catch (requestError) {
+      setFolderSelection(null);
+      setError(requestError instanceof Error ? requestError.message : "文件夹预检失败");
+    } finally {
+      if (folderInputRef.current) folderInputRef.current.value = "";
+    }
+  }
+
+  async function runFolderScan(
+    scan: (options: { signal: AbortSignal; onProgress: (progress: FolderScanProgress) => void }) => Promise<{ files: File[]; preview: FolderUploadPreparation }>,
+  ) {
+    const controller = new AbortController();
+    folderScanAbortRef.current = controller;
+    setFolderScanning(true);
+    setFolderScanProgress(null);
+    setFolderSelection(null);
+    setError(null);
+    try {
+      setFolderSelection(await scan({
+        signal: controller.signal,
+        onProgress: setFolderScanProgress,
+      }));
+    } catch (requestError) {
+      if (!(requestError instanceof DOMException && requestError.name === "AbortError")) {
+        setError(requestError instanceof Error ? requestError.message : "安全扫描文件夹失败");
+      }
+    } finally {
+      if (folderScanAbortRef.current === controller) folderScanAbortRef.current = null;
+      setFolderScanning(false);
+    }
+  }
+
+  async function chooseFolderSafely() {
+    if (!supportsSafeFolderPicker()) {
+      setError("当前内置浏览器不支持点击式安全目录选择。请从系统文件管理器把项目文件夹拖入虚线区域，或改用 ZIP 导入。");
+      return;
+    }
+    await runFolderScan((options) => pickFolderSafely(importLimits, options));
+  }
+
+  async function handleFolderDrop(dataTransfer: DataTransfer) {
+    setFolderDropActive(false);
+    await runFolderScan((options) => scanDroppedFolderSafely(dataTransfer, importLimits, options));
+  }
+
+  function cancelFolderScan() {
+    folderScanAbortRef.current?.abort();
+    folderScanAbortRef.current = null;
+    setFolderScanning(false);
+    setFolderScanProgress(null);
+    setFolderDropActive(false);
+  }
+
+  async function confirmFolderUpload() {
+    if (!folderSelection) return;
     setUploading(true);
     setError(null);
     try {
-      const job = await uploadFolder(files);
+      const job = await uploadFolder(folderSelection.files, importLimits);
       await monitorJob(job);
+      setFolderSelection(null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "文件夹导入失败");
     } finally {
       setUploading(false);
       setActiveJob(null);
-      if (folderInputRef.current) folderInputRef.current.value = "";
     }
   }
 
@@ -265,6 +436,7 @@ function App() {
   }
 
   async function finishImport(created: ProjectDetail) {
+    selectionRequestRef.current += 1;
     await refreshProjects();
     setSelected(created);
     setActiveSection("projects");
@@ -278,9 +450,10 @@ function App() {
     setQualityReport(null);
     setGeneratedReport(null);
     setIncrementalResult(null);
+    clearStructurePages();
     setStructureLoading(true);
     try {
-      setStructure(await getProjectStructure(created.id));
+      setStructure(await getProjectStructureSummary(created.id));
     } catch (structureError) {
       setWorkspaceError(structureError instanceof Error ? structureError.message : "无法加载结构分析");
     } finally {
@@ -328,6 +501,7 @@ function App() {
       const nextStructure = await reanalyzeProject(projectId);
       if (selectionRequestRef.current !== requestId) return;
       setStructure(nextStructure);
+      clearStructurePages();
       setSearchResponse(null);
       setIncrementalResult(null);
       if (sectionAtAnalysis === "graph") {
@@ -386,9 +560,10 @@ function App() {
         setDependencyGraph(null);
         setQualityReport(null);
         setGeneratedReport(null);
-        const nextStructure = await getProjectStructure(projectId);
+        const nextStructure = await getProjectStructureSummary(projectId);
         if (selectionRequestRef.current !== requestId) return;
         setStructure(nextStructure);
+        clearStructurePages();
         setSearchResponse(null);
         if (sectionAtAnalysis === "graph") {
           const graph = await getDependencyGraph(projectId);
@@ -427,7 +602,9 @@ function App() {
   }
 
   function openImporter(mode: "zip" | "folder" | "github" = "zip") {
+    cancelFolderScan();
     setImportMode(mode);
+    setFolderSelection(null);
     setError(null);
     setProjectPickerOpen(false);
     setImportOpen(true);
@@ -452,6 +629,7 @@ function App() {
       setQualityReport(null);
       setGeneratedReport(null);
       setIncrementalResult(null);
+      clearStructurePages();
       setStructureLoading(true);
       setGraphLoading(sectionAtSelection === "graph");
       setQualityLoading(sectionAtSelection === "quality");
@@ -464,7 +642,7 @@ function App() {
       }
       setStructure(null);
       try {
-        const projectStructure = await getProjectStructure(project.id);
+        const projectStructure = await getProjectStructureSummary(project.id);
         if (selectionRequestRef.current !== requestId) return;
         setStructure(projectStructure);
       } catch (structureError) {
@@ -523,6 +701,7 @@ function App() {
         selectionRequestRef.current += 1;
         setSelected(null);
         setStructure(null);
+        clearStructurePages();
         setSearchResponse(null);
         setDependencyGraph(null);
         setQualityReport(null);
@@ -705,6 +884,7 @@ function App() {
     selectionRequestRef.current += 1;
     setSelected(null);
     setStructure(null);
+    clearStructurePages();
     setSearchQuery("");
     setSearchResponse(null);
     setDependencyGraph(null);
@@ -787,6 +967,17 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [projects, selected?.id, dependencyGraph, qualityReport, generatedReport]);
 
+  const visibleSymbolPage = symbolPage?.projectId === selected?.id ? symbolPage : null;
+  const visibleImportPage = importPage?.projectId === selected?.id ? importPage : null;
+  const visibleIssuePage = issuePage?.projectId === selected?.id ? issuePage : null;
+  const activeStructurePage = projectTab === "symbols"
+    ? visibleSymbolPage
+    : projectTab === "imports"
+      ? visibleImportPage
+      : projectTab === "issues"
+        ? visibleIssuePage
+        : null;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -865,6 +1056,23 @@ function App() {
             <h1>{selected?.name ?? "项目管理"}</h1>
           </div>
           <div className="topbar-actions">
+            <div className="display-scale-control" aria-label="页面显示比例">
+              <button
+                type="button"
+                aria-label="缩小页面字号"
+                disabled={displayScale === DISPLAY_SCALES[0]}
+                onClick={() => adjustDisplayScale(-1)}
+              ><span aria-hidden="true">−</span></button>
+              <output aria-live="polite" title="仅调整 DevAtlas 页面，不受浏览器独立缩放设置影响">
+                <small>$ FONT</small><strong>{displayScale}%</strong>
+              </output>
+              <button
+                type="button"
+                aria-label="放大页面字号"
+                disabled={displayScale === DISPLAY_SCALES[DISPLAY_SCALES.length - 1]}
+                onClick={() => adjustDisplayScale(1)}
+              ><span aria-hidden="true">＋</span></button>
+            </div>
             <button className="primary-button" onClick={() => openImporter()} disabled={uploading}>
               <span>＋</span>{uploading ? "正在分析…" : "导入仓库"}
             </button>
@@ -902,7 +1110,7 @@ function App() {
           <div className="upload-icon">&gt;&gt;</div>
           <div>
             <strong>{uploading ? "$ import --scan --wait" : "$ import repository --source"}</strong>
-            <p>支持 ZIP、本地文件夹和公开 GitHub 仓库 · 最大 50 MB</p>
+            <p>支持 ZIP、本地文件夹和公开 GitHub 仓库 · 最大 {importLimits.max_upload_mb} MB</p>
           </div>
           <span className="local-badge">[LOCAL_ONLY]</span>
         </section>
@@ -980,10 +1188,10 @@ function App() {
                 </div>
                 {incrementalResult && <IncrementalSummary result={incrementalResult} />}
                 <div className="inspector-tabs">
-                  <button className={projectTab === "files" ? "active" : ""} onClick={() => navigateToProjectTab("files")}>文件 <span>{selected.files.length}</span></button>
-                  <button className={projectTab === "symbols" ? "active" : ""} onClick={() => navigateToProjectTab("symbols")}>符号 <span>{formatAnalysisValue(structure?.symbol_count, structureLoading)}</span></button>
-                  <button className={projectTab === "imports" ? "active" : ""} onClick={() => navigateToProjectTab("imports")}>依赖 <span>{formatAnalysisValue(structure?.import_count, structureLoading)}</span></button>
-                  <button className={projectTab === "issues" ? "active" : ""} onClick={() => navigateToProjectTab("issues")}>问题 <span>{formatAnalysisValue(structure?.issue_count, structureLoading)}</span></button>
+                  <button className={projectTab === "files" ? "active" : ""} onClick={() => navigateToProjectTab("files")}>文件 <span title="文件总数">{selected.files.length}</span></button>
+                  <button className={projectTab === "symbols" ? "active" : ""} onClick={() => navigateToProjectTab("symbols")}>符号 <span title="符号总数">{formatAnalysisValue(structure?.symbol_count, structureLoading)}</span></button>
+                  <button className={projectTab === "imports" ? "active" : ""} onClick={() => navigateToProjectTab("imports")}>依赖 <span title="导入关系总数">{formatAnalysisValue(structure?.import_count, structureLoading)}</span></button>
+                  <button className={projectTab === "issues" ? "active" : ""} onClick={() => navigateToProjectTab("issues")}>问题 <span title="解析问题总数">{formatAnalysisValue(structure?.issue_count, structureLoading)}</span></button>
                 </div>
                 </>}
                 <div className={`file-list structure-list ${activeSection !== "projects" ? "feature-content" : ""}`}>
@@ -1043,29 +1251,40 @@ function App() {
                     </div>
                   )}
                   {activeSection === "projects" && projectTab === "files" && <FileTree key={selected.id} files={selected.files} />}
-                  {activeSection === "projects" && projectTab === "symbols" && structure?.symbols.slice(0, 150).map((symbol) => (
+                  {activeSection === "projects" && projectTab !== "files" && activeStructurePage && (
+                    <div className="structure-list-summary">
+                      <span className="structure-summary-prompt">&gt; list --buffer</span>
+                      <span>shown</span>
+                      <strong>{activeStructurePage.items.length}</strong>
+                      <span>/ total {formatNumber(activeStructurePage.total)} rows</span>
+                    </div>
+                  )}
+                  {activeSection === "projects" && projectTab === "symbols" && visibleSymbolPage?.items.map((symbol) => (
                     <div className="symbol-row" key={symbol.id}>
                       <span className={`kind-badge kind-${symbol.kind}`}>{symbol.kind.slice(0, 2).toUpperCase()}</span>
                       <div><strong>{symbol.qualified_name}</strong><span>{symbol.file_path}</span></div>
                       <small>第 {symbol.start_line}–{symbol.end_line} 行</small>
                     </div>
                   ))}
-                  {activeSection === "projects" && projectTab === "imports" && structure?.imports.slice(0, 150).map((relation) => (
+                  {activeSection === "projects" && projectTab === "imports" && visibleImportPage?.items.map((relation) => (
                     <div className="import-row" key={relation.id}>
                       <span className={`resolve-dot ${relation.resolved_file_id ? "resolved" : "external"}`} />
                       <div><strong>{relation.target_module}</strong><span>{relation.source_path} · 第 {relation.line_number} 行</span></div>
                       <small>{relation.resolved_file_id ? "项目内" : "外部"}</small>
                     </div>
                   ))}
-                  {activeSection === "projects" && projectTab === "issues" && structure?.issues.map((issue) => (
+                  {activeSection === "projects" && projectTab === "issues" && visibleIssuePage?.items.map((issue) => (
                     <ParseIssueRow issue={issue} key={issue.id} />
                   ))}
-                  {structureLoading && activeSection === "projects" && projectTab !== "files" && <div className="mini-empty">正在读取结构分析…</div>}
-                  {!structureLoading && activeSection === "projects" && projectTab !== "files" && (
-                    (projectTab === "symbols" && !structure?.symbols.length) ||
-                    (projectTab === "imports" && !structure?.imports.length) ||
-                    (projectTab === "issues" && !structure?.issues.length)
-                  ) && <div className="mini-empty">当前分类没有结果</div>}
+                  {activeSection === "projects" && activeStructurePage?.has_more && (
+                    <div className="structure-load-more">
+                      <button type="button" onClick={() => void loadStructurePage(projectTab, false)} disabled={structureRowsLoading}>
+                        {structureRowsLoading ? "LOADING..." : "LOAD_NEXT"} <span>＋{Math.min(STRUCTURE_ROWS_INCREMENT, activeStructurePage.total - activeStructurePage.items.length)} ROWS</span>
+                      </button>
+                    </div>
+                  )}
+                  {(structureLoading || structureRowsLoading) && activeSection === "projects" && projectTab !== "files" && !activeStructurePage && <div className="mini-empty">正在读取结构分析…</div>}
+                  {!structureLoading && !structureRowsLoading && activeSection === "projects" && projectTab !== "files" && activeStructurePage?.items.length === 0 && <div className="mini-empty">当前分类没有结果</div>}
                 </div>
               </div>
             )}
@@ -1075,17 +1294,17 @@ function App() {
       </main>
 
       {importOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !uploading && setImportOpen(false)}>
+        <div className="modal-backdrop" onMouseDown={() => { if (!uploading) { cancelFolderScan(); setImportOpen(false); setFolderSelection(null); } }}>
           <section className="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-heading">
               <div><p className="eyebrow">IMPORT_SOURCE::SELECT</p><h2 id="import-title">导入代码仓库</h2></div>
-              <button className="modal-close" onClick={() => setImportOpen(false)} disabled={uploading}>×</button>
+              <button className="modal-close" onClick={() => { cancelFolderScan(); setImportOpen(false); setFolderSelection(null); }} disabled={uploading}>×</button>
             </div>
 
             <div className="import-tabs" role="tablist">
-              <button className={importMode === "zip" ? "active" : ""} onClick={() => setImportMode("zip")}><span>ZIP</span>压缩包</button>
+              <button className={importMode === "zip" ? "active" : ""} onClick={() => { cancelFolderScan(); setImportMode("zip"); setFolderSelection(null); }}><span>ZIP</span>压缩包</button>
               <button className={importMode === "folder" ? "active" : ""} onClick={() => setImportMode("folder")}><span>DIR</span>本地文件夹</button>
-              <button className={importMode === "github" ? "active" : ""} onClick={() => setImportMode("github")}><span>GIT</span>GitHub</button>
+              <button className={importMode === "github" ? "active" : ""} onClick={() => { cancelFolderScan(); setImportMode("github"); setFolderSelection(null); }}><span>GIT</span>GitHub</button>
             </div>
 
             <div className="import-body">
@@ -1099,10 +1318,7 @@ function App() {
               )}
 
               {importMode === "folder" && (
-                <div className="source-pane">
-                  <div className="source-icon">DIR</div>
-                  <h3>选择本地项目文件夹</h3>
-                  <p>浏览器会上传文件夹中的文件和相对路径，不会授予系统其他磁盘访问权限。</p>
+                <div className="source-pane folder-pane">
                   <input
                     className="hidden-input"
                     ref={(element) => {
@@ -1111,9 +1327,55 @@ function App() {
                     }}
                     type="file"
                     multiple
-                    onChange={(event) => void handleFolderUpload(event.target.files)}
+                    onChange={(event) => handleFolderSelection(event.target.files)}
                   />
-                  <button className="source-button" onClick={() => folderInputRef.current?.click()} disabled={uploading}>{uploading ? "正在上传…" : "选择项目文件夹"}</button>
+                  {folderScanning ? (
+                    <div className="folder-scanning" aria-live="polite">
+                      <div className="spinner" />
+                      <h3>正在安全扫描目录</h3>
+                      <p>逐层读取并在进入前跳过依赖、缓存和构建目录，页面会定期让出执行时间以保持响应。</p>
+                      <strong>{folderScanProgress ? formatFolderScanProgress(folderScanProgress) : "等待目录授权或正在读取第一批文件…"}</strong>
+                      <button className="secondary-button" onClick={cancelFolderScan}>取消扫描</button>
+                    </div>
+                  ) : folderSelection ? (
+                    <div className="folder-preview">
+                      <div className="folder-preview-heading"><span>✓</span><div><h3>安全扫描完成</h3><p>已在遍历过程中跳过高风险目录，请确认源码范围后再上传。</p></div></div>
+                      <div className="folder-preview-stats">
+                        <div><span>{folderSelection.preview.selectionMode === "safe" ? "已扫描文件" : "原始文件夹"}</span><strong>{formatUploadSize(folderSelection.preview.originalBytes)}</strong><small>{formatNumber(folderSelection.preview.originalCount)} 个文件</small></div>
+                        <div className="ignored"><span>自动排除</span><strong>-{formatUploadSize(folderSelection.preview.ignoredBytes)}</strong><small>{formatNumber(folderSelection.preview.ignoredCount)} 个文件</small></div>
+                        <div className="accepted"><span>待分析源码</span><strong>{formatUploadSize(folderSelection.preview.totalBytes)}</strong><small>{formatNumber(folderSelection.preview.acceptedFiles.length)} 个文件</small></div>
+                      </div>
+                      <div className="folder-preview-breakdown">
+                        <span>跳过目录 {folderSelection.preview.skippedDirectoryCount || folderSelection.preview.directoryIgnoredCount}</span>
+                        <span>非源码/二进制 {folderSelection.preview.unsupportedCount}</span>
+                        <span>单文件超限 {folderSelection.preview.oversizedCount}</span>
+                      </div>
+                      {!!folderSelection.preview.skippedDirectoryNames.length && <div className="folder-skipped-names">未进入：{folderSelection.preview.skippedDirectoryNames.join("、")}</div>}
+                      <div className="folder-preview-actions">
+                        <button className="secondary-button" onClick={() => setFolderSelection(null)} disabled={uploading}>重新选择</button>
+                        <button className="source-button" onClick={() => void confirmFolderUpload()} disabled={uploading}>{uploading ? "正在上传…" : "确认并开始分析"}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="source-icon">DIR</div>
+                      <h3>安全选择本地项目文件夹</h3>
+                      <p>逐层遍历并在进入前跳过依赖、缓存和构建目录；最多 {formatNumber(importLimits.max_folder_files)} 个源码文件 / {importLimits.max_upload_mb} MB，单文件不超过 {importLimits.max_source_file_mb} MB。</p>
+                      <div
+                        className={`folder-drop-zone ${folderDropActive ? "active" : ""}`}
+                        onDragEnter={(event) => { event.preventDefault(); setFolderDropActive(true); }}
+                        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setFolderDropActive(true); }}
+                        onDragLeave={() => setFolderDropActive(false)}
+                        onDrop={(event) => { event.preventDefault(); void handleFolderDrop(event.dataTransfer); }}
+                      >
+                        <span>⇩</span>
+                        <strong>从文件管理器拖入项目文件夹</strong>
+                        <small>{supportsSafeFolderDrop() ? "兼容内置浏览器 · 惰性遍历，不会预先枚举整个目录" : "若拖放不可用，请改用 ZIP 导入"}</small>
+                      </div>
+                      {supportsSafeFolderPicker() && <><div className="folder-choice-divider"><span>或</span></div><button className="source-button" onClick={() => void chooseFolderSafely()} disabled={uploading || folderScanning}>点击选择并安全扫描</button></>}
+                      {!supportsSafeFolderPicker() && <small className="folder-picker-warning">当前内置浏览器不支持点击式目录授权，请使用上方拖放入口；高风险的整目录枚举仍保持禁用。</small>}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1121,19 +1383,19 @@ function App() {
                 <div className="source-pane github-pane">
                   <div className="source-icon">GIT</div>
                   <h3>导入公开 GitHub 仓库</h3>
-                  <p>输入仓库首页地址。当前仅下载公开仓库的默认分支，不会执行其中的任何代码。</p>
+                  <p>仅下载公开仓库默认分支，不执行代码；下载后会按本地文件夹相同的规则过滤依赖、构建产物和超限文件。</p>
                   <label htmlFor="github-url">GitHub 仓库地址</label>
                   <div className="github-input-row">
                     <input id="github-url" value={githubUrl} onChange={(event) => setGithubUrl(event.target.value)} placeholder="https://github.com/owner/repository" disabled={uploading} />
                     <button onClick={() => void handleGitHubImport()} disabled={uploading}>{uploading ? "下载中…" : "开始分析"}</button>
                   </div>
-                  <small>仅支持 https://github.com/owner/repository 格式</small>
+                  <small>仅支持 https://github.com/owner/repository 格式 · 全程校验下载域名、压缩包与解压路径</small>
                 </div>
               )}
             </div>
 
             <div className="modal-footer">
-              {activeJob ? <><div className="modal-progress"><div><strong>{stageLabel(activeJob.stage)}</strong><span>{activeJob.message}</span></div><small>{activeJob.progress}%</small></div><div className="progress-track"><i style={{ width: `${activeJob.progress}%` }} /></div></> : <><span className="status-dot" /><strong>全部分析均在本机完成</strong><small>导入上限 50 MB</small></>}
+              {activeJob ? <><div className="modal-progress"><div><strong>{stageLabel(activeJob.stage)}</strong><span>{activeJob.message}</span></div><small>{activeJob.progress}%</small></div><div className="progress-track"><i style={{ width: `${activeJob.progress}%` }} /></div></> : <><span className="status-dot" /><strong>全部分析均在本机完成</strong><small>源码导入上限 {importLimits.max_upload_mb} MB</small></>}
             </div>
           </section>
         </div>
@@ -1502,6 +1764,7 @@ function LanguageBadge({ language }: { language: string | null }) {
 
 function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(graph.nodes[0]?.id ?? null);
+  const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null);
   const [moduleFilter, setModuleFilter] = useState("");
   const [zoom, setZoom] = useState(1);
   const width = 900;
@@ -1546,6 +1809,8 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
   const selectedEdges = displayedEdges.filter(
     (edge) => edge.source_id === selectedNode?.id || edge.target_id === selectedNode?.id,
   );
+  const selectedEdge = displayedEdges.find((edge) => dependencyEdgeKey(edge) === selectedEdgeKey) ?? null;
+  const nodeById = useMemo(() => new Map(displayedNodes.map((node) => [node.id, node])), [displayedNodes]);
 
   if (graph.nodes.length === 0) {
     return <div className="dependency-empty"><div className="empty-glyph">◇</div><h3>没有项目内依赖</h3><p>当前仓库只有外部依赖，或导入路径暂时无法解析到项目文件。</p></div>;
@@ -1565,30 +1830,73 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
         <small>当前显示 {displayedNodes.length} 个模块 / {displayedEdges.length} 条边</small>
         <div className="zoom-controls"><button onClick={() => setZoom((value) => Math.max(1, value - .25))} disabled={zoom <= 1}>−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(2.5, value + .25))} disabled={zoom >= 2.5}>＋</button></div>
       </div>
+      <div className="graph-legend" role="note" aria-label="依赖图图例">
+        <strong>A → B 表示 A 导入并依赖 B</strong>
+        <span><i className="legend-edge outgoing" />当前模块依赖</span>
+        <span><i className="legend-edge incoming" />依赖当前模块</span>
+        <span><i className="legend-edge cyclic" />循环依赖</span>
+        <small>×N 表示两文件间合并后的导入次数 · 点击连线查看文件与行号</small>
+      </div>
       <div className="dependency-layout">
         <div className="dependency-canvas">
           <svg viewBox={`${centerX - width / zoom / 2} ${centerY - height / zoom / 2} ${width / zoom} ${height / zoom}`} role="img" aria-label="项目模块依赖图">
             <defs>
-              <marker id="dependency-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <marker id="dependency-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
                 <path d="M 0 0 L 10 5 L 0 10 z" />
               </marker>
+              <marker id="dependency-arrow-outgoing" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" /></marker>
+              <marker id="dependency-arrow-incoming" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" /></marker>
+              <marker id="dependency-arrow-cyclic" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" /></marker>
             </defs>
             {displayedEdges.map((edge) => {
               const source = positions.get(edge.source_id);
               const target = positions.get(edge.target_id);
-              if (!source || !target) return null;
-              const highlighted = edge.source_id === selectedNode?.id || edge.target_id === selectedNode?.id;
-              const cyclic = cycleNodeIds.has(edge.source_id) && cycleNodeIds.has(edge.target_id);
-              return <line key={`${edge.source_id}-${edge.target_id}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} className={`${highlighted ? "highlighted" : ""} ${cyclic ? "cyclic" : ""}`} markerEnd="url(#dependency-arrow)" />;
+              const sourceNode = nodeById.get(edge.source_id);
+              const targetNode = nodeById.get(edge.target_id);
+              if (!source || !target || !sourceNode || !targetNode) return null;
+              const outgoing = edge.source_id === selectedNode?.id;
+              const incoming = edge.target_id === selectedNode?.id;
+              const cyclic = graph.cycles.some((cycle) => cycle.file_ids.includes(edge.source_id) && cycle.file_ids.includes(edge.target_id));
+              const reverseExists = displayedEdges.some((candidate) => candidate.source_id === edge.target_id && candidate.target_id === edge.source_id);
+              const geometry = dependencyEdgeGeometry(
+                source,
+                target,
+                dependencyNodeRadius(sourceNode),
+                dependencyNodeRadius(targetNode),
+                reverseExists ? (edge.source_id < edge.target_id ? 30 : -30) : (edge.source_id < edge.target_id ? 12 : -12),
+              );
+              const edgeKey = dependencyEdgeKey(edge);
+              const isSelected = edgeKey === selectedEdgeKey;
+              const marker = cyclic ? "dependency-arrow-cyclic" : outgoing ? "dependency-arrow-outgoing" : incoming ? "dependency-arrow-incoming" : "dependency-arrow";
+              return (
+                <g
+                  key={edgeKey}
+                  className={`dependency-edge ${outgoing ? "outgoing" : ""} ${incoming ? "incoming" : ""} ${cyclic ? "cyclic" : ""} ${isSelected ? "selected" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${edge.source_path} 导入并依赖 ${edge.target_path}，${edge.import_count} 条导入`}
+                  onClick={() => setSelectedEdgeKey(edgeKey)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedEdgeKey(edgeKey);
+                    }
+                  }}
+                >
+                  <title>{edge.source_path} → {edge.target_path} · {edge.import_count} 条导入 · 第 {edge.line_numbers.join("、")} 行</title>
+                  <path className="edge-hit-area" d={geometry.path} />
+                  <path className="edge-line" d={geometry.path} markerEnd={`url(#${marker})`} />
+                  <text className="edge-label" x={geometry.label.x} y={geometry.label.y - 5} textAnchor="middle">×{edge.import_count}</text>
+                </g>
+              );
             })}
             {displayedNodes.map((node, index) => {
               const position = positions.get(node.id)!;
-              const degree = node.in_degree + node.out_degree;
-              const radius = 10 + Math.min(8, degree * 1.4);
+              const radius = dependencyNodeRadius(node);
               const isSelected = node.id === selectedNode?.id;
               const label = shortFileName(node.path);
               return (
-                <g key={node.id} className={`dependency-node ${isSelected ? "selected" : ""} ${cycleNodeIds.has(node.id) ? "cyclic" : ""}`} onClick={() => setSelectedNodeId(node.id)}>
+                <g key={node.id} className={`dependency-node ${isSelected ? "selected" : ""} ${cycleNodeIds.has(node.id) ? "cyclic" : ""}`} onClick={() => { setSelectedNodeId(node.id); setSelectedEdgeKey(null); }}>
                   <title>{node.path} · 入度 {node.in_degree} / 出度 {node.out_degree}</title>
                   <circle cx={position.x} cy={position.y} r={radius} />
                   {(index < 16 || isSelected) && <text x={position.x} y={position.y + radius + 13} textAnchor="middle">{label.length > 20 ? `${label.slice(0, 18)}…` : label}</text>}
@@ -1599,7 +1907,9 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
           </svg>
         </div>
         <aside className="node-inspector">
-          {selectedNode && <NodeInspector node={selectedNode} edges={selectedEdges} />}
+          {selectedEdge
+            ? <EdgeInspector edge={selectedEdge} onBack={() => setSelectedEdgeKey(null)} />
+            : selectedNode && <NodeInspector node={selectedNode} edges={selectedEdges} onSelectEdge={(edge) => setSelectedEdgeKey(dependencyEdgeKey(edge))} />}
         </aside>
       </div>
       <section className="cycle-list">
@@ -1610,20 +1920,84 @@ function DependencyGraphView({ graph }: { graph: DependencyGraph }) {
   );
 }
 
-function NodeInspector({ node, edges }: { node: DependencyNode; edges: DependencyGraph["edges"] }) {
+function dependencyNodeRadius(node: DependencyNode): number {
+  return 10 + Math.min(8, (node.in_degree + node.out_degree) * 1.4);
+}
+
+function dependencyEdgeKey(edge: DependencyGraph["edges"][number]): string {
+  return `${edge.source_id}-${edge.target_id}`;
+}
+
+function dependencyEdgeGeometry(
+  source: { x: number; y: number },
+  target: { x: number; y: number },
+  sourceRadius: number,
+  targetRadius: number,
+  curvature: number,
+): { path: string; label: { x: number; y: number } } {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const distance = Math.max(1, Math.hypot(dx, dy));
+  const unitX = dx / distance;
+  const unitY = dy / distance;
+  const start = { x: source.x + unitX * (sourceRadius + 3), y: source.y + unitY * (sourceRadius + 3) };
+  const end = { x: target.x - unitX * (targetRadius + 5), y: target.y - unitY * (targetRadius + 5) };
+  const control = {
+    x: (start.x + end.x) / 2 - unitY * curvature,
+    y: (start.y + end.y) / 2 + unitX * curvature,
+  };
+  return {
+    path: `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} Q ${control.x.toFixed(2)} ${control.y.toFixed(2)} ${end.x.toFixed(2)} ${end.y.toFixed(2)}`,
+    label: {
+      x: start.x * .25 + control.x * .5 + end.x * .25,
+      y: start.y * .25 + control.y * .5 + end.y * .25,
+    },
+  };
+}
+
+function NodeInspector({ node, edges, onSelectEdge }: { node: DependencyNode; edges: DependencyGraph["edges"]; onSelectEdge: (edge: DependencyGraph["edges"][number]) => void }) {
+  const outgoingEdges = edges.filter((edge) => edge.source_id === node.id);
+  const incomingEdges = edges.filter((edge) => edge.target_id === node.id);
   return (
     <>
       <p className="eyebrow">SELECTED MODULE</p>
       <h3>{shortFileName(node.path)}</h3>
       <code>{node.path}</code>
       <div className="node-degrees"><div><strong>{node.in_degree}</strong><span>入度</span></div><div><strong>{node.out_degree}</strong><span>出度</span></div></div>
+      <NeighborGroup title="当前模块依赖" tone="outgoing" edges={outgoingEdges} node={node} onSelectEdge={onSelectEdge} />
+      <NeighborGroup title="依赖当前模块" tone="incoming" edges={incomingEdges} node={node} onSelectEdge={onSelectEdge} />
+    </>
+  );
+}
+
+function NeighborGroup({ title, tone, edges, node, onSelectEdge }: { title: string; tone: "outgoing" | "incoming"; edges: DependencyGraph["edges"]; node: DependencyNode; onSelectEdge: (edge: DependencyGraph["edges"][number]) => void }) {
+  return (
+    <section className={`neighbor-group ${tone}`}>
+      <h4>{title}<span>{edges.length}</span></h4>
       <div className="neighbor-list">
         {edges.slice(0, 12).map((edge) => {
           const outgoing = edge.source_id === node.id;
-          return <div key={`${edge.source_id}-${edge.target_id}`}><span>{outgoing ? "→" : "←"}</span><div><strong>{shortFileName(outgoing ? edge.target_path : edge.source_path)}</strong><small>第 {edge.line_numbers.slice(0, 3).join("、")} 行</small></div></div>;
+          return <button type="button" key={dependencyEdgeKey(edge)} onClick={() => onSelectEdge(edge)}><span>{outgoing ? "→" : "←"}</span><div><strong>{shortFileName(outgoing ? edge.target_path : edge.source_path)}</strong><small>{edge.import_count} 条导入 · 第 {edge.line_numbers.slice(0, 3).join("、")} 行</small></div></button>;
         })}
-        {!edges.length && <small>没有可见的相邻依赖</small>}
+        {!edges.length && <small>没有可见关系</small>}
       </div>
+    </section>
+  );
+}
+
+function EdgeInspector({ edge, onBack }: { edge: DependencyGraph["edges"][number]; onBack: () => void }) {
+  return (
+    <>
+      <p className="eyebrow">SELECTED DEPENDENCY</p>
+      <h3>{shortFileName(edge.source_path)} → {shortFileName(edge.target_path)}</h3>
+      <div className="edge-direction-detail">
+        <code>{edge.source_path}</code>
+        <span>导入并依赖 ↓</span>
+        <code>{edge.target_path}</code>
+      </div>
+      <div className="edge-metrics"><div><strong>{edge.import_count}</strong><span>导入次数</span></div><div><strong>{edge.line_numbers.length}</strong><span>代码位置</span></div></div>
+      <div className="edge-lines"><strong>来源文件中的导入行</strong><span>{edge.line_numbers.map((line) => `第 ${line} 行`).join("、")}</span></div>
+      <button type="button" className="edge-inspector-back" onClick={onBack}>返回模块详情</button>
     </>
   );
 }
@@ -1643,9 +2017,28 @@ function QualityReportView({ report }: { report: QualityReport }) {
   return (
     <div className="quality-view">
       <section className="quality-hero">
-        <div className={`quality-score grade-${report.grade.toLowerCase()}`}><strong>{report.score}</strong><span>质量分</span><em>{report.grade}</em></div>
+        <div
+          className={`quality-score grade-${report.grade.toLowerCase()}`}
+          role="meter"
+          aria-label={`质量评分 ${report.score} 分，评级 ${report.grade}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={report.score}
+        >
+          <strong>{report.score}</strong><span>质量分</span><em>{report.grade}</em>
+        </div>
         <div className="quality-overview"><p className="eyebrow">STATIC QUALITY REPORT</p><h3>{report.total_findings ? `发现 ${formatNumber(report.total_findings)} 项可改进问题` : "未发现规则命中的质量问题"}</h3><span>已执行 {report.rules.length} 条规则 · {report.elapsed_ms.toFixed(1)} ms</span></div>
         <div className="severity-summary"><div className="error"><strong>{report.severity_counts.error}</strong><span>错误</span></div><div className="warning"><strong>{report.severity_counts.warning}</strong><span>警告</span></div><div><strong>{report.severity_counts.info}</strong><span>提示</span></div></div>
+      </section>
+      <section className="quality-scoring-breakdown" aria-label="质量评分依据">
+        <div className="scoring-description">
+          <p className="eyebrow">SCORE_MODEL::{report.scoring.model.toUpperCase()}</p>
+          <strong>按项目规模归一化扣分</strong>
+          <span>{report.scoring.explanation}</span>
+        </div>
+        <div className="scoring-metric"><span>规模系数</span><strong>×{report.scoring.size_factor.toFixed(3)}</strong><small>{formatNumber(report.scoring.project_size.file_count)} 文件 · {formatNumber(report.scoring.project_size.code_line_count)} 行 · {formatNumber(report.scoring.project_size.symbol_count)} 符号</small></div>
+        <div className="scoring-metric"><span>扣分校准</span><strong>{report.scoring.base_penalty.toFixed(1)} → {report.scoring.adjusted_penalty}</strong><small>最终得分 = 100 − 校准后扣分</small></div>
+        <div className="scoring-weights"><span>当前单项权重</span><code>ERR {report.scoring.effective_weights.error.toFixed(2)}</code><code>WARN {report.scoring.effective_weights.warning.toFixed(2)}</code><code>INFO {report.scoring.effective_weights.info.toFixed(2)}</code></div>
       </section>
       <section className="quality-rules">
         {report.rules.map((rule) => <article key={rule.id}><div><strong>{rule.title}</strong><code>{rule.id}</code></div><span>{report.rule_counts[rule.id] ?? 0}</span><p>{rule.description}</p></article>)}

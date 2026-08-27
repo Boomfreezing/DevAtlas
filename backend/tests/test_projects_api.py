@@ -56,6 +56,17 @@ def make_archive(files: dict[str, str]) -> bytes:
     return buffer.getvalue()
 
 
+def test_import_limits_follow_backend_configuration(client: TestClient) -> None:
+    response = client.get("/api/import-limits")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "max_upload_mb": 5,
+        "max_folder_files": 20_000,
+        "max_source_file_mb": 5,
+    }
+
+
 def test_project_lifecycle(client: TestClient) -> None:
     archive = make_archive(
         {
@@ -101,6 +112,8 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert quality.status_code == 200
     assert quality.json()["score"] == 100
     assert len(quality.json()["rules"]) == 6
+    assert quality.json()["scoring"]["model"] == "size_normalized_v2"
+    assert quality.json()["scoring"]["adjusted_penalty"] == 0
 
     report = client.get(f"/api/projects/{body['id']}/report.md")
     assert report.status_code == 200
@@ -113,6 +126,7 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert "| 函数 / 方法 | 1 |" in report.text
     assert "## 2. 智能分析结论" in report.text
     assert "**项目画像：**" in report.text
+    assert "评分采用项目规模归一化" in report.text
 
     generators = client.get("/api/projects/report-generators")
     assert generators.status_code == 200
@@ -176,6 +190,63 @@ def test_code_search_supports_offset_pagination(client: TestClient) -> None:
     assert len(second_page.json()["results"]) == 1
     assert second_page.json()["offset"] == 1
     assert first_page.json()["results"][0]["chunk_id"] != second_page.json()["results"][0]["chunk_id"]
+
+
+def test_structure_endpoints_use_server_side_pagination(client: TestClient) -> None:
+    source = "\n".join(
+        [f"import package_{index}" for index in range(155)]
+        + [f"def symbol_{index}():\n    return {index}\n" for index in range(155)]
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("paged.zip", make_archive({"paged/main.py": source}), "application/zip")},
+    ).json()
+    project_id = created["id"]
+
+    summary = client.get(f"/api/projects/{project_id}/structure/summary")
+    assert summary.status_code == 200
+    assert summary.json()["symbol_count"] == 155
+    assert summary.json()["import_count"] == 155
+    assert "symbols" not in summary.json()
+
+    first_symbols = client.get(
+        f"/api/projects/{project_id}/symbols", params={"limit": 100, "offset": 0}
+    ).json()
+    second_symbols = client.get(
+        f"/api/projects/{project_id}/symbols", params={"limit": 100, "offset": 100}
+    ).json()
+    assert first_symbols["total"] == 155
+    assert first_symbols["has_more"] is True
+    assert len(first_symbols["items"]) == 100
+    assert len(second_symbols["items"]) == 55
+    assert second_symbols["has_more"] is False
+    assert {item["id"] for item in first_symbols["items"]}.isdisjoint(
+        item["id"] for item in second_symbols["items"]
+    )
+
+    filtered = client.get(
+        f"/api/projects/{project_id}/symbols",
+        params={"q": "symbol_154", "kind": "function"},
+    ).json()
+    assert filtered["total"] == 1
+    assert filtered["items"][0]["name"] == "symbol_154"
+
+    first_imports = client.get(
+        f"/api/projects/{project_id}/imports",
+        params={"limit": 100, "offset": 0, "scope": "external"},
+    ).json()
+    second_imports = client.get(
+        f"/api/projects/{project_id}/imports",
+        params={"limit": 100, "offset": 100, "scope": "external"},
+    ).json()
+    assert first_imports["total"] == 155
+    assert len(first_imports["items"]) == 100
+    assert len(second_imports["items"]) == 55
+
+    reanalyzed = client.post(f"/api/projects/{project_id}/reanalyze")
+    assert reanalyzed.status_code == 200
+    assert reanalyzed.json()["symbol_count"] == 155
+    assert "symbols" not in reanalyzed.json()
 
 
 def test_code_viewer_rejects_binary_large_and_missing_files(
@@ -352,6 +423,10 @@ def test_report_handles_parse_issues(client: TestClient) -> None:
     assert report.status_code == 200
     assert "## 6. 解析问题" in report.text
     assert "broken.py" in report.text
+    issues = client.get(f"/api/projects/{created['id']}/issues", params={"limit": 1})
+    assert issues.status_code == 200
+    assert issues.json()["total"] >= 1
+    assert issues.json()["items"][0]["file_path"] == "broken.py"
 
 
 def test_configures_report_providers_from_the_api(

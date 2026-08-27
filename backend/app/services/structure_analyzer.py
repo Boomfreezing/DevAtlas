@@ -2,7 +2,7 @@ import posixpath
 from collections.abc import Callable
 from pathlib import PurePosixPath
 
-from sqlalchemy import delete, select
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.analysis import CodeSymbol, ImportRelation, ParseIssue, SearchChunk
@@ -231,13 +231,161 @@ def load_project_structure(database: Session, project_id: int) -> dict[str, obje
         )
     )
     return {
-        "symbol_count": len(symbols),
-        "class_count": sum(item["kind"] in {"class", "interface"} for item in symbols),
-        "function_count": sum(item["kind"] in {"function", "method"} for item in symbols),
-        "import_count": len(imports),
-        "resolved_import_count": sum(item.resolved_file_id is not None for item in imports),
-        "issue_count": len(issues),
+        **load_project_structure_summary(database, project_id),
         "symbols": symbols,
         "imports": imports,
         "issues": issues,
+    }
+
+
+def load_project_structure_summary(database: Session, project_id: int) -> dict[str, int]:
+    """Load aggregate structure metrics without materializing every result row."""
+    symbol_count, class_count, function_count = database.execute(
+        select(
+            func.count(CodeSymbol.id),
+            func.sum(
+                case((CodeSymbol.kind.in_(["class", "interface"]), 1), else_=0)
+            ),
+            func.sum(
+                case((CodeSymbol.kind.in_(["function", "method"]), 1), else_=0)
+            ),
+        ).where(CodeSymbol.project_id == project_id)
+    ).one()
+    import_count, resolved_import_count = database.execute(
+        select(
+            func.count(ImportRelation.id),
+            func.sum(case((ImportRelation.resolved_file_id.is_not(None), 1), else_=0)),
+        ).where(ImportRelation.project_id == project_id)
+    ).one()
+    issue_count = database.scalar(
+        select(func.count(ParseIssue.id)).where(ParseIssue.project_id == project_id)
+    )
+    return {
+        "symbol_count": int(symbol_count or 0),
+        "class_count": int(class_count or 0),
+        "function_count": int(function_count or 0),
+        "import_count": int(import_count or 0),
+        "resolved_import_count": int(resolved_import_count or 0),
+        "issue_count": int(issue_count or 0),
+    }
+
+
+def load_project_symbols(
+    database: Session,
+    project_id: int,
+    *,
+    offset: int,
+    limit: int,
+    query: str | None = None,
+    kind: str | None = None,
+) -> dict[str, object]:
+    filters = [CodeSymbol.project_id == project_id]
+    if query:
+        pattern = f"%{query}%"
+        filters.append(
+            or_(
+                CodeSymbol.name.ilike(pattern),
+                CodeSymbol.qualified_name.ilike(pattern),
+                ProjectFile.relative_path.ilike(pattern),
+            )
+        )
+    if kind:
+        filters.append(CodeSymbol.kind == kind)
+
+    total = database.scalar(
+        select(func.count(CodeSymbol.id))
+        .join(ProjectFile, ProjectFile.id == CodeSymbol.file_id)
+        .where(*filters)
+    ) or 0
+    rows = database.execute(
+        select(CodeSymbol, ProjectFile.relative_path)
+        .join(ProjectFile, ProjectFile.id == CodeSymbol.file_id)
+        .where(*filters)
+        .order_by(ProjectFile.relative_path, CodeSymbol.start_line, CodeSymbol.id)
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    items = [
+        {
+            "id": symbol.id,
+            "file_id": symbol.file_id,
+            "name": symbol.name,
+            "qualified_name": symbol.qualified_name,
+            "kind": symbol.kind,
+            "start_line": symbol.start_line,
+            "end_line": symbol.end_line,
+            "file_path": file_path,
+        }
+        for symbol, file_path in rows
+    ]
+    return _page(items, int(total), offset, limit)
+
+
+def load_project_imports(
+    database: Session,
+    project_id: int,
+    *,
+    offset: int,
+    limit: int,
+    query: str | None = None,
+    scope: str = "all",
+) -> dict[str, object]:
+    filters = [ImportRelation.project_id == project_id]
+    if query:
+        pattern = f"%{query}%"
+        filters.append(
+            or_(
+                ImportRelation.source_path.ilike(pattern),
+                ImportRelation.target_module.ilike(pattern),
+            )
+        )
+    if scope == "internal":
+        filters.append(ImportRelation.resolved_file_id.is_not(None))
+    elif scope == "external":
+        filters.append(ImportRelation.resolved_file_id.is_(None))
+
+    total = database.scalar(
+        select(func.count(ImportRelation.id)).where(*filters)
+    ) or 0
+    items = list(
+        database.scalars(
+            select(ImportRelation)
+            .where(*filters)
+            .order_by(
+                ImportRelation.source_path,
+                ImportRelation.line_number,
+                ImportRelation.id,
+            )
+            .offset(offset)
+            .limit(limit)
+        )
+    )
+    return _page(items, int(total), offset, limit)
+
+
+def load_project_issues(
+    database: Session, project_id: int, *, offset: int, limit: int
+) -> dict[str, object]:
+    total = database.scalar(
+        select(func.count(ParseIssue.id)).where(ParseIssue.project_id == project_id)
+    ) or 0
+    items = list(
+        database.scalars(
+            select(ParseIssue)
+            .where(ParseIssue.project_id == project_id)
+            .order_by(ParseIssue.file_path, ParseIssue.id)
+            .offset(offset)
+            .limit(limit)
+        )
+    )
+    return _page(items, int(total), offset, limit)
+
+
+def _page(items: list[object], total: int, offset: int, limit: int) -> dict[str, object]:
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total,
+        "items": items,
     }

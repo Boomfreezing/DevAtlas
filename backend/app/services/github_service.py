@@ -65,7 +65,10 @@ async def download_github_repository(
 ) -> Path:
     temporary_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temporary_file:
+        settings.temporary_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            suffix=".zip", delete=False, dir=settings.temporary_root
+        ) as temporary_file:
             temporary_path = Path(temporary_file.name)
             total_bytes = 0
             timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)

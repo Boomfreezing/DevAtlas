@@ -91,6 +91,39 @@ class ProjectStructureResponse(BaseModel):
     issues: list[ParseIssueResponse]
 
 
+class ProjectStructureSummaryResponse(BaseModel):
+    symbol_count: int
+    class_count: int
+    function_count: int
+    import_count: int
+    resolved_import_count: int
+    issue_count: int
+
+
+class CodeSymbolPageResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+    items: list[CodeSymbolResponse]
+
+
+class ImportRelationPageResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+    items: list[ImportRelationResponse]
+
+
+class ParseIssuePageResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+    items: list[ParseIssueResponse]
+
+
 class CodeSearchResult(BaseModel):
     chunk_id: int
     file_id: int
@@ -172,9 +205,30 @@ class QualityFindingResponse(BaseModel):
     threshold: int
 
 
+class QualityProjectSizeResponse(BaseModel):
+    file_count: int
+    code_line_count: int
+    symbol_count: int
+
+
+class QualityScoringResponse(BaseModel):
+    model: str
+    size_factor: float
+    scale_units: float
+    project_size: QualityProjectSizeResponse
+    reference_size: QualityProjectSizeResponse
+    base_weights: dict[str, float]
+    effective_weights: dict[str, float]
+    base_penalty: float
+    adjusted_penalty: int
+    rule_penalties: dict[str, float]
+    explanation: str
+
+
 class QualityReportResponse(BaseModel):
     score: int
     grade: str
+    scoring: QualityScoringResponse
     total_findings: int
     severity_counts: dict[str, int]
     rule_counts: dict[str, int]

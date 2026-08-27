@@ -97,16 +97,31 @@ class ConnectionFailingClient(FakeClient):
 def test_downloads_and_extracts_github_archive(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    settings = Settings(repository_root=tmp_path / "repositories")
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        temporary_root=tmp_path / "temporary",
+    )
     settings.ensure_directories()
     repository = parse_github_repository("https://github.com/openai/example")
     FakeClient.response = FakeResponse(200, make_zip())
     monkeypatch.setattr(github_service.httpx, "AsyncClient", FakeClient)
+    original_named_temporary_file = github_service.tempfile.NamedTemporaryFile
+    captured_directory: dict[str, object] = {}
+
+    def managed_temporary_file(**options: object):
+        captured_directory["dir"] = options.get("dir")
+        return original_named_temporary_file(**options)
+
+    monkeypatch.setattr(
+        github_service.tempfile, "NamedTemporaryFile", managed_temporary_file
+    )
 
     extracted = asyncio.run(download_github_repository(repository, settings))
 
     assert extracted.name == "repository-main"
     assert (extracted / "src" / "main.py").read_text(encoding="utf-8") == "print('downloaded')\n"
+    assert Path(captured_directory["dir"]) == settings.temporary_root
+    assert list(settings.temporary_root.iterdir()) == []
 
 
 def test_reports_missing_github_repository(

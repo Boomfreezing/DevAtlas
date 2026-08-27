@@ -60,16 +60,27 @@ export interface ParseIssue {
   message: string;
 }
 
-export interface ProjectStructure {
+export interface ProjectStructureSummary {
   symbol_count: number;
   class_count: number;
   function_count: number;
   import_count: number;
   resolved_import_count: number;
   issue_count: number;
+}
+
+export interface ProjectStructure extends ProjectStructureSummary {
   symbols: CodeSymbol[];
   imports: ImportRelation[];
   issues: ParseIssue[];
+}
+
+export interface StructurePage<T> {
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  items: T[];
 }
 
 export interface CodeSearchResult {
@@ -153,9 +164,24 @@ export interface QualityFinding {
   threshold: number;
 }
 
+export interface QualityScoring {
+  model: string;
+  size_factor: number;
+  scale_units: number;
+  project_size: { file_count: number; code_line_count: number; symbol_count: number };
+  reference_size: { file_count: number; code_line_count: number; symbol_count: number };
+  base_weights: Record<"error" | "warning" | "info", number>;
+  effective_weights: Record<"error" | "warning" | "info", number>;
+  base_penalty: number;
+  adjusted_penalty: number;
+  rule_penalties: Record<string, number>;
+  explanation: string;
+}
+
 export interface QualityReport {
   score: number;
   grade: string;
+  scoring: QualityScoring;
   total_findings: number;
   severity_counts: Record<"error" | "warning" | "info", number>;
   rule_counts: Record<string, number>;
@@ -178,6 +204,12 @@ export interface AnalysisJob {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+}
+
+export interface ImportLimits {
+  max_upload_mb: number;
+  max_folder_files: number;
+  max_source_file_mb: number;
 }
 
 export interface IncrementalAnalysisResult {

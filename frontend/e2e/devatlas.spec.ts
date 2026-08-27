@@ -1,14 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 
 interface ProjectSummary {
   id: number;
   name: string;
 }
 
-test("导入文件夹、搜索代码并执行无变化增量分析", async ({ page, request }, testInfo) => {
+test("安全拖入文件夹、搜索代码并执行无变化增量分析", async ({ page, request }) => {
   const projectName = `e2e-sample-${Date.now()}`;
-  const projectDirectory = testInfo.outputPath(projectName);
   const helperFunctions = [
     "def calculate_total(values):\n    return sum(values)",
     ...Array.from(
@@ -17,19 +16,6 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
     ),
   ].join("\n\n");
   let projectId: number | undefined;
-
-  await mkdir(projectDirectory, { recursive: true });
-  await writeFile(
-    `${projectDirectory}/main.py`,
-    "from helper import calculate_total\n\nclass Cart:\n    def total(self):\n        return calculate_total([1, 2, 3])\n",
-    "utf8",
-  );
-  await writeFile(
-    `${projectDirectory}/helper.py`,
-    `${helperFunctions}\n`,
-    "utf8",
-  );
-  await writeFile(`${projectDirectory}/README.md`, "# DevAtlas E2E fixture\n", "utf8");
 
   try {
     await page.addInitScript(() => {
@@ -44,7 +30,49 @@ test("导入文件夹、搜索代码并执行无变化增量分析", async ({ pa
       .getByRole("button", { name: /导入仓库/ })
       .click();
     await page.getByRole("button", { name: /本地文件夹/ }).click();
-    await page.locator("input[webkitdirectory]").setInputFiles(projectDirectory);
+    await page.locator(".folder-drop-zone").evaluate((element, fixture) => {
+      type Entry = {
+        isFile: boolean;
+        isDirectory: boolean;
+        name: string;
+        file?: (success: (file: File) => void) => void;
+        createReader?: () => { readEntries: (success: (entries: Entry[]) => void) => void };
+      };
+      const fileEntry = (name: string, content: string): Entry => ({
+        isFile: true,
+        isDirectory: false,
+        name,
+        file: (success) => success(new File([content], name)),
+      });
+      const directoryEntry = (name: string, entries: Entry[]): Entry => ({
+        isFile: false,
+        isDirectory: true,
+        name,
+        createReader: () => {
+          let finished = false;
+          return { readEntries: (success) => { success(finished ? [] : entries); finished = true; } };
+        },
+      });
+      const root = directoryEntry(fixture.projectName, [
+        fileEntry("main.py", fixture.main),
+        fileEntry("helper.py", fixture.helper),
+        fileEntry("README.md", "# DevAtlas E2E fixture\n"),
+        directoryEntry("node_modules", [fileEntry("ignored.js", "generated")]),
+      ]);
+      const drop = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, "dataTransfer", {
+        value: { items: [{ kind: "file", webkitGetAsEntry: () => root }] },
+      });
+      element.dispatchEvent(drop);
+    }, {
+      projectName,
+      main: "from helper import calculate_total\n\nclass Cart:\n    def total(self):\n        return calculate_total([1, 2, 3])\n",
+      helper: `${helperFunctions}\n`,
+    });
+    await expect(page.getByText("安全扫描完成")).toBeVisible();
+    await expect(page.locator(".folder-preview-stats")).toContainText("3 个文件");
+    await expect(page.locator(".folder-preview-breakdown")).toContainText("跳过目录 1");
+    await page.getByRole("button", { name: "确认并开始分析" }).click();
 
     await expect(page.locator(".topbar h1")).toHaveText(projectName, { timeout: 30_000 });
     await expect(page.locator(".project-trigger")).toContainText(projectName);

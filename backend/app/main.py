@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+import tempfile
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,10 @@ from app.services.job_service import fail_interrupted_jobs
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     settings.ensure_directories()
+    # Starlette may roll large multipart uploads from memory to tempfile storage
+    # before route code runs. Pin the process-wide tempfile directory to the
+    # project-managed non-system location so uploads never spill to the C drive.
+    tempfile.tempdir = str(settings.temporary_root)
     create_database()
     if get_db not in application.dependency_overrides:
         fail_interrupted_jobs(SessionLocal)

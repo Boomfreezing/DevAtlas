@@ -9,6 +9,7 @@ htmlcov/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/.env.local
 frontend/playwright-report/
 frontend/test-results/
 
@@ -16,11 +17,14 @@ data/devatlas.db
 data/report-providers.json
 data/repositories/*
 !data/repositories/.gitkeep
+data/tmp/*
+!data/tmp/.gitkeep
 data/indexes/*
 !data/indexes/.gitkeep
 data/reports/*
 !data/reports/.gitkeep
 backend/data/
+backend/*.log
 
 .idea/
 .vscode/
