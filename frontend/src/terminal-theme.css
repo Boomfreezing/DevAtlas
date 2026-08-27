@@ -352,6 +352,10 @@ h1::after {
 .code-viewer-actions button:hover:not(:disabled) { color: var(--terminal-bg); background: var(--terminal-primary); }
 .code-viewer-notice { border-color: var(--terminal-warning); color: var(--terminal-warning); background: #171407; }
 .code-viewer-state { color: var(--terminal-muted); }
+.code-viewer-state.error strong { color: var(--terminal-error); }
+.code-viewer-state.error span { color: var(--terminal-muted); }
+.code-viewer-state.error button { border-color: var(--terminal-error); border-radius: 0; color: var(--terminal-error); background: transparent; }
+.code-viewer-state.error button:hover { color: var(--terminal-bg); background: var(--terminal-error); }
 .code-viewer-code { color: #b9d8b4; background: #050705; scrollbar-color: var(--terminal-border) #050705; }
 .code-viewer-line.highlighted { background: #15200f; box-shadow: inset 3px 0 var(--terminal-primary); }
 .code-viewer-line-number { color: #3f6b3a; }

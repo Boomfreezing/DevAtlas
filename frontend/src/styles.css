@@ -243,7 +243,11 @@ h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
 .code-viewer-actions .code-viewer-close { width: 31px; padding: 0; color: #818a98; font-size: 18px; }
 .code-viewer-notice { padding: 8px 18px; border-bottom: 1px solid #efcf9e; color: #9a6928; background: #fff8e9; font-size: 10px; }
 .code-viewer-state { min-height: 160px; display: grid; place-items: center; color: #7f8997; font-size: 11px; }
-.code-viewer-state.error { color: #aa4d45; }
+.code-viewer-state.error { padding: 28px; display: flex; flex-direction: column; justify-content: center; gap: 9px; color: #aa4d45; text-align: center; }
+.code-viewer-state.error strong { font-size: 14px; }
+.code-viewer-state.error span { max-width: 680px; color: #6f7886; line-height: 1.65; }
+.code-viewer-state.error button { height: 32px; padding: 0 14px; border: 1px solid #c86b63; border-radius: 4px; color: #a4423b; background: #fff; font-size: 10px; font-weight: 700; }
+.code-viewer-state.error button:hover { background: #fff1f0; }
 .code-viewer-code { min-height: 0; padding: 10px 0 24px; overflow: auto; color: #c9d2df; background: #10141c; font: 11px/1.62 Consolas, "Courier New", monospace; scrollbar-color: #495363 #10141c; }
 .code-viewer-line { min-width: max-content; display: grid; grid-template-columns: 62px minmax(0, 1fr); }
 .code-viewer-line.highlighted { background: #3a331c; box-shadow: inset 3px 0 #efb72d; }

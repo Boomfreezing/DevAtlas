@@ -39,6 +39,7 @@ export default function CodeViewer({ projectId, result, query, onClose }: CodeVi
   const [content, setContent] = useState<ProjectFileContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [copyStatus, setCopyStatus] = useState<"idle" | "path" | "code" | "error">("idle");
   const highlightedLineRef = useRef<HTMLDivElement>(null);
   const pattern = useMemo(() => queryPattern(query), [query]);
@@ -60,7 +61,7 @@ export default function CodeViewer({ projectId, result, query, onClose }: CodeVi
     return () => {
       active = false;
     };
-  }, [projectId, result.file_id]);
+  }, [projectId, result.file_id, loadAttempt]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -107,7 +108,13 @@ export default function CodeViewer({ projectId, result, query, onClose }: CodeVi
 
         {copyStatus === "error" && <div className="code-viewer-notice">浏览器未授予剪贴板权限，请手动选择并复制。</div>}
         {loading && <div className="code-viewer-state">正在读取源文件…</div>}
-        {error && <div className="code-viewer-state error">{error}</div>}
+        {error && (
+          <div className="code-viewer-state error" role="alert">
+            <strong>无法打开源码</strong>
+            <span>{error}</span>
+            <button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>重新读取</button>
+          </div>
+        )}
         {content && (
           <div className="code-viewer-code" role="region" aria-label={`${content.file_path} 源代码`}>
             {content.lines.map((line, index) => {

@@ -5,6 +5,7 @@ import CodeViewer from "./CodeViewer";
 import {
   configureReportGenerator,
   deleteProject,
+  formatOperationError,
   generateProjectReport,
   getAnalysisJob,
   getDependencyGraph,
@@ -299,7 +300,7 @@ function App() {
         return;
       }
       if (job.status === "failed") {
-        throw new Error(job.error || job.message || "后台分析失败");
+        throw new Error(formatOperationError("分析仓库", 500, job.error || job.message || null));
       }
       await new Promise((resolve) => window.setTimeout(resolve, 500));
       job = await getAnalysisJob(job.id);
@@ -956,7 +957,7 @@ function App() {
                 <strong>{selected?.name ?? "no-project"}</strong><i>/</i><em>{activeSection === "projects" ? PROJECT_TAB_LABELS[projectTab] : SECTION_LABELS[activeSection]}</em>
               </div>
             </div>
-            {workspaceError && <div className="workspace-error" role="alert"><strong>[ERR]</strong><span>{workspaceError}</span><button aria-label="关闭工作区错误" onClick={() => setWorkspaceError(null)}>×</button></div>}
+            {workspaceError && <div className="workspace-error" role="alert"><strong>操作未完成</strong><span>{workspaceError}</span><button aria-label="关闭工作区错误" onClick={() => setWorkspaceError(null)}>×</button></div>}
             {!selected ? (
               selectingProjectId !== null
                 ? <div className="empty-state compact"><div className="spinner" /><h3>正在切换项目</h3><p>读取项目详情与结构分析…</p></div>
