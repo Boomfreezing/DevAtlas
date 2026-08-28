@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiRequestError, askRepository, compareAnalysisSnapshots, createAnalysisSnapshot, deleteAnalysisSnapshot, formatOperationError, generateProjectReport, getChangeImpact, getDependencyGraph, getProjectFileContent, getProjectFileTree, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, getQualityReport, listAnalysisSnapshots, listProjects, prepareFolderUpload, searchImpactTargets, uploadFolder } from "./api";
+import { ApiRequestError, askRepository, compareAnalysisSnapshots, compareProjectGitCommits, createAnalysisSnapshot, deleteAnalysisSnapshot, formatOperationError, generateProjectReport, getChangeImpact, getDependencyGraph, getProjectFileContent, getProjectFileTree, getProjectGitSummary, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, getQualityReport, listAnalysisSnapshots, listProjects, prepareFolderUpload, refreshProjectGitSummary, searchImpactTargets, synchronizeGitHubProject, uploadFolder } from "./api";
 
 
 describe("API error guidance", () => {
@@ -19,6 +19,12 @@ describe("API error guidance", () => {
       detail: "Project file is no longer available on disk.",
       message: expect.stringContaining("执行一次增量分析"),
     });
+  });
+
+  it("keeps Git metadata failures separate from local analysis availability", () => {
+    expect(formatOperationError("刷新 Git 提交信息", 502, "Unable to load GitHub metadata: All connection attempts failed")).toBe(
+      "刷新 Git 提交信息失败：后端无法读取 GitHub 提交信息。建议：检查网络、代理和后端外网权限；源码分析与已有快照仍可正常使用。",
+    );
   });
 
   it("keeps a Chinese service detail and adds status-specific advice", async () => {
@@ -70,6 +76,26 @@ describe("API error guidance", () => {
     ]);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
     expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "DELETE" });
+  });
+
+  it("loads and refreshes the Git metadata attached to a project", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json({ available: false }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getProjectGitSummary(6);
+    await refreshProjectGitSummary(6);
+    await compareProjectGitCommits(6, "a".repeat(40), "b".repeat(40));
+    await synchronizeGitHubProject(6);
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "/api/projects/6/git-summary",
+      "/api/projects/6/git-summary/refresh",
+      `/api/projects/6/git-compare?base=${"a".repeat(40)}&head=${"b".repeat(40)}`,
+      "/api/projects/6/sync-github",
+    ]);
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "POST" });
+    expect(fetchMock.mock.calls[2][1]).toBeUndefined();
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "POST" });
   });
 
   it("explains how to recover when the local backend is unreachable", async () => {

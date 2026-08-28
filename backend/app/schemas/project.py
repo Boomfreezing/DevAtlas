@@ -65,6 +65,48 @@ class GitHubImportRequest(BaseModel):
     url: str
 
 
+class GitCommitResponse(BaseModel):
+    sha: str
+    message: str
+    author: str
+    authored_at: str
+
+
+class ProjectGitSummaryResponse(BaseModel):
+    available: bool
+    refreshable: bool
+    repository_url: str | None
+    default_branch: str | None
+    head_commit: str | None
+    history_available: bool
+    recent_commits: list[GitCommitResponse]
+    fetched_at: datetime | None
+    message: str
+
+
+class GitFileChangeResponse(BaseModel):
+    path: str
+    status: str
+    additions: int
+    deletions: int
+    changes: int
+
+
+class GitComparisonResponse(BaseModel):
+    repository_url: str
+    base_commit: str
+    head_commit: str
+    status: str
+    ahead_by: int
+    behind_by: int
+    total_commits: int
+    additions: int
+    deletions: int
+    changed_files: int
+    files: list[GitFileChangeResponse]
+    truncated: bool
+
+
 class CodeSymbolResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -256,6 +298,14 @@ class ImpactCycleResponse(BaseModel):
     paths: list[str]
 
 
+class ImpactRecommendationResponse(BaseModel):
+    code: str
+    priority: Literal["high", "medium", "low"]
+    title: str
+    detail: str
+    related_paths: list[str]
+
+
 class ChangeImpactResponse(BaseModel):
     target: ImpactTargetResponse
     definition: ImpactRelationResponse
@@ -268,6 +318,7 @@ class ChangeImpactResponse(BaseModel):
     related_apis: list[ImpactRelationResponse]
     database_entities: list[ImpactRelationResponse]
     cycles: list[ImpactCycleResponse]
+    recommendations: list[ImpactRecommendationResponse]
     limitations: str
 
 
@@ -314,6 +365,13 @@ class QualityScoringResponse(BaseModel):
     scope_weights: dict[str, float]
     effective_scope_weights: dict[str, float]
     excluded_scopes: list[str]
+    source_file_count: int
+    parser_supported_file_count: int
+    applicable_rule_count: int
+    total_rule_count: int
+    parser_coverage: float
+    coverage_level: str
+    coverage_message: str
     explanation: str
 
 

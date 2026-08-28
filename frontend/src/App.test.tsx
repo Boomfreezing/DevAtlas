@@ -257,6 +257,11 @@ describe("App", () => {
     expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("beta/依赖图谱");
     expect(new URLSearchParams(window.location.search).get("project")).toBe("2");
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/projects/2/dependency-graph"), undefined);
+
+    fireEvent.click(document.querySelector(".project-trigger") as HTMLButtonElement);
+    fireEvent.click(screen.getByText("alpha"));
+    await waitFor(() => expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("alpha/依赖图谱"));
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/api/projects/1/structure/summary"))).toHaveLength(1);
   });
 
   it("opens repository QA as a workspace terminal and links citations to source", async () => {
@@ -684,6 +689,56 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("offset=0"), undefined);
   });
 
+  it("synchronizes remote GitHub source and exposes commit comparison beside snapshots", async () => {
+    const timestamp = "2026-08-28T10:00:00Z";
+    const project = { id: 11, name: "git-repo", source_filename: "github.com/example/git-repo", status: "ready", primary_language: "TypeScript", file_count: 3, code_line_count: 120, created_at: timestamp, updated_at: timestamp };
+    const snapshot = { id: 31, project_id: 11, label: "功能启用基线", reason: "manual", created_at: timestamp, score: 88, grade: "B", file_count: 3, symbol_count: 9, import_count: 4, finding_count: 2, cycle_count: 0, parse_issue_count: 0 };
+    const unavailable = { available: false, refreshable: true, repository_url: "https://github.com/example/git-repo", default_branch: null, head_commit: null, history_available: false, recent_commits: [], fetched_at: null, message: "尚未获取 GitHub 提交元数据。" };
+    const available = { ...unavailable, available: true, default_branch: "main", head_commit: "1234567890abcdef1234567890abcdef12345678", history_available: true, fetched_at: timestamp, message: "已获取 GitHub 提交元数据。", recent_commits: [{ sha: "1234567890abcdef1234567890abcdef12345678", message: "feat: add analysis snapshots", author: "Dev Atlas", authored_at: timestamp }, { sha: "abcdef1234567890abcdef1234567890abcdef12", message: "refactor: prepare snapshot model", author: "Dev Atlas", authored_at: timestamp }] };
+    const gitComparison = { repository_url: unavailable.repository_url, base_commit: available.recent_commits[1].sha, head_commit: available.recent_commits[0].sha, status: "ahead", ahead_by: 1, behind_by: 0, total_commits: 1, additions: 18, deletions: 4, changed_files: 2, files: [{ path: "src/snapshots.ts", status: "modified", additions: 12, deletions: 4, changes: 16 }, { path: "src/git.ts", status: "added", additions: 6, deletions: 0, changes: 6 }], truncated: false };
+    let synchronized = false;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/11")) return Response.json(project);
+      if (url.endsWith("/structure/summary")) return Response.json({ symbol_count: 0, class_count: 0, function_count: 0, import_count: 0, resolved_import_count: 0, issue_count: 0 });
+      if (url.endsWith("/snapshots")) return Response.json([snapshot]);
+      if (url.endsWith("/sync-github")) {
+        synchronized = true;
+        return Response.json({ id: "sync-11", source_type: "github_sync", source_label: "github.com/example/git-repo", status: "completed", stage: "synchronized", progress: 100, message: "远程源码已更新，重新分析和版本快照已完成", project_id: 11, error: null, created_at: timestamp, updated_at: timestamp, completed_at: timestamp });
+      }
+      if (url.endsWith("/git-summary")) return Response.json(synchronized ? available : unavailable);
+      if (url.includes("/git-compare?")) return Response.json(gitComparison);
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("git-repo"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("git-repo"));
+    fireEvent.click(screen.getByRole("button", { name: /版本对比/ }));
+    expect(await screen.findByText(/尚未同步 GitHub 提交与源码版本/)).toBeTruthy();
+    expect(screen.getByText("GitHub 版本同步与对比")).toBeTruthy();
+    expect(await screen.findByText("快照记录")).toBeTruthy();
+    const compareControls = document.querySelector(".snapshot-compare-controls") as HTMLElement;
+    const history = document.querySelector(".snapshot-history") as HTMLElement;
+    expect(compareControls.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /同步远程仓库/ }));
+    expect(await screen.findByText("feat: add analysis snapshots")).toBeTruthy();
+    expect(screen.getByText("main")).toBeTruthy();
+    expect(screen.getAllByText("12345678").length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/11/sync-github", expect.objectContaining({ method: "POST" }));
+    expect(screen.getByText(/重新分析和版本快照已完成/)).toBeTruthy();
+
+    const compareGitButton = screen.getByRole("button", { name: /对比提交/ });
+    await waitFor(() => expect(compareGitButton.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(compareGitButton);
+    expect(await screen.findByText("1 个提交 · 2 个变更文件")).toBeTruthy();
+    expect(screen.getByText("src/snapshots.ts")).toBeTruthy();
+    expect(screen.getByText(/GitHub 远端对比，不代表本地源码已更新/)).toBeTruthy();
+  });
+
   it("searches a symbol and displays its bounded change impact", async () => {
     const timestamp = "2026-08-26T10:00:00Z";
     const project = { id: 12, name: "impact-repo", source_filename: "impact-repo/", status: "ready", primary_language: "Python", file_count: 4, code_line_count: 80, created_at: timestamp, updated_at: timestamp };
@@ -708,6 +763,10 @@ describe("App", () => {
       related_apis: [relation(3, "app/api/login.py", "symbol_reference", "medium")],
       database_entities: [relation(4, "app/models/user.py", "target_imports_module")],
       cycles: [],
+      recommendations: [
+        { code: "run_related_tests", priority: "high", title: "优先运行已定位的相关测试", detail: "修改前后运行同一组测试。", related_paths: ["tests/test_auth.py"] },
+        { code: "review_direct_callers", priority: "medium", title: "逐一检查直接调用者", detail: "确认调用契约没有被破坏。", related_paths: ["app/api/login.py"] },
+      ],
       limitations: "函数关系来自有界源码引用推断。",
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -725,7 +784,7 @@ describe("App", () => {
 
     fireEvent.click(await screen.findByText("impact-repo"));
     await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("impact-repo"));
-    fireEvent.click(screen.getByRole("button", { name: /影响分析/ }));
+    fireEvent.click(screen.getByRole("button", { name: /耦合分析/ }));
     fireEvent.change(screen.getByLabelText(/选择要修改的文件、类或函数/), { target: { value: "authenticate" } });
     fireEvent.click(screen.getByRole("button", { name: "查找对象" }));
     fireEvent.click(await screen.findByRole("button", { name: /authenticate_user/ }));
@@ -735,6 +794,9 @@ describe("App", () => {
     expect(screen.getByText("高风险 · 中置信")).toBeTruthy();
     expect(screen.queryByText("风险参考变量")).toBeNull();
     expect(screen.getByText("直接调用者")).toBeTruthy();
+    expect(screen.queryByText("修改与验证清单")).toBeNull();
+    expect(screen.queryByText("优先运行已定位的相关测试")).toBeNull();
+    expect(document.querySelector(".impact-risk-reasons")?.textContent).not.toContain("[01]");
     expect(screen.getAllByText("app/api/login.py").length).toBeGreaterThan(0);
     expect(screen.getByText("函数关系来自有界源码引用推断。")).toBeTruthy();
     expect(new URLSearchParams(window.location.search).get("section")).toBe("impact");

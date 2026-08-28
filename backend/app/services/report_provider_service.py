@@ -8,7 +8,6 @@ import httpx
 
 from app.core.config import Settings
 
-
 PROVIDER_DEFINITIONS = {
     "local": {
         "name": "本地规则分析",
@@ -234,7 +233,11 @@ def enhance_markdown_report(
     instructions = (
         "你是资深代码审查与软件架构专家。基于 DevAtlas 已生成的事实报告，"
         "强化其中的智能分析结论和建议，使建议具体、可执行且与指标一致。"
-        "保留项目数据表格，不要虚构未提供的代码事实。只返回完整 Markdown，不要使用代码围栏。"
+        "必须保留报告开头的分析数据来源、文本生成来源、分析基线、项目数据表格，"
+        "以及所有文件路径和行号证据。"
+        "每项新增判断都必须能由报告中的指标或源码位置支持；不要虚构未提供的代码事实，"
+        "也不要把未绑定 Git Commit 的源码描述为远端最新版本。"
+        "只返回完整 Markdown，不要使用代码围栏。"
     )
     prompt = f"请生成最终代码仓库分析报告：\n\n{local_report[:60_000]}"
     try:

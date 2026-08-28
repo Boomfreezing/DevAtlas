@@ -1,16 +1,15 @@
 import shutil
 from collections.abc import Callable
-from pathlib import Path
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.project import Project, ProjectFile
-from app.services.repository_scanner import scan_repository
 from app.services.repository_path_service import resolve_project_storage_path
-from app.services.structure_analyzer import analyze_project_structure
+from app.services.repository_scanner import scan_repository
 from app.services.snapshot_service import create_analysis_snapshot
+from app.services.structure_analyzer import analyze_project_structure
 
 
 def create_scanned_project(

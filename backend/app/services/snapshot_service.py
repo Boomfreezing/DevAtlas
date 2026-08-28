@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.analysis import AnalysisSnapshot, ParseIssue
 from app.models.project import Project
-from app.services.dependency_graph_service import build_dependency_snapshot, load_dependency_snapshot
+from app.services.dependency_graph_service import (
+    build_dependency_snapshot,
+    load_dependency_snapshot,
+)
 from app.services.quality_service import build_quality_snapshot, load_quality_snapshot
 from app.services.structure_analyzer import load_project_structure_summary
-
 
 MAX_SNAPSHOTS_PER_PROJECT = 30
 MAX_COMPARISON_ITEMS = 100

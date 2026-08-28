@@ -171,6 +171,17 @@ def test_analyzes_symbol_change_impact_with_callers_dependencies_and_tests(
                 + sum(item["contribution"] for item in report["risk"]["factors"]),
             ),
         )
+        recommendations = {item["code"]: item for item in report["recommendations"]}
+        assert recommendations["run_related_tests"]["priority"] == "high"
+        assert recommendations["run_related_tests"]["related_paths"] == [
+            "tests/test_auth.py"
+        ]
+        assert recommendations["verify_api_contract"]["priority"] == "high"
+        assert recommendations["verify_data_contract"]["priority"] == "high"
+        assert recommendations["run_module_regression"]["related_paths"] == [
+            "app/main.py"
+        ]
+        assert report["recommendations"][-1]["code"] == "reanalyze_and_snapshot"
 
 
 def test_file_impact_uses_exact_import_confidence(tmp_path: Path) -> None:

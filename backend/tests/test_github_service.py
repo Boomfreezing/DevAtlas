@@ -9,9 +9,13 @@ import pytest
 from app.core.config import Settings
 from app.services import github_service
 from app.services.github_service import (
+    GitHubComparison,
     GitHubDownloadError,
+    GitHubMetadata,
     GitHubValidationError,
     download_github_repository,
+    fetch_github_comparison,
+    fetch_github_metadata,
     parse_github_repository,
 )
 
@@ -92,6 +96,87 @@ class ConnectionFailingClient(FakeClient):
             "[WinError 10013] socket access was denied",
             request=httpx.Request("GET", "https://github.com/openai/example"),
         )
+
+
+class FakeMetadataClient:
+    def __init__(self, **_: object) -> None:
+        pass
+
+    async def __aenter__(self) -> "FakeMetadataClient":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+    async def get(self, url: str, **_: object) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        if "/compare/" in url:
+            return httpx.Response(
+                200,
+                request=request,
+                json={
+                    "status": "ahead",
+                    "ahead_by": 2,
+                    "behind_by": 0,
+                    "total_commits": 2,
+                    "files": [
+                        {"filename": "src/app.py", "status": "modified", "additions": 12, "deletions": 3, "changes": 15},
+                        {"filename": "tests/test_app.py", "status": "added", "additions": 8, "deletions": 0, "changes": 8},
+                    ],
+                },
+            )
+        if url.endswith("/commits"):
+            return httpx.Response(
+                200,
+                request=request,
+                json=[
+                    {
+                        "sha": "a" * 40,
+                        "commit": {
+                            "message": "feat: add repository analysis\n\nbody",
+                            "author": {"name": "Ada", "date": "2026-08-28T10:00:00Z"},
+                        },
+                    }
+                ],
+            )
+        return httpx.Response(200, request=request, json={"default_branch": "main"})
+
+
+def test_loads_bounded_github_commit_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", FakeMetadataClient)
+
+    metadata = asyncio.run(
+        fetch_github_metadata(parse_github_repository("https://github.com/openai/example"))
+    )
+
+    assert isinstance(metadata, GitHubMetadata)
+    assert metadata.default_branch == "main"
+    assert metadata.head_commit == "a" * 40
+    assert metadata.recent_commits[0] == {
+        "sha": "a" * 40,
+        "message": "feat: add repository analysis",
+        "author": "Ada",
+        "authored_at": "2026-08-28T10:00:00Z",
+    }
+
+
+def test_compares_two_full_commit_shas_without_cloning(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", FakeMetadataClient)
+
+    comparison = asyncio.run(
+        fetch_github_comparison(
+            parse_github_repository("https://github.com/openai/example"),
+            "a" * 40,
+            "b" * 40,
+        )
+    )
+
+    assert isinstance(comparison, GitHubComparison)
+    assert comparison.total_commits == 2
+    assert comparison.additions == 20
+    assert comparison.deletions == 3
+    assert comparison.changed_files == 2
+    assert comparison.files[0]["path"] == "src/app.py"
 
 
 def test_downloads_and_extracts_github_archive(

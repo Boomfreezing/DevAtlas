@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import re
 import math
+import re
 from collections import defaultdict
 
 from sqlalchemy import or_, select
@@ -16,7 +16,6 @@ from app.services.dependency_graph_service import (
     DependencyGraphSnapshot,
     load_dependency_snapshot,
 )
-
 
 MAX_TARGET_RESULTS = 30
 MAX_RELATIONS = 24
@@ -159,6 +158,16 @@ def analyze_change_impact(
         cycles=cycles,
         has_symbol_references=bool(symbol_references),
     )
+    recommendations = _build_recommendations(
+        target=target,
+        direct_callers=direct_callers,
+        dependencies=dependencies,
+        indirect_impacts=indirect_impacts,
+        related_tests=related_tests,
+        related_apis=related_apis,
+        database_entities=database_entities,
+        cycles=cycles,
+    )
     return {
         "target": target,
         "definition": _definition_relation(target),
@@ -171,11 +180,117 @@ def analyze_change_impact(
         "related_apis": related_apis,
         "database_entities": database_entities,
         "cycles": cycles[:10],
+        "recommendations": recommendations,
         "limitations": (
             "文件依赖来自解析后的项目内导入关系；函数、方法和类的调用关系来自有界源码引用推断，"
             "不执行代码，也不等同于完整运行时调用链。"
         ),
     }
+
+
+def _build_recommendations(
+    *,
+    target: dict[str, object],
+    direct_callers: list[dict[str, object]],
+    dependencies: list[dict[str, object]],
+    indirect_impacts: list[dict[str, object]],
+    related_tests: list[dict[str, object]],
+    related_apis: list[dict[str, object]],
+    database_entities: list[dict[str, object]],
+    cycles: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    actions: list[dict[str, object]] = []
+
+    def add(
+        code: str,
+        priority: str,
+        title: str,
+        detail: str,
+        paths: list[str],
+    ) -> None:
+        actions.append(
+            {
+                "code": code,
+                "priority": priority,
+                "title": title,
+                "detail": detail,
+                "related_paths": list(dict.fromkeys(paths))[:8],
+            }
+        )
+
+    if related_tests:
+        add(
+            "run_related_tests",
+            "high",
+            "优先运行已定位的相关测试",
+            "先执行直接覆盖目标和调用方的测试；修改完成后再次运行同一组测试。",
+            [str(item["file_path"]) for item in related_tests],
+        )
+    else:
+        add(
+            "add_regression_test",
+            "high",
+            "补充目标级回归测试",
+            "当前没有定位到直接相关测试，修改前先记录现有行为，修改后补充成功与失败路径验证。",
+            [str(target["file_path"])],
+        )
+    if direct_callers:
+        add(
+            "review_direct_callers",
+            "high" if len(direct_callers) >= 5 else "medium",
+            "逐一检查直接调用者",
+            "确认参数、返回值、异常和副作用契约没有被修改破坏。",
+            [str(item["file_path"]) for item in direct_callers],
+        )
+    if related_apis:
+        add(
+            "verify_api_contract",
+            "high",
+            "验证接口兼容性",
+            "检查请求参数、响应结构、状态码和错误处理，并执行接口级回归。",
+            [str(item["file_path"]) for item in related_apis],
+        )
+    if database_entities:
+        add(
+            "verify_data_contract",
+            "high",
+            "核对数据契约与迁移影响",
+            "确认实体字段、查询条件、事务和兼容迁移策略，避免破坏已有数据。",
+            [str(item["file_path"]) for item in database_entities],
+        )
+    if cycles:
+        add(
+            "verify_dependency_cycle",
+            "high",
+            "联合验证依赖环中的模块",
+            "目标位于循环依赖中，需要按整组模块回归，不能只验证当前文件。",
+            [str(path) for cycle in cycles for path in cycle.get("paths", [])],
+        )
+    if dependencies:
+        add(
+            "review_dependency_contracts",
+            "medium",
+            "核对被调用对象的契约",
+            "检查目标依赖对象的公开接口、初始化顺序和异常传播方式。",
+            [str(item["file_path"]) for item in dependencies],
+        )
+    if indirect_impacts:
+        add(
+            "run_module_regression",
+            "medium",
+            "执行间接影响模块回归",
+            "直接验证通过后，再覆盖二级调用链上的关键业务流程。",
+            [str(item["file_path"]) for item in indirect_impacts],
+        )
+    add(
+        "reanalyze_and_snapshot",
+        "low",
+        "修改后重新分析并保存快照",
+        "重新执行增量分析，对比质量分、问题、依赖边和影响范围是否出现非预期变化。",
+        [str(target["file_path"])],
+    )
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    return sorted(actions, key=lambda item: priority_order[str(item["priority"])])
 
 
 def _load_target(

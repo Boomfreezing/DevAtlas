@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from app.models.project import Project, ProjectFile
 from app.services.repository_path_service import resolve_project_storage_path
 
-
 MAX_SOURCE_FILE_BYTES = 2 * 1024 * 1024
 
 

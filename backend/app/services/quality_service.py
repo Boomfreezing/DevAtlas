@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 from app.models.analysis import CodeSymbol, ImportRelation
 from app.models.project import ProjectFile
 from app.services.analysis_cache import get_or_create_project_analysis
+from app.services.code_parser import supports_extension
 from app.services.code_scope_service import CODE_SCOPES, classify_code_scope, code_scope_label
 from app.services.dependency_graph_service import find_cycles
-
 
 LONG_FUNCTION_LINES = 80
 LARGE_CLASS_LINES = 500
@@ -19,12 +19,12 @@ LARGE_FILE_LINES = 1_000
 TOO_MANY_IMPORTS = 25
 HIGH_FAN_OUT = 10
 QUALITY_SCORING_MODEL = "size_normalized_v2"
-COMPOSITE_SCORING_MODEL = "scope_weighted_size_normalized_v3"
+COMPOSITE_SCORING_MODEL = "source_scope_weighted_size_normalized_v4"
 SCOPE_SCORE_WEIGHTS = {"production": 0.70, "test": 0.20, "generated": 0.10}
 BASE_SEVERITY_WEIGHTS = {"error": 8.0, "warning": 3.0, "info": 1.0}
 REFERENCE_PROJECT_SIZE = {"files": 50, "code_lines": 10_000, "symbols": 500}
 MAX_RULE_PENALTY = 20.0
-QUALITY_CACHE_NAMESPACE = "quality_report_v2"
+QUALITY_CACHE_NAMESPACE = "quality_report_v3"
 
 QUALITY_RULES = [
     {
@@ -77,6 +77,10 @@ def _build_quality_report_snapshot(
         )
     )
     file_by_id = {item.id: item for item in files}
+    source_files = [item for item in files if item.language is not None]
+    parser_supported_files = [
+        item for item in source_files if supports_extension(item.extension)
+    ]
     symbols = list(
         database.scalars(
             select(CodeSymbol)
@@ -93,7 +97,7 @@ def _build_quality_report_snapshot(
     )
     findings: list[dict[str, object]] = []
 
-    for project_file in files:
+    for project_file in source_files:
         if project_file.line_count > LARGE_FILE_LINES:
             findings.append(
                 _finding(
@@ -224,18 +228,21 @@ def _build_quality_report_snapshot(
     )
     severity_counts = Counter(str(item["severity"]) for item in findings)
     rule_counts = Counter(str(item["rule_id"]) for item in findings)
-    files_by_scope = {
-        scope: [item for item in files if classify_code_scope(item.relative_path) == scope]
-        for scope in CODE_SCOPES
+    files_by_scope: dict[str, list[ProjectFile]] = {
+        scope: [] for scope in CODE_SCOPES
     }
-    symbols_by_scope = {
-        scope: [
-            item
-            for item in symbols
-            if item.file_id in {project_file.id for project_file in files_by_scope[scope]}
-        ]
-        for scope in CODE_SCOPES
-    }
+    file_scope_by_id: dict[int, str] = {}
+    for project_file in source_files:
+        file_scope = classify_code_scope(project_file.relative_path)
+        files_by_scope[file_scope].append(project_file)
+        if project_file.id is not None:
+            file_scope_by_id[project_file.id] = file_scope
+
+    symbol_counts_by_scope = Counter(
+        file_scope_by_id[symbol.file_id]
+        for symbol in symbols
+        if symbol.file_id in file_scope_by_id
+    )
     findings_by_scope = {
         scope: [item for item in findings if item["scope"] == scope]
         for scope in CODE_SCOPES
@@ -253,7 +260,7 @@ def _build_quality_report_snapshot(
                 scoped_findings,
                 file_count=len(scoped_files),
                 code_line_count=sum(item.line_count for item in scoped_files),
-                symbol_count=len(symbols_by_scope[scope]),
+                symbol_count=symbol_counts_by_scope[scope],
             )
             scoped_grade: str | None = _grade(scoped_score)
             effective_weight = SCOPE_SCORE_WEIGHTS[scope] / available_weight
@@ -280,7 +287,7 @@ def _build_quality_report_snapshot(
             "project_size": {
                 "file_count": len(scoped_files),
                 "code_line_count": sum(item.line_count for item in scoped_files),
-                "symbol_count": len(symbols_by_scope[scope]),
+                "symbol_count": symbol_counts_by_scope[scope],
             },
         }
     score = round(
@@ -292,8 +299,8 @@ def _build_quality_report_snapshot(
     )
     _, scoring = _quality_score(
         findings,
-        file_count=len(files),
-        code_line_count=sum(item.line_count for item in files),
+        file_count=len(source_files),
+        code_line_count=sum(item.line_count for item in source_files),
         symbol_count=len(symbols),
     )
     scoring.update(
@@ -307,6 +314,7 @@ def _build_quality_report_snapshot(
             "excluded_scopes": [
                 scope for scope in CODE_SCOPES if not scope_scores[scope]["available"]
             ],
+            **_quality_coverage(source_files, parser_supported_files),
             "explanation": (
                 "综合分由生产代码、测试代码、生成/外部代码按 70%、20%、10% 加权；"
                 "不存在的代码范围不计 100 分且不参与评分，其权重按比例分配给已有范围。"
@@ -328,6 +336,37 @@ def _build_quality_report_snapshot(
         "rule_counts": dict(rule_counts),
         "rules": QUALITY_RULES,
         "findings": tuple(findings),
+    }
+
+
+def _quality_coverage(
+    source_files: list[ProjectFile], parser_supported_files: list[ProjectFile]
+) -> dict[str, object]:
+    source_count = len(source_files)
+    supported_count = len(parser_supported_files)
+    ratio = supported_count / source_count if source_count else 0.0
+    if source_count == 0:
+        level = "none"
+        message = "未检测到可参与质量检查的源代码文件，综合质量分不具有参考意义。"
+    elif ratio >= 0.8:
+        level = "high"
+        message = "大部分源码支持结构解析，六类质量规则具备较完整的数据基础。"
+    elif ratio > 0:
+        level = "partial"
+        message = "仅部分源码支持结构解析，函数、类与依赖类规则可能不完整。"
+    else:
+        level = "limited"
+        message = "当前源码语言尚未获得结构解析支持，仅文件级规则可执行，综合分不能代表完整代码质量。"
+    return {
+        "source_file_count": source_count,
+        "parser_supported_file_count": supported_count,
+        "applicable_rule_count": (
+            len(QUALITY_RULES) if supported_count else 1 if source_count else 0
+        ),
+        "total_rule_count": len(QUALITY_RULES),
+        "parser_coverage": round(ratio, 4),
+        "coverage_level": level,
+        "coverage_message": message,
     }
 
 

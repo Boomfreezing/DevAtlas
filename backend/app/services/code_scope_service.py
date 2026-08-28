@@ -2,7 +2,6 @@
 
 from pathlib import PurePosixPath
 
-
 CODE_SCOPES = ("production", "test", "generated")
 SCOPE_LABELS = {
     "production": "生产代码",

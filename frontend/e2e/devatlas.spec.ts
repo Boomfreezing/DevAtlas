@@ -78,6 +78,27 @@ test("安全拖入文件夹、搜索代码并执行无变化增量分析", async
     await expect(page.locator(".project-trigger")).toContainText(projectName);
     await expect(page.locator(".analysis-strip")).toContainText("1");
 
+    await page.locator(".project-trigger").click();
+    await expect(page.locator(".sidebar")).toHaveClass(/project-picker-open/);
+    const projectPickerLayout = await page.locator(".sidebar").evaluate((sidebar) => {
+      const picker = sidebar.querySelector<HTMLElement>(".project-picker")!;
+      const list = sidebar.querySelector<HTMLElement>(".project-picker-list")!;
+      return {
+        sidebarOverflow: getComputedStyle(sidebar).overflowY,
+        pickerPosition: getComputedStyle(picker).position,
+        listOverflow: getComputedStyle(list).overflowY,
+        listOverscroll: getComputedStyle(list).overscrollBehaviorY,
+      };
+    });
+    expect(projectPickerLayout).toEqual({
+      sidebarOverflow: "hidden",
+      pickerPosition: "static",
+      listOverflow: "auto",
+      listOverscroll: "contain",
+    });
+    await page.locator(".project-trigger").click();
+    await expect(page.locator(".sidebar")).not.toHaveClass(/project-picker-open/);
+
     await expect.poll(async () => {
       const response = await request.get("/api/projects");
       const projects = await response.json() as ProjectSummary[];

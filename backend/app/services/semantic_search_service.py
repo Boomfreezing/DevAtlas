@@ -17,13 +17,12 @@ from typing import Iterable
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.database import SessionLocal
 from app.models.analysis import SearchChunk
 from app.models.project import Project, ProjectFile
-from app.core.database import SessionLocal
 from app.services.code_scope_service import classify_code_scope
 from app.services.repository_path_service import resolve_project_storage_path
 from app.services.search_service import build_search_passage_metadata
-
 
 SEMANTIC_MODEL_NAME = "BAAI/bge-small-zh-v1.5"
 SEMANTIC_INDEX_FORMAT_VERSION = 2

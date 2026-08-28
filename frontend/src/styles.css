@@ -28,6 +28,7 @@ button { cursor: pointer; }
 .app-shell { min-height: var(--ui-viewport-height); display: grid; grid-template-columns: 238px minmax(0, 1fr); grid-template-areas: "sidebar main"; }
 .app-shell.qa-side-open { height: var(--ui-viewport-height); min-height: 0; grid-template-columns: 238px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) clamp(260px, 36vh, 340px); grid-template-areas: "sidebar main" "sidebar qa"; overflow: hidden; }
 .sidebar { position: sticky; top: 0; grid-area: sidebar; height: var(--ui-viewport-height); padding: 28px 18px 22px; overflow-y: auto; color: #c8cfdb; background: #171c26; display: flex; flex-direction: column; border-right: 1px solid #222a39; }
+.sidebar.project-picker-open { overflow: hidden; }
 .brand { padding: 0 10px 22px; display: flex; align-items: center; gap: 12px; }
 .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid #8995ff; border-radius: 11px 4px 11px 4px; background: linear-gradient(145deg, #6574f1, #4856c7); box-shadow: 0 8px 26px #4555d742; }
 .brand-mark span { color: white; font-weight: 800; font-size: 20px; transform: skew(-5deg); }
@@ -43,10 +44,10 @@ button { cursor: pointer; }
 .project-trigger-copy strong { color: #eef1f6; font-size: 12px; }
 .project-trigger-copy small { margin-top: 4px; color: #778296; font-size: 10px; }
 .project-trigger-arrow { color: #7c8799; font-size: 10px; }
-.project-picker { margin-top: 7px; border: 1px solid #343d4d; background: #171d27; }
+.project-picker { max-height: min(360px, calc(var(--ui-viewport-height) - 165px)); margin-top: 7px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #343d4d; background: #171d27; }
 .project-picker-heading { min-height: 35px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2b3341; }
 .project-picker-heading strong { color: #aeb7c6; font-size: 11px; }.project-picker-heading span { color: #657084; font: 10px Consolas, monospace; }
-.project-picker-list { max-height: 226px; overflow: auto; }
+.project-picker-list { min-height: 0; max-height: 226px; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .project-picker-empty { padding: 18px 10px; color: #778296; font-size: 10px; text-align: center; }
 .project-option { width: 100%; min-height: 54px; padding: 7px 9px; display: grid; grid-template-columns: 29px minmax(0, 1fr) 10px; gap: 8px; align-items: center; border: 0; border-bottom: 1px solid #282f3c; color: #bec5d0; background: transparent; text-align: left; }
 .project-option:hover, .project-option.active { background: #232b38; }
@@ -264,6 +265,56 @@ h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
 
 .impact-workspace { display: grid; gap: 14px; padding: 14px; }
 .snapshot-workspace { display: grid; gap: 14px; padding: 14px; color: var(--ink); }
+.snapshot-git-context { border: 1px solid var(--line); background: white; }
+.snapshot-git-context > header { min-height: 68px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+.snapshot-git-context > header span, .snapshot-git-commits > span { display: block; color: var(--primary); font: 700 10px Consolas, monospace; letter-spacing: .08em; }
+.snapshot-git-context > header strong { display: block; margin: 4px 0; font-size: 13px; }
+.snapshot-git-context > header small { display: block; color: var(--muted); font-size: 10px; }
+.snapshot-git-context button { min-height: 34px; padding: 0 12px; border: 1px solid var(--primary); color: var(--primary); background: transparent; font: 700 10px Consolas, monospace; white-space: nowrap; }
+.snapshot-git-context button:hover:not(:disabled) { color: white; background: var(--primary); }
+.snapshot-git-context button:disabled { opacity: .55; cursor: default; }
+.snapshot-git-message { min-height: 70px; padding: 14px; display: flex; align-items: center; gap: 10px; color: var(--muted); font: 11px/1.5 Consolas, "Microsoft YaHei", monospace; }
+.snapshot-git-message.error { color: #bd4c46; }
+.snapshot-git-message.success { color: #29936a; }
+.snapshot-sync-progress { padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; border-bottom: 1px solid var(--line); }
+.snapshot-sync-progress strong, .snapshot-sync-progress span { display: block; }
+.snapshot-sync-progress strong { color: var(--primary); font: 700 10px Consolas, monospace; }
+.snapshot-sync-progress span { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.snapshot-sync-progress small { color: var(--primary); font: 700 10px Consolas, monospace; }
+.snapshot-sync-progress .progress-track { grid-column: 1 / -1; }
+.snapshot-git-body { display: grid; grid-template-columns: minmax(320px, .85fr) minmax(0, 1.15fr); }
+.snapshot-git-body > dl { margin: 0; padding: 12px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border-right: 1px solid var(--line); }
+.snapshot-git-body dt { color: var(--muted); font-size: 9px; }
+.snapshot-git-body dd { min-width: 0; margin: 4px 0 0; overflow: hidden; color: var(--ink); font: 700 10px Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.snapshot-git-body a { color: inherit; }
+.snapshot-git-commits { min-width: 0; padding: 12px 14px; }
+.snapshot-git-commits > article { min-width: 0; padding: 7px 0; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 9px; border-top: 1px dashed var(--line); }
+.snapshot-git-commits > article:first-of-type { margin-top: 7px; }
+.snapshot-git-commits > article > code { color: var(--primary); font: 700 9px Consolas, monospace; }
+.snapshot-git-commits strong, .snapshot-git-commits small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snapshot-git-commits strong { font: 600 10px Consolas, "Microsoft YaHei", monospace; }
+.snapshot-git-commits small, .snapshot-git-commits p { margin: 3px 0 0; color: var(--muted); font: 9px Consolas, monospace; }
+.snapshot-git-compare { border-top: 1px solid var(--line); }
+.snapshot-git-compare-controls { padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.snapshot-git-compare-controls label { min-width: 0; display: grid; gap: 5px; }
+.snapshot-git-compare-controls label span { color: var(--primary); font: 700 9px Consolas, monospace; }
+.snapshot-git-compare-controls select { min-width: 0; height: 34px; padding: 0 9px; overflow: hidden; border: 1px solid var(--line); color: var(--ink); background: transparent; font: 10px Consolas, monospace; text-overflow: ellipsis; }
+.snapshot-git-compare-controls i { padding-bottom: 8px; color: var(--primary); font: normal 15px Consolas, monospace; }
+.snapshot-git-compare-hint { margin: 0; padding: 0 14px 12px; color: var(--muted); font: 10px Consolas, monospace; }
+.snapshot-git-diff { border-top: 1px solid var(--line); }
+.snapshot-git-diff > header { padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.snapshot-git-diff > header span, .snapshot-git-diff > header strong, .snapshot-git-diff > header small { display: block; }
+.snapshot-git-diff > header span { color: var(--primary); font: 700 9px Consolas, monospace; letter-spacing: .08em; }
+.snapshot-git-diff > header strong { margin: 4px 0; font-size: 12px; }
+.snapshot-git-diff > header small { color: var(--muted); font-size: 9px; }
+.snapshot-git-diff > div { max-height: 310px; overflow: auto; }
+.snapshot-git-diff article { min-height: 34px; padding: 6px 14px; display: grid; grid-template-columns: 52px minmax(0, 1fr) 58px 58px; gap: 8px; align-items: center; border-top: 1px dashed var(--line); }
+.snapshot-git-diff article:first-child { border-top: 0; }
+.snapshot-git-diff article code { overflow: hidden; font: 10px Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.snapshot-git-diff article b, .snapshot-git-diff article em { font: normal 700 9px Consolas, monospace; text-align: right; }
+.snapshot-git-diff article b { color: #29936a; }.snapshot-git-diff article em { color: #bd4c46; }
+.git-file-status { color: var(--muted); font: 700 8px Consolas, monospace; }.git-file-status.added { color: #29936a; }.git-file-status.removed { color: #bd4c46; }.git-file-status.renamed { color: #c08b29; }
+.snapshot-git-diff footer { padding: 8px 14px; border-top: 1px solid var(--line); color: var(--muted); font: 9px Consolas, monospace; }
 .snapshot-toolbar { padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 18px; align-items: end; border: 1px solid var(--line); background: #fbfcfd; }
 .snapshot-toolbar > div:first-child span, .snapshot-comparison header span, .snapshot-group > header span { display: block; color: var(--primary); font: 700 10px Consolas, monospace; letter-spacing: .08em; }
 .snapshot-toolbar > div:first-child strong { display: block; margin: 5px 0; font-size: 13px; }
@@ -273,8 +324,16 @@ h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
 .snapshot-toolbar input:focus, .snapshot-compare-controls select:focus { border-color: var(--primary); }
 .snapshot-toolbar button, .snapshot-compare-controls > button { min-height: 38px; padding: 0 14px; border: 1px solid var(--primary); color: white; background: var(--primary); font: 700 10px Consolas, monospace; }
 .snapshot-toolbar button:disabled, .snapshot-compare-controls > button:disabled { opacity: .55; cursor: default; }
-.snapshot-list { display: grid; gap: 7px; }
+.snapshot-history { border: 1px solid var(--line); background: white; }
+.snapshot-history > header { min-height: 46px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.snapshot-history > header span, .snapshot-history > header strong { display: block; }
+.snapshot-history > header span { color: var(--primary); font: 700 9px Consolas, monospace; letter-spacing: .08em; }
+.snapshot-history > header strong { margin-top: 3px; font-size: 12px; }
+.snapshot-history > header em { color: var(--muted); font: normal 9px Consolas, monospace; }
+.snapshot-list { display: grid; }
 .snapshot-list > article { min-height: 65px; padding: 10px 12px; display: grid; grid-template-columns: minmax(160px, 1fr) minmax(320px, 1.25fr) 30px; gap: 14px; align-items: center; border: 1px solid var(--line); background: white; }
+.snapshot-list > article { border-width: 0 0 1px; }
+.snapshot-list > article:last-child { border-bottom: 0; }
 .snapshot-list > article > div span, .snapshot-list > article > div strong, .snapshot-list > article > div small { display: block; }
 .snapshot-list > article > div span { color: #43ac74; font: 700 9px Consolas, monospace; }
 .snapshot-list > article > div strong { margin: 3px 0; font-size: 12px; }
@@ -329,8 +388,7 @@ h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
 .impact-definition span, .impact-definition small { color: var(--muted); font: 10px Consolas, monospace; }
 .impact-definition strong { margin: 3px 0; color: var(--primary); }
 .impact-risk-reasons { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
-.impact-risk-reasons > span { min-width: 0; padding: 10px 12px; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: start; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.impact-risk-reasons > span i { color: var(--primary); font: normal 700 10px Consolas, monospace; }
+.impact-risk-reasons > span { min-width: 0; padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .impact-risk-reasons > span b { color: var(--ink); font-size: 10px; font-weight: 500; line-height: 1.55; overflow-wrap: anywhere; }
 .impact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .impact-group, .impact-cycles { min-width: 0; border: 1px solid var(--line); background: var(--panel); }
@@ -503,8 +561,10 @@ h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
 .quality-score.grade-c { --quality-grade-color: #c99527; }
 .quality-score.grade-d { --quality-grade-color: #dc772d; }
 .quality-score.grade-f { --quality-grade-color: #d45151; }
+.quality-score.quality-score-unavailable { --quality-grade-color: #8d96a3; border-style: dashed; box-shadow: none; }
 .quality-score strong { color: var(--quality-grade-color); font: 700 25px Consolas, monospace; line-height: 1; }.quality-score span { margin-top: 7px; color: #929ba9; font-size: 7px; line-height: 1; white-space: nowrap; }.quality-score em { position: absolute; right: -9px; bottom: -10px; z-index: 1; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--quality-grade-color); box-shadow: 0 0 0 3px white; font: normal 700 10px Consolas, monospace; }
 .quality-overview h3 { margin: 0 0 7px; color: #343e4e; font-size: 17px; }.quality-overview > span { color: #8e97a5; font: 8px Consolas, monospace; }
+.quality-coverage-note { display: block; margin-top: 8px; max-width: 620px; color: #a66f28; font-size: 10px; line-height: 1.55; }
 .quality-scope-scores { margin-top: 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .quality-scope-scores article { --quality-grade-color: #3f7fda; padding: 10px 12px; border: 1px solid #e2e6ec; border-left: 3px solid var(--quality-grade-color); background: #fafbfc; }.quality-scope-scores article.grade-a { --quality-grade-color: #299768; }.quality-scope-scores article.grade-b { --quality-grade-color: #3f7fda; }.quality-scope-scores article.grade-c { --quality-grade-color: #c99527; }.quality-scope-scores article.grade-d { --quality-grade-color: #dc772d; }.quality-scope-scores article.grade-f { --quality-grade-color: #d45151; }.quality-scope-scores article > div { display: flex; align-items: baseline; gap: 7px; }.quality-scope-scores strong { color: var(--quality-grade-color); font: 700 18px Consolas, monospace; }.quality-scope-scores em { color: var(--quality-grade-color); font: normal 700 10px Consolas, monospace; }.quality-scope-scores span { display: block; margin-top: 2px; color: #4a5566; font-size: 10px; font-weight: 700; }.quality-scope-scores small { display: block; margin-top: 4px; color: #929ba8; font: 9px Consolas, monospace; }
 .quality-scope-scores article.scope-unavailable { --quality-grade-color: #8d96a3; border-style: dashed; background: #f5f6f8; }.quality-scope-scores article.scope-unavailable small { line-height: 1.45; }
@@ -883,7 +943,9 @@ h2 { font-size: 17px; }
   .file-tree-file > strong + span, .file-tree-file small, .file-tree-impact-button { display: none; }
   .impact-report-header, .impact-grid { grid-template-columns: 1fr; }
   .impact-search > div { grid-template-columns: 1fr; }
-  .snapshot-toolbar, .snapshot-list > article, .snapshot-compare-controls, .snapshot-group > div { grid-template-columns: 1fr; }
+  .snapshot-toolbar, .snapshot-git-body, .snapshot-git-compare-controls, .snapshot-list > article, .snapshot-compare-controls, .snapshot-group > div { grid-template-columns: 1fr; }
+  .snapshot-git-compare-controls > i { display: none; }
+  .snapshot-git-body > dl { border-right: 0; border-bottom: 1px solid var(--line); }
   .snapshot-list dl { grid-template-columns: repeat(2, 1fr); gap: 8px 0; }
   .snapshot-compare-controls > span { display: none; }
   .snapshot-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }

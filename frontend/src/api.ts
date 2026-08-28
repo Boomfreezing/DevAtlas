@@ -1,4 +1,4 @@
-import type { AnalysisJob, AnalysisSnapshotComparison, AnalysisSnapshotSummary, ChangeImpact, CodeSearchResponse, CodeSymbol, DependencyGraph, GeneratedReport, ImpactTarget, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileContent, ProjectFileTreeResponse, ProjectStructure, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, RepositoryAnswer, RepositoryConversationItem, StructurePage } from "./types";
+import type { AnalysisJob, AnalysisSnapshotComparison, AnalysisSnapshotSummary, ChangeImpact, CodeSearchResponse, CodeSymbol, DependencyGraph, GeneratedReport, GitComparison, ImpactTarget, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileContent, ProjectFileTreeResponse, ProjectGitSummary, ProjectStructure, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, RepositoryAnswer, RepositoryConversationItem, StructurePage } from "./types";
 
 const API_ROOT = "/api";
 export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
@@ -76,6 +76,13 @@ const DETAIL_GUIDANCE: Array<{ pattern: RegExp; summary: string; action: string 
   { pattern: /public GitHub repository was not found/i, summary: "没有找到这个公开 GitHub 仓库", action: "检查仓库地址、拼写和公开权限" },
   { pattern: /Cannot connect to GitHub/i, summary: "后端无法连接 GitHub", action: "检查网络、代理和后端外网权限后重试" },
   { pattern: /GitHub download timed out/i, summary: "下载 GitHub 仓库超时", action: "检查网络后重试，或改用 ZIP 导入" },
+  { pattern: /Unable to load GitHub metadata/i, summary: "后端无法读取 GitHub 提交信息", action: "检查网络、代理和后端外网权限；源码分析与已有快照仍可正常使用" },
+  { pattern: /Unable to compare GitHub commits/i, summary: "后端无法读取 GitHub 提交差异", action: "检查网络、代理和后端外网权限；稍后重新对比" },
+  { pattern: /Choose two different commits to compare/i, summary: "基准和目标是同一个提交", action: "选择两个不同提交后再对比" },
+  { pattern: /GitHub metadata rate limit reached/i, summary: "GitHub 提交信息接口已限流", action: "稍后再刷新；源码分析与已有快照不受影响" },
+  { pattern: /Only projects imported from a GitHub repository URL can load Git metadata/i, summary: "该项目不是通过 GitHub URL 导入的", action: "本地项目没有可刷新的远程提交信息，可继续使用分析快照" },
+  { pattern: /Only projects imported from a GitHub repository URL can compare commits/i, summary: "该项目不是通过 GitHub URL 导入的", action: "Git 提交对比仅适用于 GitHub URL 导入的项目" },
+  { pattern: /Only projects imported from a GitHub repository URL can synchronize remote source/i, summary: "该项目不是通过 GitHub URL 导入的", action: "远程同步仅适用于 GitHub URL 导入的项目" },
   { pattern: /anonymous downloads may be rate-limited/i, summary: "GitHub 拒绝了匿名下载", action: "稍后重试，或下载 ZIP 后从本地导入" },
   { pattern: /Repository archive exceeds the .* MB limit/i, summary: "GitHub 仓库压缩包超过导入大小限制", action: "使用更小的仓库或本地精简后导入" },
   { pattern: /Report generator .* is not configured/i, summary: "所选分析接口尚未配置", action: "点击“配置 API”，保存并测试连接后再生成报告" },
@@ -252,6 +259,19 @@ export function deleteAnalysisSnapshot(id: number, snapshotId: number): Promise<
   return request<void>(`/projects/${id}/snapshots/${snapshotId}`, "删除分析快照", { method: "DELETE" });
 }
 
+export function getProjectGitSummary(id: number): Promise<ProjectGitSummary> {
+  return request<ProjectGitSummary>(`/projects/${id}/git-summary`, "加载 Git 提交信息");
+}
+
+export function refreshProjectGitSummary(id: number): Promise<ProjectGitSummary> {
+  return request<ProjectGitSummary>(`/projects/${id}/git-summary/refresh`, "刷新 Git 提交信息", { method: "POST" });
+}
+
+export function compareProjectGitCommits(id: number, base: string, head: string): Promise<GitComparison> {
+  const params = new URLSearchParams({ base, head });
+  return request<GitComparison>(`/projects/${id}/git-compare?${params}`, "对比 Git 提交");
+}
+
 export function getQualityReport(id: number, limit = 100, offset = 0, severity = "all", rule = "all", scope = "all"): Promise<QualityReport> {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (severity !== "all") params.set("severity", severity);
@@ -389,6 +409,10 @@ export function importGitHubProject(url: string): Promise<AnalysisJob> {
 
 export function getAnalysisJob(id: string): Promise<AnalysisJob> {
   return request<AnalysisJob>(`/projects/jobs/${id}`, "查询分析进度");
+}
+
+export function synchronizeGitHubProject(id: number): Promise<AnalysisJob> {
+  return request<AnalysisJob>(`/projects/${id}/sync-github`, "同步远程仓库", { method: "POST" });
 }
 
 export function deleteProject(id: number): Promise<void> {

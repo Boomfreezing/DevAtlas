@@ -526,12 +526,55 @@ h1::after {
 
 /* Analysis snapshots use the same phosphor terminal language as the rest of DevAtlas. */
 .snapshot-workspace { color: var(--terminal-text); background: var(--terminal-bg); }
-.snapshot-toolbar, .snapshot-list > article, .snapshot-comparison > header,
+.snapshot-git-context, .snapshot-toolbar, .snapshot-history, .snapshot-list > article, .snapshot-comparison > header,
 .snapshot-metrics article, .snapshot-group {
   border-color: var(--terminal-border);
   color: var(--terminal-text);
   background: var(--terminal-panel);
 }
+.snapshot-git-context { border-left: 3px solid var(--terminal-secondary); }
+.snapshot-git-context > header { border-bottom-color: var(--terminal-border); background: #0b100b; }
+.snapshot-git-context > header span, .snapshot-git-context > header strong,
+.snapshot-git-commits > span, .snapshot-git-body dd, .snapshot-git-body a { color: var(--terminal-primary); }
+.snapshot-git-context > header small, .snapshot-git-body dt,
+.snapshot-git-commits small, .snapshot-git-commits p, .snapshot-git-message { color: var(--terminal-muted); }
+.snapshot-git-context button {
+  border-color: var(--terminal-primary);
+  color: var(--terminal-primary);
+  background: var(--terminal-bg);
+  text-transform: uppercase;
+}
+.snapshot-git-context button::before { content: "["; }
+.snapshot-git-context button::after { content: "]"; }
+.snapshot-git-context button:hover:not(:disabled) { color: var(--terminal-bg); background: var(--terminal-primary); }
+.snapshot-git-body > dl { border-right-color: var(--terminal-border); background: var(--terminal-panel); }
+.snapshot-git-body dd code, .snapshot-git-commits > article > code { color: var(--terminal-secondary); }
+.snapshot-git-commits { background: var(--terminal-bg); }
+.snapshot-git-commits > article { border-top-color: var(--terminal-border); }
+.snapshot-git-commits strong { color: var(--terminal-text); }
+.snapshot-git-message.error { color: var(--terminal-error); }
+.snapshot-git-message.success, .snapshot-sync-progress strong,
+.snapshot-sync-progress small { color: var(--terminal-primary); }
+.snapshot-sync-progress { border-bottom-color: var(--terminal-border); background: var(--terminal-panel); }
+.snapshot-sync-progress span { color: var(--terminal-muted); }
+.snapshot-git-compare, .snapshot-git-diff, .snapshot-git-diff > header,
+.snapshot-git-diff article, .snapshot-git-diff footer { border-color: var(--terminal-border); }
+.snapshot-git-compare-controls { background: #070907; }
+.snapshot-git-compare-controls label span, .snapshot-git-compare-controls > i,
+.snapshot-git-diff > header span, .snapshot-git-diff > header strong { color: var(--terminal-primary); }
+.snapshot-git-compare-controls select {
+  border-color: var(--terminal-border);
+  color: var(--terminal-primary);
+  background: var(--terminal-panel);
+}
+.snapshot-git-diff > header { background: #0b140b; }
+.snapshot-git-diff > header small, .snapshot-git-diff footer,
+.snapshot-git-compare-hint { color: var(--terminal-muted); }
+.snapshot-git-diff article code { color: var(--terminal-text); }
+.snapshot-git-diff article:hover { background: #102010; }
+.snapshot-git-diff article b, .git-file-status.added { color: var(--terminal-primary); }
+.snapshot-git-diff article em, .git-file-status.removed { color: var(--terminal-error); }
+.git-file-status.renamed { color: var(--terminal-secondary); }
 .snapshot-toolbar { border-left: 3px solid var(--terminal-primary); }
 .snapshot-toolbar > div:first-child span,
 .snapshot-comparison header span, .snapshot-group > header span,
@@ -571,6 +614,10 @@ h1::after {
   background: var(--terminal-bg);
 }
 .snapshot-list { gap: 6px; }
+.snapshot-history > header { border-bottom-color: var(--terminal-primary); background: #0b100b; }
+.snapshot-history > header span, .snapshot-history > header strong { color: var(--terminal-primary); }
+.snapshot-history > header em { color: var(--terminal-muted); }
+.snapshot-history .snapshot-list { gap: 0; }
 .snapshot-list > article:hover { border-color: var(--terminal-primary); background: #102010; }
 .snapshot-list > article > div span { color: var(--terminal-secondary); }
 .snapshot-list dl div { border-left-color: var(--terminal-border); }
@@ -788,6 +835,7 @@ h1::after {
   caret-color: var(--terminal-primary);
 }
 .qa-command-line input:focus-visible { outline: 0 !important; }
+
 
 @keyframes terminal-blink { 0%, 48% { opacity: 1; } 49%, 100% { opacity: 0; } }
 @keyframes terminal-modal-in { from { opacity: 0; transform: translateY(8px); } }

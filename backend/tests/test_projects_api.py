@@ -10,12 +10,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.api.routes import projects as project_routes
 from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.main import app
-from app.api.routes import projects as project_routes
-from app.services.analysis_cache import analysis_cache_stats, clear_analysis_cache
 from app.services import repository_path_service, repository_qa_service, search_service
+from app.services.analysis_cache import analysis_cache_stats, clear_analysis_cache
+from app.services.github_service import GitHubComparison, GitHubMetadata
 
 
 @pytest.fixture
@@ -156,7 +157,7 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert quality.status_code == 200
     assert quality.json()["score"] == 100
     assert len(quality.json()["rules"]) == 6
-    assert quality.json()["scoring"]["model"] == "scope_weighted_size_normalized_v3"
+    assert quality.json()["scoring"]["model"] == "source_scope_weighted_size_normalized_v4"
     assert quality.json()["scoring"]["adjusted_penalty"] == 0
     assert quality.json()["scope_scores"]["test"]["score"] is None
     assert quality.json()["scope_scores"]["test"]["available"] is False
@@ -174,6 +175,7 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert "**项目画像：**" in report.text
     assert "评分采用项目规模归一化" in report.text
     assert "报告模式：摘要报告" in report.text
+    assert "当前项目未绑定可验证的 Git Commit" in report.text
     assert "### 风险范围分布" in report.text
     assert "### 重点风险模块" in report.text
     assert "| 风险等级 | 数量 |" in report.text
@@ -476,6 +478,97 @@ def test_repository_questions_require_generation_provider_and_return_source_cita
         f"/api/projects/{project_id}/ask",
         json={"question": "项目做什么？", "provider": "missing"},
     ).status_code == 400
+
+
+def test_refreshes_and_returns_github_commit_metadata(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("git-demo.zip", make_archive({"git-demo/main.py": "pass\n"}), "application/zip")},
+    ).json()
+    project_id = created["id"]
+    unavailable = client.get(f"/api/projects/{project_id}/git-summary")
+    assert unavailable.status_code == 200
+    assert unavailable.json()["available"] is False
+    assert unavailable.json()["refreshable"] is False
+
+    with sqlite3.connect(tmp_path / "test.db") as connection:
+        connection.execute(
+            "UPDATE projects SET source_filename = ? WHERE id = ?",
+            ("github.com/openai/example", project_id),
+        )
+        connection.commit()
+
+    async def fake_metadata(repository: object) -> GitHubMetadata:
+        return GitHubMetadata(
+            repository_url="https://github.com/openai/example",
+            default_branch="main",
+            head_commit="c" * 40,
+            recent_commits=[
+                {
+                    "sha": "c" * 40,
+                    "message": "feat: add git metadata",
+                    "author": "Lin",
+                    "authored_at": "2026-08-28T12:00:00Z",
+                }
+            ],
+        )
+
+    monkeypatch.setattr(project_routes, "fetch_github_metadata", fake_metadata)
+    refreshed = client.post(f"/api/projects/{project_id}/git-summary/refresh")
+
+    assert refreshed.status_code == 200
+    body = refreshed.json()
+    assert body["available"] is True
+    assert body["default_branch"] == "main"
+    assert body["head_commit"] == "c" * 40
+    assert body["recent_commits"][0]["message"] == "feat: add git metadata"
+
+    report = client.get(f"/api/projects/{project_id}/report.md")
+    assert report.status_code == 200
+    assert "| Git 默认分支 | `main` |" in report.text
+    assert f"| 源码 Commit | `{'c' * 40}` |" in report.text
+    assert "远端产生新提交后需要重新同步和分析" in report.text
+
+    async def fake_comparison(repository: object, base: str, head: str) -> GitHubComparison:
+        return GitHubComparison(
+            repository_url="https://github.com/openai/example",
+            base_commit=base,
+            head_commit=head,
+            status="ahead",
+            ahead_by=1,
+            behind_by=0,
+            total_commits=1,
+            additions=9,
+            deletions=2,
+            changed_files=1,
+            files=[{"path": "main.py", "status": "modified", "additions": 9, "deletions": 2, "changes": 11}],
+            truncated=False,
+        )
+
+    monkeypatch.setattr(project_routes, "fetch_github_comparison", fake_comparison)
+    compared = client.get(
+        f"/api/projects/{project_id}/git-compare",
+        params={"base": "a" * 40, "head": "c" * 40},
+    )
+    assert compared.status_code == 200
+    assert compared.json()["files"][0] == {
+        "path": "main.py",
+        "status": "modified",
+        "additions": 9,
+        "deletions": 2,
+        "changes": 11,
+    }
+
+    monkeypatch.setattr(project_routes, "run_github_sync_job", lambda *_args: None)
+    queued = client.post(f"/api/projects/{project_id}/sync-github")
+    assert queued.status_code == 202
+    assert queued.json()["source_type"] == "github_sync"
+    assert queued.json()["project_id"] == project_id
+    duplicate = client.post(f"/api/projects/{project_id}/sync-github")
+    assert duplicate.status_code == 202
+    assert duplicate.json()["id"] == queued.json()["id"]
 
 
 def test_structure_endpoints_use_server_side_pagination(client: TestClient) -> None:

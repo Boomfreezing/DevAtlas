@@ -14,7 +14,6 @@ from app.services.analysis_cache import invalidate_project_analysis
 from app.services.code_parser import parse_source, supports_extension
 from app.services.repository_path_service import resolve_project_storage_path
 
-
 MAX_PARSE_FILE_BYTES = 2 * 1024 * 1024
 JAVASCRIPT_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
 SOURCE_ROOT_DIRECTORIES = {"src", "backend", "server", "python"}

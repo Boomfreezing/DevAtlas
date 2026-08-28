@@ -114,7 +114,7 @@ def test_reports_all_quality_rules() -> None:
     assert warning_page["has_more"] is True
     assert warning_next_page["offset"] == 1
     assert warning_next_page["findings"][0]["id"] != warning_page["findings"][0]["id"]
-    assert report["scoring"]["model"] == "scope_weighted_size_normalized_v3"
+    assert report["scoring"]["model"] == "source_scope_weighted_size_normalized_v4"
     assert report["scoring"]["size_factor"] == 1
     assert report["scoring"]["project_size"] == {
         "file_count": 12,
@@ -210,5 +210,98 @@ def test_composite_score_weights_all_available_code_scopes() -> None:
     assert report["scope_scores"]["generated"]["effective_weight"] == 0.1
     assert test_page["filtered_findings"] == 1
     assert test_page["findings"][0]["scope"] == "test"
+    clear_analysis_cache()
+    engine.dispose()
+
+
+def test_quality_ignores_non_source_documents_for_code_rules_and_scoring() -> None:
+    clear_analysis_cache()
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as database:
+        project = Project(
+            name="source-only-quality",
+            source_filename="source-only-quality.zip",
+            storage_path=".",
+            primary_language="Python",
+        )
+        project.files = [
+            ProjectFile(
+                relative_path="src/main.py",
+                extension=".py",
+                language="Python",
+                size_bytes=100,
+                line_count=20,
+                content_hash="source",
+            ),
+            ProjectFile(
+                relative_path="fixtures/large-output.txt",
+                extension=".txt",
+                language=None,
+                size_bytes=100_000,
+                line_count=5_000,
+                content_hash="fixture",
+            ),
+            ProjectFile(
+                relative_path="docs/reference.md",
+                extension=".md",
+                language=None,
+                size_bytes=50_000,
+                line_count=2_000,
+                content_hash="docs",
+            ),
+        ]
+        database.add(project)
+        database.commit()
+
+        report = build_quality_report(database, project.id)
+
+    assert report["total_findings"] == 0
+    assert report["score"] == 100
+    assert report["scope_scores"]["production"]["project_size"] == {
+        "file_count": 1,
+        "code_line_count": 20,
+        "symbol_count": 0,
+    }
+    assert report["scoring"]["project_size"]["file_count"] == 1
+    assert report["scoring"]["coverage_level"] == "high"
+    assert report["scoring"]["parser_supported_file_count"] == 1
+    assert report["scoring"]["applicable_rule_count"] == 6
+    clear_analysis_cache()
+    engine.dispose()
+
+
+def test_quality_marks_unsupported_source_language_as_limited_coverage() -> None:
+    clear_analysis_cache()
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as database:
+        project = Project(
+            name="java-quality",
+            source_filename="java-quality.zip",
+            storage_path=".",
+            primary_language="Java",
+        )
+        project.files = [
+            ProjectFile(
+                relative_path="src/Main.java",
+                extension=".java",
+                language="Java",
+                size_bytes=200,
+                line_count=30,
+                content_hash="java-source",
+            )
+        ]
+        database.add(project)
+        database.commit()
+
+        report = build_quality_report(database, project.id)
+
+    assert report["score"] == 100
+    assert report["scoring"]["coverage_level"] == "limited"
+    assert report["scoring"]["source_file_count"] == 1
+    assert report["scoring"]["parser_supported_file_count"] == 0
+    assert report["scoring"]["applicable_rule_count"] == 1
+    assert "不能代表完整代码质量" in report["scoring"]["coverage_message"]
     clear_analysis_cache()
     engine.dispose()

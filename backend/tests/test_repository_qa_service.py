@@ -1,5 +1,6 @@
 import pytest
 
+from app.services.report_provider_service import ReportProviderError
 from app.services.repository_qa_service import (
     _contextual_question,
     _detect_intent,
@@ -13,8 +14,14 @@ from app.services.repository_qa_service import (
     _rank_citations,
     _select_relevant_citations,
     _valid_model_references,
+    answer_repository_question,
 )
 from app.services.search_service import tokenize
+
+
+def test_local_provider_is_rejected_with_a_clear_configuration_error() -> None:
+    with pytest.raises(ReportProviderError, match="必须选择已配置的生成模型"):
+        answer_repository_question(None, None, None, "如何启动？", "local")  # type: ignore[arg-type]
 
 
 def test_follow_up_question_reuses_the_previous_user_target() -> None:

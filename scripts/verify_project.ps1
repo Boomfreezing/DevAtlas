@@ -30,7 +30,7 @@ function Invoke-CheckedCommand {
     }
 }
 
-Write-Host "[1/4] Checking local Markdown links..." -ForegroundColor Cyan
+Write-Host "[1/5] Checking local Markdown links..." -ForegroundColor Cyan
 $markdownFiles = @((Get-Item -LiteralPath (Join-Path $projectRoot "README.md"))) + @(
     Get-ChildItem -LiteralPath (Join-Path $projectRoot "docs") -Filter "*.md" -File -Recurse
 )
@@ -52,19 +52,22 @@ if ($brokenLinks.Count -gt 0) {
     throw "Broken Markdown links:`n$($brokenLinks -join "`n")"
 }
 
-Write-Host "[2/4] Running backend tests and coverage..." -ForegroundColor Cyan
+Write-Host "[2/5] Running backend lint checks..." -ForegroundColor Cyan
+Invoke-CheckedCommand -Command $pythonCommand -Arguments @("-m", "ruff", "check", "app", "tests") -WorkingDirectory $backendRoot
+
+Write-Host "[3/5] Running backend tests and coverage..." -ForegroundColor Cyan
 Invoke-CheckedCommand -Command $pythonCommand -Arguments @("-m", "pytest", "--cov=app", "--cov-fail-under=85") -WorkingDirectory $backendRoot
 
-Write-Host "[3/4] Running frontend tests and production build..." -ForegroundColor Cyan
+Write-Host "[4/5] Running frontend tests and production build..." -ForegroundColor Cyan
 Invoke-CheckedCommand -Command "npm" -Arguments @("test", "--", "--run") -WorkingDirectory $frontendRoot
 Invoke-CheckedCommand -Command "npm" -Arguments @("run", "build") -WorkingDirectory $frontendRoot
 
 if (-not $SkipE2E) {
-    Write-Host "[4/4] Running Playwright end-to-end test..." -ForegroundColor Cyan
+    Write-Host "[5/5] Running Playwright end-to-end test..." -ForegroundColor Cyan
     Invoke-CheckedCommand -Command "npm" -Arguments @("run", "test:e2e") -WorkingDirectory $frontendRoot
 }
 else {
-    Write-Host "[4/4] Playwright end-to-end test skipped." -ForegroundColor Yellow
+    Write-Host "[5/5] Playwright end-to-end test skipped." -ForegroundColor Yellow
 }
 
 Write-Host "DevAtlas verification completed successfully." -ForegroundColor Green

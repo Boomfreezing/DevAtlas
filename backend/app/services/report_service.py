@@ -17,7 +17,12 @@ RISK_WEIGHTS = {"error": 8, "warning": 3, "info": 1}
 
 
 def build_markdown_report(
-    database: Session, project: Project, mode: str = "summary"
+    database: Session,
+    project: Project,
+    mode: str = "summary",
+    *,
+    generator_name: str = "本地规则分析",
+    uses_generation_model: bool = False,
 ) -> str:
     """Build a deterministic local report without an LLM or network call."""
     if mode not in REPORT_MODES:
@@ -35,11 +40,23 @@ def build_markdown_report(
     findings = _prioritized_findings(list(quality["findings"]))
     shown_findings = findings[:finding_limit]
     generated_at = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    git_metadata = project.git_metadata
+    analyzed_at = _format_report_datetime(project.updated_at)
+    generation_line, footer_line = _generation_provenance(
+        generator_name, uses_generation_model
+    )
+    quality_coverage_level = str(quality["scoring"].get("coverage_level", "high"))
+    quality_score_heading = (
+        "**综合质量评分：暂不评级（检测覆盖不足）**"
+        if quality_coverage_level in {"none", "limited"}
+        else f"**综合质量评分：{quality['score']} / 100（等级 {quality['grade']}）**"
+    )
 
     lines = [
         f"# {_text(project.name)} 代码仓库分析报告",
         "",
-        "> 生成方式：DevAtlas 本地规则引擎（无需大模型、API Key 或网络请求）  ",
+        "> 分析数据：DevAtlas 本地结构解析、依赖分析与质量规则  ",
+        f"> 文本生成：{generation_line}  ",
         f"> 报告模式：{'完整报告' if is_full else '摘要报告（生产代码风险优先）'}  ",
         f"> 生成时间：{generated_at}",
         "",
@@ -53,6 +70,18 @@ def build_markdown_report(
         f"| 文件数量 | {project.file_count} |",
         f"| 代码行数 | {project.code_line_count} |",
         f"| 分析状态 | {_cell(project.status)} |",
+        f"| 最近分析时间 | {_cell(analyzed_at)} |",
+        *(
+            [
+                f"| Git 默认分支 | `{_code(git_metadata.default_branch)}` |",
+                f"| 源码 Commit | `{_code(git_metadata.head_commit)}` |",
+                f"| Git 元数据时间 | {_cell(_format_report_datetime(git_metadata.fetched_at))} |",
+            ]
+            if git_metadata is not None
+            else []
+        ),
+        "",
+        _analysis_baseline(project),
         "",
         "## 2. 智能分析结论",
         "",
@@ -131,7 +160,10 @@ def build_markdown_report(
             "",
             "## 5. 代码质量",
             "",
-            f"**综合质量评分：{quality['score']} / 100（等级 {quality['grade']}）**",
+            quality_score_heading,
+            "",
+            f"> 规则覆盖：可执行 {quality['scoring']['applicable_rule_count']} / {quality['scoring']['total_rule_count']} 类规则。",
+            f"> 检测覆盖：{_text(quality['scoring']['coverage_message'])}",
             "",
             "> 综合分默认按生产代码 70%、测试代码 20%、生成/外部代码 10% 加权；不存在的范围不计 100 分，权重会按比例分配给已有范围。",
             "> 各范围评分采用项目规模归一化，项目规模增大后单项风险的扣分权重会相应降低。",
@@ -221,7 +253,7 @@ def build_markdown_report(
             "",
             "---",
             "",
-            "该报告由 DevAtlas 自动生成，所有分析均在本地完成。",
+            footer_line,
             "",
         ]
     )
@@ -382,7 +414,20 @@ def _smart_insights(
 
     score = int(quality["score"])
     finding_count = int(quality["total_findings"])
-    if score >= 90:
+    scoring = quality.get("scoring")
+    coverage_level = str(
+        scoring.get("coverage_level", "high") if isinstance(scoring, dict) else "high"
+    )
+    coverage_message = _text(
+        scoring.get("coverage_message", "") if isinstance(scoring, dict) else ""
+    )
+    if coverage_level in {"none", "limited"}:
+        quality_summary = f"当前暂不输出综合质量评级；{coverage_message}"
+    elif coverage_level != "high":
+        quality_summary = (
+            f"当前可执行规则得分为 {score}/100；{coverage_message}"
+        )
+    elif score >= 90:
         quality_summary = f"三类代码加权后的综合质量评分为 {score}/100，规则层面风险较低。"
     elif score >= 70:
         quality_summary = f"三类代码加权后的综合质量评分为 {score}/100；全仓库共发现 {finding_count} 项可改进项，建议先处理生产代码中的高风险和中风险项。"
@@ -436,16 +481,73 @@ def _recommendations(
     quality: dict[str, object], graph: dict[str, object], structure: dict[str, object]
 ) -> list[str]:
     recommendations: list[str] = []
-    if int(graph["cycle_count"]):
-        recommendations.append("- 优先拆分循环依赖，提取公共抽象或调整依赖方向。")
-    if int(quality["total_findings"]):
-        recommendations.append("- 按高风险、中风险、低风险的顺序处理质量问题，并补充对应测试。")
+    cycles = list(graph["cycles"])
+    if cycles:
+        paths = [str(path) for path in cycles[0]["paths"]]
+        cycle_evidence = " → ".join(f"`{_code(path)}`" for path in paths[:4])
+        if len(paths) > 4:
+            cycle_evidence += " → …"
+        recommendations.append(
+            f"- 优先拆分循环依赖 {cycle_evidence}，提取公共抽象或调整依赖方向。"
+        )
+    findings = _prioritized_findings(list(quality["findings"]))
+    if findings:
+        top_finding = findings[0]
+        location = str(top_finding["file_path"])
+        if top_finding.get("start_line"):
+            location += f":{top_finding['start_line']}"
+        recommendations.append(
+            f"- 优先处理 `{_code(location)}` 的“{_text(top_finding['title'])}”，"
+            "再按高风险、中风险、低风险顺序推进其余问题并补充对应测试。"
+        )
     if int(structure["issue_count"]):
         recommendations.append("- 检查解析失败文件，确认文件编码和语法是否受当前解析器支持。")
-    if not recommendations:
+    scoring = quality.get("scoring")
+    coverage_level = str(
+        scoring.get("coverage_level", "high") if isinstance(scoring, dict) else "high"
+    )
+    if not recommendations and coverage_level == "high":
         recommendations.append("- 当前规则未发现明显风险，建议继续保持小步提交和自动化测试。")
+    elif not recommendations:
+        recommendations.append(
+            "- 当前可执行规则未发现明显风险，但检测覆盖有限；请结合项目对应语言的编译、静态检查和测试结果复核。"
+        )
     recommendations.append("- 在重要架构调整后重新执行全量分析并保存新报告用于对比。")
     return recommendations
+
+
+def _analysis_baseline(project: Project) -> str:
+    git_metadata = project.git_metadata
+    if git_metadata is not None:
+        return (
+            f"> 分析基线：本报告对应 `{_code(git_metadata.default_branch)}` 分支的 "
+            f"`{_code(git_metadata.head_commit)}` Commit；远端产生新提交后需要重新同步和分析。"
+        )
+    return (
+        "> 分析基线：本报告对应最近一次导入或分析时保存在 DevAtlas 中的源码；"
+        "当前项目未绑定可验证的 Git Commit。"
+    )
+
+
+def _format_report_datetime(value: datetime | None) -> str:
+    if value is None:
+        return "未知"
+    return value.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
+def _generation_provenance(
+    generator_name: str, uses_generation_model: bool
+) -> tuple[str, str]:
+    safe_name = _text(generator_name) or "未命名生成器"
+    if uses_generation_model:
+        return (
+            f"{safe_name}（使用已配置的生成模型增强表达）",
+            f"该报告的结构、依赖与质量数据由 DevAtlas 在本地分析；报告文本由 {safe_name} 基于这些证据增强。",
+        )
+    return (
+        f"{safe_name}（无需大模型、API Key 或网络请求）",
+        "该报告的结构、依赖、质量数据与文本均由 DevAtlas 在本地生成。",
+    )
 
 
 def _text(value: object) -> str:

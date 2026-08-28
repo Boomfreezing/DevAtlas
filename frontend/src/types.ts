@@ -245,6 +245,13 @@ export interface ChangeImpact {
   related_apis: ImpactRelation[];
   database_entities: ImpactRelation[];
   cycles: DependencyCycle[];
+  recommendations: Array<{
+    code: string;
+    priority: "high" | "medium" | "low";
+    title: string;
+    detail: string;
+    related_paths: string[];
+  }>;
   limitations: string;
 }
 
@@ -252,7 +259,7 @@ export interface AnalysisSnapshotSummary {
   id: number;
   project_id: number;
   label: string;
-  reason: "manual" | "import" | "full" | "incremental";
+  reason: "manual" | "import" | "full" | "incremental" | "sync";
   created_at: string;
   score: number;
   grade: string;
@@ -289,6 +296,44 @@ export interface AnalysisSnapshotComparison {
   quality: SnapshotComparisonGroup;
   parse_issues: SnapshotComparisonGroup;
   cycles: SnapshotComparisonGroup;
+}
+
+export interface ProjectGitSummary {
+  available: boolean;
+  refreshable: boolean;
+  repository_url: string | null;
+  default_branch: string | null;
+  head_commit: string | null;
+  history_available: boolean;
+  recent_commits: Array<{
+    sha: string;
+    message: string;
+    author: string;
+    authored_at: string;
+  }>;
+  fetched_at: string | null;
+  message: string;
+}
+
+export interface GitComparison {
+  repository_url: string;
+  base_commit: string;
+  head_commit: string;
+  status: string;
+  ahead_by: number;
+  behind_by: number;
+  total_commits: number;
+  additions: number;
+  deletions: number;
+  changed_files: number;
+  files: Array<{
+    path: string;
+    status: "added" | "modified" | "removed" | "renamed" | "copied" | "changed" | "unchanged";
+    additions: number;
+    deletions: number;
+    changes: number;
+  }>;
+  truncated: boolean;
 }
 
 export interface QualityRule {
@@ -328,6 +373,13 @@ export interface QualityScoring {
   scope_weights: Record<"production" | "test" | "generated", number>;
   effective_scope_weights: Record<"production" | "test" | "generated", number>;
   excluded_scopes: Array<"production" | "test" | "generated">;
+  source_file_count: number;
+  parser_supported_file_count: number;
+  applicable_rule_count: number;
+  total_rule_count: number;
+  parser_coverage: number;
+  coverage_level: "none" | "limited" | "partial" | "high";
+  coverage_message: string;
   explanation: string;
 }
 
@@ -364,7 +416,7 @@ export interface QualityReport {
 
 export interface AnalysisJob {
   id: string;
-  source_type: "zip" | "folder" | "github";
+  source_type: "zip" | "folder" | "github" | "github_sync";
   source_label: string;
   status: "queued" | "running" | "completed" | "failed";
   stage: string;

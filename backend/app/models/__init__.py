@@ -1,5 +1,12 @@
-from app.models.analysis import AnalysisJob, AnalysisSnapshot, CodeSymbol, ImportRelation, ParseIssue, SearchChunk
-from app.models.project import Project, ProjectFile
+from app.models.analysis import (
+    AnalysisJob,
+    AnalysisSnapshot,
+    CodeSymbol,
+    ImportRelation,
+    ParseIssue,
+    SearchChunk,
+)
+from app.models.project import Project, ProjectFile, ProjectGitMetadata
 
 __all__ = [
     "AnalysisJob",
@@ -9,5 +16,6 @@ __all__ = [
     "ParseIssue",
     "Project",
     "ProjectFile",
+    "ProjectGitMetadata",
     "SearchChunk",
 ]

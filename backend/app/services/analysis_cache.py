@@ -7,7 +7,6 @@ from weakref import WeakKeyDictionary
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-
 T = TypeVar("T")
 MAX_CACHED_PROJECTS_PER_DATABASE = 16
 

@@ -3,7 +3,16 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
@@ -17,54 +26,70 @@ from app.schemas.project import (
     AnalysisSnapshotComparisonResponse,
     AnalysisSnapshotCreateRequest,
     AnalysisSnapshotSummaryResponse,
-    CodeSymbolPageResponse,
-    CodeSearchResponse,
     ChangeImpactResponse,
+    CodeSearchResponse,
+    CodeSymbolPageResponse,
     DependencyGraphResponse,
-    QualityReportResponse,
+    GitComparisonResponse,
     GitHubImportRequest,
-    IncrementalAnalysisResponse,
     ImpactTargetResponse,
     ImportRelationPageResponse,
+    IncrementalAnalysisResponse,
     ParseIssuePageResponse,
     ProjectDetail,
     ProjectFileContentResponse,
     ProjectFileTreeResponse,
+    ProjectGitSummaryResponse,
     ProjectStructureResponse,
     ProjectStructureSummaryResponse,
     ProjectSummary,
+    QualityReportResponse,
+    ReportProviderConfigurationRequest,
     RepositoryAnswerResponse,
     RepositoryQuestionRequest,
-    ReportProviderConfigurationRequest,
 )
+from app.services.analysis_cache import invalidate_project_analysis
 from app.services.archive_service import (
     ArchiveValidationError,
     infer_project_name,
     save_and_extract_archive,
 )
-from app.services.analysis_cache import invalidate_project_analysis
-from app.services.folder_service import save_uploaded_folder
+from app.services.dependency_graph_service import load_dependency_graph
 from app.services.file_content_service import (
     FileContentError,
     FileContentNotFoundError,
     load_project_file_content,
 )
+from app.services.folder_service import save_uploaded_folder
+from app.services.git_metadata_service import (
+    get_git_summary,
+    repository_for_project,
+    save_git_metadata,
+)
 from app.services.github_service import (
+    GitHubComparison,
     GitHubDownloadError,
+    GitHubMetadata,
+    GitHubMetadataError,
     GitHubValidationError,
     download_github_repository,
+    fetch_github_comparison,
+    fetch_github_metadata,
     parse_github_repository,
 )
+from app.services.impact_analysis_service import (
+    ImpactTargetNotFoundError,
+    analyze_change_impact,
+    search_impact_targets,
+)
+from app.services.incremental_analyzer import incrementally_analyze_project
+from app.services.job_service import run_github_job, run_github_sync_job, run_repository_job
 from app.services.project_service import (
     create_scanned_project,
     load_project_file_tree,
     remove_managed_repository,
 )
-from app.services.repository_path_service import resolve_project_storage_path
-from app.services.repository_qa_service import answer_repository_question
-from app.services.dependency_graph_service import load_dependency_graph
 from app.services.quality_service import build_quality_report
-from app.services.report_service import build_markdown_report
 from app.services.report_provider_service import (
     ReportProviderError,
     enhance_markdown_report,
@@ -72,8 +97,11 @@ from app.services.report_provider_service import (
     save_report_provider,
     test_report_provider,
 )
-from app.services.job_service import run_github_job, run_repository_job
-from app.services.incremental_analyzer import incrementally_analyze_project
+from app.services.report_service import build_markdown_report
+from app.services.repository_path_service import resolve_project_storage_path
+from app.services.repository_qa_service import answer_repository_question
+from app.services.search_service import remove_persisted_search_index, search_project
+from app.services.semantic_search_service import warm_project_semantic_index
 from app.services.snapshot_service import (
     SnapshotNotFoundError,
     compare_analysis_snapshots,
@@ -81,13 +109,6 @@ from app.services.snapshot_service import (
     delete_analysis_snapshot,
     list_analysis_snapshots,
 )
-from app.services.impact_analysis_service import (
-    ImpactTargetNotFoundError,
-    analyze_change_impact,
-    search_impact_targets,
-)
-from app.services.search_service import remove_persisted_search_index, search_project
-from app.services.semantic_search_service import warm_project_semantic_index
 from app.services.structure_analyzer import (
     analyze_project_structure,
     load_project_imports,
@@ -157,6 +178,11 @@ async def import_github_project(
     except GitHubValidationError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
+    git_metadata: GitHubMetadata | None = None
+    try:
+        git_metadata = await fetch_github_metadata(repository)
+    except GitHubMetadataError:
+        pass
     try:
         repository_path = await download_github_repository(repository, settings)
     except GitHubDownloadError as error:
@@ -168,6 +194,7 @@ async def import_github_project(
         repository_path,
         source_filename=repository.display_source,
         project_name=repository.name,
+        git_metadata=git_metadata,
     )
 
 
@@ -253,6 +280,105 @@ def get_analysis_job(job_id: str, database: Session = Depends(get_db)) -> Analys
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis job not found.")
     return job
+
+
+@router.get("/{project_id}/git-summary", response_model=ProjectGitSummaryResponse)
+def get_project_git_summary(
+    project_id: int,
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    project = database.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    return get_git_summary(database, project)
+
+
+@router.post(
+    "/{project_id}/sync-github",
+    response_model=AnalysisJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def queue_github_sync(
+    project_id: int,
+    background_tasks: BackgroundTasks,
+    database: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AnalysisJob:
+    project = database.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    repository = repository_for_project(project)
+    if repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only projects imported from a GitHub repository URL can synchronize remote source.",
+        )
+    active_job = database.scalar(
+        select(AnalysisJob).where(
+            AnalysisJob.project_id == project_id,
+            AnalysisJob.source_type == "github_sync",
+            AnalysisJob.status.in_(["queued", "running"]),
+        )
+    )
+    if active_job is not None:
+        return active_job
+    job = _create_job(database, "github_sync", repository.display_source)
+    job.project_id = project_id
+    database.commit()
+    database.refresh(job)
+    background_tasks.add_task(
+        run_github_sync_job,
+        job.id,
+        project_id,
+        repository,
+        settings,
+        _session_factory(database),
+    )
+    return job
+
+
+@router.post("/{project_id}/git-summary/refresh", response_model=ProjectGitSummaryResponse)
+async def refresh_project_git_summary(
+    project_id: int,
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    project = database.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    repository = repository_for_project(project)
+    if repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only projects imported from a GitHub repository URL can load Git metadata.",
+        )
+    try:
+        metadata = await fetch_github_metadata(repository)
+    except GitHubMetadataError as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
+    save_git_metadata(database, project, metadata)
+    return get_git_summary(database, project)
+
+
+@router.get("/{project_id}/git-compare", response_model=GitComparisonResponse)
+async def compare_project_git_commits(
+    project_id: int,
+    base: str = Query(min_length=40, max_length=40, pattern="^[0-9a-fA-F]{40}$"),
+    head: str = Query(min_length=40, max_length=40, pattern="^[0-9a-fA-F]{40}$"),
+    database: Session = Depends(get_db),
+) -> GitHubComparison:
+    project = database.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    repository = repository_for_project(project)
+    if repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only projects imported from a GitHub repository URL can compare commits.",
+        )
+    try:
+        return await fetch_github_comparison(repository, base, head)
+    except GitHubMetadataError as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
 
 
 @router.get("/report-generators")
@@ -731,7 +857,13 @@ def _generate_report(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Report generator '{generator}' is not configured.",
         )
-    local_report = build_markdown_report(database, project, mode=mode)
+    local_report = build_markdown_report(
+        database,
+        project,
+        mode=mode,
+        generator_name=str(provider["name"]),
+        uses_generation_model=generator != "local",
+    )
     if generator == "local":
         return local_report
     try:
@@ -746,6 +878,7 @@ def _persist_import(
     repository_path: Path,
     source_filename: str,
     project_name: str,
+    git_metadata: GitHubMetadata | None = None,
 ) -> Project:
     try:
         project = create_scanned_project(
@@ -755,6 +888,8 @@ def _persist_import(
             project_name=project_name,
             search_index_root=settings.search_index_root,
         )
+        if git_metadata is not None:
+            save_git_metadata(database, project, git_metadata)
         return get_project(project.id, database)
     except Exception:
         database.rollback()

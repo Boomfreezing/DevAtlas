@@ -3,7 +3,6 @@
 import re
 import sys
 
-
 JAVASCRIPT_EXTENSIONS = {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
 NODE_BUILTINS = {
     "assert", "buffer", "child_process", "cluster", "crypto", "dns", "events",

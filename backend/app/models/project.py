@@ -1,9 +1,19 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.analysis import (
+        AnalysisSnapshot,
+        CodeSymbol,
+        ImportRelation,
+        ParseIssue,
+        SearchChunk,
+    )
 
 
 class Project(Base):
@@ -41,6 +51,9 @@ class Project(Base):
     snapshots: Mapped[list["AnalysisSnapshot"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    git_metadata: Mapped["ProjectGitMetadata | None"] = relationship(
+        back_populates="project", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class ProjectFile(Base):
@@ -57,3 +70,22 @@ class ProjectFile(Base):
     modified_time_ns: Mapped[int] = mapped_column(Integer, default=0)
 
     project: Mapped[Project] = relationship(back_populates="files")
+
+
+class ProjectGitMetadata(Base):
+    __tablename__ = "project_git_metadata"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    repository_url: Mapped[str] = mapped_column(Text)
+    default_branch: Mapped[str] = mapped_column(String(255))
+    head_commit: Mapped[str] = mapped_column(String(64))
+    history_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    recent_commits_json: Mapped[str] = mapped_column(Text, default="[]")
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    project: Mapped[Project] = relationship(back_populates="git_metadata")

@@ -5,7 +5,6 @@ import tree_sitter_python
 import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
-
 PYTHON_LANGUAGE = Language(tree_sitter_python.language())
 TYPESCRIPT_LANGUAGE = Language(tree_sitter_typescript.language_typescript())
 TSX_LANGUAGE = Language(tree_sitter_typescript.language_tsx())

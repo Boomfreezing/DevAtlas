@@ -6,6 +6,7 @@ import {
   DEFAULT_IMPORT_LIMITS,
   askRepository,
   compareAnalysisSnapshots,
+  compareProjectGitCommits,
   configureReportGenerator,
   createAnalysisSnapshot,
   deleteAnalysisSnapshot,
@@ -22,6 +23,7 @@ import {
   getProjectFileTree,
   getProjectImports,
   getProjectIssues,
+  getProjectGitSummary,
   getProjectStructureSummary,
   getProjectSymbols,
   getReportGenerators,
@@ -33,6 +35,7 @@ import {
   reanalyzeProject,
   searchProject,
   searchImpactTargets,
+  synchronizeGitHubProject,
   testReportGenerator,
   uploadFolder,
   uploadProject,
@@ -40,7 +43,7 @@ import {
 import type { FolderUploadPreparation } from "./api";
 import { formatFolderScanProgress, pickFolderSafely, scanDroppedFolderSafely, supportsSafeFolderDrop, supportsSafeFolderPicker } from "./safeFolderPicker";
 import type { FolderScanProgress } from "./safeFolderPicker";
-import type { AnalysisJob, AnalysisSnapshotComparison, AnalysisSnapshotSummary, ChangeImpact, CodeSearchResponse, CodeSearchResult, CodeSymbol, DependencyGraph, DependencyNode, GeneratedReport, ImpactRelation, ImpactTarget, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileTreeNode, ProjectFileTreeResponse, ProjectStructureSummary, ProjectSummary, QualityFinding, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, RepositoryAnswer, RepositoryCitation, SnapshotComparisonGroup, StructurePage } from "./types";
+import type { AnalysisJob, AnalysisSnapshotComparison, AnalysisSnapshotSummary, ChangeImpact, CodeSearchResponse, CodeSearchResult, CodeSymbol, DependencyGraph, DependencyNode, GeneratedReport, GitComparison, ImpactRelation, ImpactTarget, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileTreeNode, ProjectFileTreeResponse, ProjectGitSummary, ProjectStructureSummary, ProjectSummary, QualityFinding, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, RepositoryAnswer, RepositoryCitation, SnapshotComparisonGroup, StructurePage } from "./types";
 
 type ActiveSection = "projects" | "search" | "graph" | "impact" | "snapshots" | "quality" | "report" | "providers";
 type ProjectTab = "files" | "symbols" | "imports" | "issues";
@@ -57,8 +60,8 @@ const SECTION_LABELS: Record<ActiveSection, string> = {
   projects: "仓库概览",
   search: "代码搜索",
   graph: "依赖图谱",
-  impact: "影响分析",
-  snapshots: "分析快照",
+  impact: "耦合分析",
+  snapshots: "版本对比",
   quality: "质量检测",
   report: "分析报告",
   providers: "API 配置",
@@ -236,6 +239,7 @@ function App() {
   const qualityPageRequestRef = useRef(0);
   const searchRequestRef = useRef(0);
   const initialProjectRestoredRef = useRef(false);
+  const structureCacheRef = useRef(new Map<number, ProjectStructureSummary>());
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -559,7 +563,9 @@ function App() {
     clearStructurePages();
     setStructureLoading(true);
     try {
-      setStructure(await getProjectStructureSummary(created.id));
+      const nextStructure = await getProjectStructureSummary(created.id);
+      structureCacheRef.current.set(created.id, nextStructure);
+      setStructure(nextStructure);
     } catch (structureError) {
       setWorkspaceError(structureError instanceof Error ? structureError.message : "无法加载结构分析");
     } finally {
@@ -588,6 +594,26 @@ function App() {
     throw new Error("后台分析等待超时，请稍后重新打开项目列表。");
   }
 
+  async function handleProjectSynchronized(projectId: number) {
+    const requestId = selectionRequestRef.current;
+    const [updated, nextStructure] = await Promise.all([
+      getProject(projectId),
+      getProjectStructureSummary(projectId),
+    ]);
+    await refreshProjects();
+    if (selectionRequestRef.current !== requestId || selected?.id !== projectId) return;
+    setSelected(updated);
+    structureCacheRef.current.set(projectId, nextStructure);
+    setStructure(nextStructure);
+    clearStructurePages();
+    setSearchResponse(null);
+    setDependencyGraph(null);
+    setImpactSeed(null);
+    setQualityReport(null);
+    setGeneratedReport(null);
+    setIncrementalResult(null);
+  }
+
   async function handleReanalyze() {
     if (!selected) return;
     const projectId = selected.id;
@@ -606,6 +632,7 @@ function App() {
     try {
       const nextStructure = await reanalyzeProject(projectId);
       if (selectionRequestRef.current !== requestId) return;
+      structureCacheRef.current.set(projectId, nextStructure);
       setStructure(nextStructure);
       clearStructurePages();
       setSearchResponse(null);
@@ -668,6 +695,7 @@ function App() {
         setGeneratedReport(null);
         const nextStructure = await getProjectStructureSummary(projectId);
         if (selectionRequestRef.current !== requestId) return;
+        structureCacheRef.current.set(projectId, nextStructure);
         setStructure(nextStructure);
         clearStructurePages();
         setSearchResponse(null);
@@ -720,10 +748,15 @@ function App() {
     project: ProjectSummary,
     options: { section?: ActiveSection; tab?: ProjectTab; syncUrl?: boolean } = {},
   ) {
-    const requestId = ++selectionRequestRef.current;
-    qualityPageRequestRef.current += 1;
     const sectionAtSelection = options.section ?? activeSection;
     const tabAtSelection = options.tab ?? projectTab;
+    if (selected?.id === project.id && sectionAtSelection === activeSection && tabAtSelection === projectTab) {
+      setProjectPickerOpen(false);
+      return;
+    }
+    const requestId = ++selectionRequestRef.current;
+    qualityPageRequestRef.current += 1;
+    const cachedStructure = structureCacheRef.current.get(project.id) ?? null;
     setActiveSection(sectionAtSelection);
     setProjectTab(tabAtSelection);
     setProjectPickerOpen(false);
@@ -743,12 +776,12 @@ function App() {
       setGeneratedReport(null);
       setIncrementalResult(null);
       clearStructurePages();
-      setStructureLoading(true);
+      setStructureLoading(cachedStructure === null);
       setGraphLoading(sectionAtSelection === "graph");
       setQualityLoading(sectionAtSelection === "quality");
       setReportLoading(sectionAtSelection === "report");
-      setStructure(null);
-      const structurePromise = getProjectStructureSummary(project.id);
+      setStructure(cachedStructure);
+      const structurePromise = cachedStructure === null ? getProjectStructureSummary(project.id) : null;
       const graphPromise = sectionAtSelection === "graph" ? getDependencyGraph(project.id) : null;
       const qualityPromise = sectionAtSelection === "quality" ? getQualityReport(project.id) : null;
       const reportPromise = sectionAtSelection === "report"
@@ -759,12 +792,15 @@ function App() {
       void graphPromise?.catch(() => undefined);
       void qualityPromise?.catch(() => undefined);
       void reportPromise?.catch(() => undefined);
-      try {
-        const projectStructure = await structurePromise;
-        if (selectionRequestRef.current !== requestId) return;
-        setStructure(projectStructure);
-      } catch (structureError) {
-        setWorkspaceError(structureError instanceof Error ? structureError.message : "无法加载结构分析");
+      if (structurePromise !== null) {
+        try {
+          const projectStructure = await structurePromise;
+          if (selectionRequestRef.current !== requestId) return;
+          structureCacheRef.current.set(project.id, projectStructure);
+          setStructure(projectStructure);
+        } catch (structureError) {
+          setWorkspaceError(structureError instanceof Error ? structureError.message : "无法加载结构分析");
+        }
       }
       if (sectionAtSelection === "graph") {
         try {
@@ -813,6 +849,7 @@ function App() {
     if (!window.confirm(`确定删除“${project.name}”及其本地分析数据吗？`)) return;
     try {
       await deleteProject(project.id);
+      structureCacheRef.current.delete(project.id);
       if (selected?.id === project.id) {
         selectionRequestRef.current += 1;
         setSelected(null);
@@ -1168,7 +1205,7 @@ function App() {
 
   return (
     <div className={`app-shell ${selected && qaPanelOpen ? "qa-side-open" : ""}`}>
-      <aside className="sidebar">
+      <aside className={`sidebar ${projectPickerOpen ? "project-picker-open" : ""}`}>
         <div className="brand">
           <div className="brand-mark"><span>&gt;_</span></div>
           <div><strong>DEVATLAS</strong><small>repo_intelligence.sys</small></div>
@@ -1221,8 +1258,8 @@ function App() {
             onClick={() => navigateToSection("search")}
           ><span className="nav-icon">⌕</span>代码搜索<em>BM25</em></button>
           <button disabled={!selected} className={`nav-item ${selected && activeSection === "graph" ? "active" : ""}`} onClick={() => void handleOpenGraph()}><span className="nav-icon">◇</span>依赖图谱<em>LOCAL</em></button>
-          <button disabled={!selected} className={`nav-item ${selected && activeSection === "impact" ? "active" : ""}`} onClick={() => navigateToSection("impact")}><span className="nav-icon">◎</span>影响分析<em>TRACE</em></button>
-          <button disabled={!selected} className={`nav-item ${selected && activeSection === "snapshots" ? "active" : ""}`} onClick={() => navigateToSection("snapshots")}><span className="nav-icon">◫</span>分析快照<em>DIFF</em></button>
+          <button disabled={!selected} className={`nav-item ${selected && activeSection === "impact" ? "active" : ""}`} onClick={() => navigateToSection("impact")}><span className="nav-icon">◎</span>耦合分析<em>TRACE</em></button>
+          <button disabled={!selected} className={`nav-item ${selected && activeSection === "snapshots" ? "active" : ""}`} onClick={() => navigateToSection("snapshots")}><span className="nav-icon">◫</span>版本对比<em>DIFF</em></button>
           <button disabled={!selected} className={`nav-item ${selected && activeSection === "quality" ? "active" : ""}`} onClick={() => void handleOpenQuality()}><span className="nav-icon">✓</span>质量检测<em>6 RULES</em></button>
           <button disabled={!selected} className={`nav-item ${selected && activeSection === "report" ? "active" : ""}`} onClick={() => void handleOpenReport()}><span className="nav-icon">▤</span>分析报告<em>SMART</em></button>
           <button className={`nav-item ${activeSection === "providers" ? "active" : ""}`} onClick={() => void handleOpenProviders()}><span className="nav-icon">⚙</span>API 配置<em>GLOBAL</em></button>
@@ -1425,7 +1462,7 @@ function App() {
                       onOpenRelation={openImpactRelation}
                     />
                   )}
-                  {activeSection === "snapshots" && <SnapshotWorkspace key={selected.id} projectId={selected.id} />}
+                  {activeSection === "snapshots" && <SnapshotWorkspace key={selected.id} projectId={selected.id} onSynchronized={handleProjectSynchronized} />}
                   {activeSection === "report" && (
                     <ReportWorkspace
                       generators={reportGenerators}
@@ -1666,13 +1703,23 @@ function App() {
   );
 }
 
-function SnapshotWorkspace({ projectId }: { projectId: number }) {
+function SnapshotWorkspace({ projectId, onSynchronized }: { projectId: number; onSynchronized: (projectId: number) => Promise<void> }) {
   const [snapshots, setSnapshots] = useState<AnalysisSnapshotSummary[]>([]);
+  const [gitSummary, setGitSummary] = useState<ProjectGitSummary | null>(null);
   const [label, setLabel] = useState("");
   const [baseId, setBaseId] = useState<number | null>(null);
   const [targetId, setTargetId] = useState<number | null>(null);
   const [comparison, setComparison] = useState<AnalysisSnapshotComparison | null>(null);
   const [loading, setLoading] = useState(true);
+  const [gitLoading, setGitLoading] = useState(true);
+  const [gitError, setGitError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncJob, setSyncJob] = useState<AnalysisJob | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [baseCommit, setBaseCommit] = useState("");
+  const [headCommit, setHeadCommit] = useState("");
+  const [gitComparison, setGitComparison] = useState<GitComparison | null>(null);
+  const [gitComparing, setGitComparing] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1691,6 +1738,79 @@ function SnapshotWorkspace({ projectId }: { projectId: number }) {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [projectId, applySnapshots]);
+
+  useEffect(() => {
+    let active = true;
+    setGitLoading(true);
+    setGitError(null);
+    getProjectGitSummary(projectId)
+      .then((summary) => { if (active) setGitSummary(summary); })
+      .catch((requestError) => { if (active) setGitError(requestError instanceof Error ? requestError.message : "无法加载 Git 提交信息"); })
+      .finally(() => { if (active) setGitLoading(false); });
+    return () => { active = false; };
+  }, [projectId]);
+
+  useEffect(() => {
+    const commits = gitSummary?.recent_commits ?? [];
+    if (commits.length < 2) {
+      setBaseCommit("");
+      setHeadCommit(commits[0]?.sha ?? "");
+      setGitComparison(null);
+      return;
+    }
+    setHeadCommit((current) => commits.some((item) => item.sha === current) ? current : commits[0].sha);
+    setBaseCommit((current) => commits.some((item) => item.sha === current) ? current : commits[1].sha);
+    setGitComparison(null);
+  }, [gitSummary]);
+
+  async function handleSynchronizeRemote() {
+    if (syncing) return;
+    setSyncing(true);
+    setGitError(null);
+    setSyncMessage(null);
+    try {
+      let job = await synchronizeGitHubProject(projectId);
+      setSyncJob(job);
+      for (let attempt = 0; attempt < 1_200; attempt += 1) {
+        if (job.status === "completed") {
+          setSyncMessage(job.message);
+          await onSynchronized(projectId);
+          const [summary, items] = await Promise.all([
+            getProjectGitSummary(projectId),
+            listAnalysisSnapshots(projectId),
+          ]);
+          setGitSummary(summary);
+          applySnapshots(items);
+          setComparison(null);
+          return;
+        }
+        if (job.status === "failed") {
+          throw new Error(formatOperationError("同步远程仓库", 500, job.error || job.message || null));
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        job = await getAnalysisJob(job.id);
+        setSyncJob(job);
+      }
+      throw new Error("远程同步等待超时，请稍后重新打开版本对比页面查看结果。");
+    } catch (requestError) {
+      setGitError(requestError instanceof Error ? requestError.message : "无法同步远程仓库");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleCompareGit() {
+    if (!baseCommit || !headCommit || baseCommit === headCommit || gitComparing) return;
+    setGitComparing(true);
+    setGitError(null);
+    try {
+      setGitComparison(await compareProjectGitCommits(projectId, baseCommit, headCommit));
+    } catch (requestError) {
+      setGitError(requestError instanceof Error ? requestError.message : "无法对比 Git 提交");
+    } finally {
+      setGitComparing(false);
+    }
+  }
 
   async function handleCreate() {
     if (working) return;
@@ -1739,6 +1859,45 @@ function SnapshotWorkspace({ projectId }: { projectId: number }) {
 
   return (
     <div className="snapshot-workspace">
+      <section className="snapshot-git-context" aria-label="GitHub 版本同步与对比">
+        <header>
+          <div><span>GITHUB_SYNC</span><strong>GitHub 版本同步与对比</strong><small>检查远端最新提交；有更新时安全更新本地源码、重新分析并保存快照。</small></div>
+          {gitSummary?.refreshable && <button type="button" onClick={() => void handleSynchronizeRemote()} disabled={syncing}>{syncing ? "正在同步…" : "同步远程仓库"}</button>}
+        </header>
+        {gitError && <div className="snapshot-git-message error">[ERR] {gitError}</div>}
+        {syncing && syncJob && <div className="snapshot-sync-progress"><div><strong>{stageLabel(syncJob.stage)}</strong><span>{syncJob.message}</span></div><small>{syncJob.progress}%</small><div className="progress-track"><i style={{ width: `${syncJob.progress}%` }} /></div></div>}
+        {!syncing && syncMessage && <div className="snapshot-git-message success">[OK] {syncMessage}</div>}
+        {gitLoading && <div className="snapshot-git-message"><div className="spinner" />正在读取 Git 提交信息…</div>}
+        {!gitLoading && !gitError && !syncing && gitSummary && !gitSummary.available && <div className="snapshot-git-message">{gitSummary.refreshable ? "尚未同步 GitHub 提交与源码版本，点击右上角“同步远程仓库”开始检查。" : gitSummary.message}</div>}
+        {!gitLoading && gitSummary?.available && (<>
+          <div className="snapshot-git-body">
+            <dl>
+              <div><dt>仓库</dt><dd>{gitSummary.repository_url ? <a href={gitSummary.repository_url} target="_blank" rel="noreferrer">{gitSummary.repository_url.replace(/^https?:\/\//, "")}</a> : "—"}</dd></div>
+              <div><dt>默认分支</dt><dd>{gitSummary.default_branch ?? "—"}</dd></div>
+              <div><dt>HEAD</dt><dd><code title={gitSummary.head_commit ?? undefined}>{gitSummary.head_commit?.slice(0, 8) ?? "—"}</code></dd></div>
+              <div><dt>更新时间</dt><dd>{gitSummary.fetched_at ? formatDate(gitSummary.fetched_at) : "—"}</dd></div>
+            </dl>
+            <div className="snapshot-git-commits">
+              <span>RECENT_COMMITS</span>
+              {gitSummary.recent_commits.length === 0 ? <p>GitHub 未返回最近提交记录。</p> : gitSummary.recent_commits.slice(0, 5).map((commit) => <article key={commit.sha}><code>{commit.sha.slice(0, 8)}</code><div><strong>{commit.message}</strong><small>{commit.author || "未知作者"} · {formatDate(commit.authored_at)}</small></div></article>)}
+            </div>
+          </div>
+          {gitSummary.recent_commits.length >= 2 && <div className="snapshot-git-compare">
+            <div className="snapshot-git-compare-controls">
+              <label><span>BASE</span><select aria-label="Git 对比基准提交" value={baseCommit} onChange={(event) => setBaseCommit(event.target.value)}>{gitSummary.recent_commits.map((commit) => <option key={commit.sha} value={commit.sha}>{commit.sha.slice(0, 8)} · {commit.message}</option>)}</select></label>
+              <i>→</i>
+              <label><span>TARGET</span><select aria-label="Git 对比目标提交" value={headCommit} onChange={(event) => setHeadCommit(event.target.value)}>{gitSummary.recent_commits.map((commit) => <option key={commit.sha} value={commit.sha}>{commit.sha.slice(0, 8)} · {commit.message}</option>)}</select></label>
+              <button type="button" onClick={() => void handleCompareGit()} disabled={!baseCommit || !headCommit || baseCommit === headCommit || gitComparing}>{gitComparing ? "正在对比…" : "对比提交"}</button>
+            </div>
+            {baseCommit === headCommit && <p className="snapshot-git-compare-hint">请选择两个不同提交。</p>}
+            {gitComparison && <div className="snapshot-git-diff">
+              <header><span>REMOTE_DIFF</span><strong>{gitComparison.total_commits} 个提交 · {gitComparison.changed_files} 个变更文件</strong><small>+{formatNumber(gitComparison.additions)} / −{formatNumber(gitComparison.deletions)} 行 · GitHub 远端对比，不代表本地源码已更新</small></header>
+              <div>{gitComparison.files.map((file) => <article key={file.path}><span className={`git-file-status ${file.status}`}>{gitFileStatusLabel(file.status)}</span><code title={file.path}>{file.path}</code><b>+{formatNumber(file.additions)}</b><em>−{formatNumber(file.deletions)}</em></article>)}</div>
+              {gitComparison.truncated && <footer>文件较多，当前仅显示变化量最高的前 100 个文件。</footer>}
+            </div>}
+          </div>}
+        </>)}
+      </section>
       <section className="snapshot-toolbar">
         <div><span>CAPTURE</span><strong>保存当前分析状态</strong><small>仅保存指标与问题定位，不复制仓库源码 · 每个项目最多保留 30 个</small></div>
         <div><input value={label} maxLength={120} onChange={(event) => setLabel(event.target.value)} placeholder="快照名称（可选）" aria-label="快照名称" /><button type="button" onClick={() => void handleCreate()} disabled={working}>{working ? "处理中…" : "＋ 保存当前快照"}</button></div>
@@ -1748,18 +1907,21 @@ function SnapshotWorkspace({ projectId }: { projectId: number }) {
       {!loading && snapshots.length === 0 && <div className="impact-empty"><span>◫</span><h3>还没有分析快照</h3><p>保存当前状态后，再次分析仓库即可对比质量问题、解析结果和依赖变化。</p></div>}
       {!loading && snapshots.length > 0 && (
         <>
-          <div className="snapshot-list">
-            {snapshots.map((snapshot) => <article key={snapshot.id}>
-              <div><span>{snapshotReasonLabel(snapshot.reason)}</span><strong>{snapshot.label}</strong><small>{formatDate(snapshot.created_at)}</small></div>
-              <dl><div><dt>质量</dt><dd>{snapshot.score} / {snapshot.grade}</dd></div><div><dt>文件</dt><dd>{formatNumber(snapshot.file_count)}</dd></div><div><dt>符号</dt><dd>{formatNumber(snapshot.symbol_count)}</dd></div><div><dt>问题</dt><dd>{formatNumber(snapshot.finding_count)}</dd></div></dl>
-              <button type="button" onClick={() => void handleDelete(snapshot)} disabled={working} aria-label={`删除快照 ${snapshot.label}`}>×</button>
-            </article>)}
-          </div>
           <section className="snapshot-compare-controls">
             <label><span>BASE</span><select value={baseId ?? ""} onChange={(event) => setBaseId(Number(event.target.value) || null)}><option value="">选择较早快照</option>{snapshots.map((item) => <option key={item.id} value={item.id}>{item.label} · {formatDate(item.created_at)}</option>)}</select></label>
             <span>→</span>
             <label><span>TARGET</span><select value={targetId ?? ""} onChange={(event) => setTargetId(Number(event.target.value) || null)}><option value="">选择较新快照</option>{snapshots.map((item) => <option key={item.id} value={item.id}>{item.label} · {formatDate(item.created_at)}</option>)}</select></label>
             <button type="button" onClick={() => void handleCompare()} disabled={!baseId || !targetId || baseId === targetId || working}>{working ? "COMPARING..." : "开始对比"}</button>
+          </section>
+          <section className="snapshot-history">
+            <header><div><span>SNAPSHOT_HISTORY</span><strong>快照记录</strong></div><em>{snapshots.length} 条</em></header>
+            <div className="snapshot-list">
+              {snapshots.map((snapshot) => <article key={snapshot.id}>
+                <div><span>{snapshotReasonLabel(snapshot.reason)}</span><strong>{snapshot.label}</strong><small>{formatDate(snapshot.created_at)}</small></div>
+                <dl><div><dt>质量</dt><dd>{snapshot.score} / {snapshot.grade}</dd></div><div><dt>文件</dt><dd>{formatNumber(snapshot.file_count)}</dd></div><div><dt>符号</dt><dd>{formatNumber(snapshot.symbol_count)}</dd></div><div><dt>问题</dt><dd>{formatNumber(snapshot.finding_count)}</dd></div></dl>
+                <button type="button" onClick={() => void handleDelete(snapshot)} disabled={working} aria-label={`删除快照 ${snapshot.label}`}>×</button>
+              </article>)}
+            </div>
           </section>
         </>
       )}
@@ -1800,7 +1962,11 @@ function snapshotMetricTone(key: string, delta: number): "good" | "bad" | "neutr
 }
 
 function snapshotReasonLabel(reason: AnalysisSnapshotSummary["reason"]): string {
-  return ({ manual: "MANUAL", import: "IMPORT", full: "FULL", incremental: "INCREMENTAL" } as const)[reason] ?? reason.toUpperCase();
+  return ({ manual: "MANUAL", import: "IMPORT", full: "FULL", incremental: "INCREMENTAL", sync: "REMOTE_SYNC" } as const)[reason] ?? reason.toUpperCase();
+}
+
+function gitFileStatusLabel(status: string): string {
+  return ({ added: "新增", modified: "修改", removed: "删除", renamed: "重命名", copied: "复制", changed: "变更", unchanged: "未变化" } as Record<string, string>)[status] ?? "修改";
 }
 
 const IMPACT_RELATION_LABELS: Record<string, string> = {
@@ -1909,7 +2075,7 @@ function ImpactWorkspace({
             <button type="button" onClick={() => onOpenRelation(report.definition)}>查看源码</button>
           </section>
           <div className="impact-risk-reasons">
-            {report.risk.reasons.map((reason, index) => <span key={reason}><i>[{String(index + 1).padStart(2, "0")}]</i><b>{reason}</b></span>)}
+            {report.risk.reasons.map((reason) => <span key={reason}><b>{reason}</b></span>)}
           </div>
           <div className="impact-grid">
             <ImpactRelationGroup title="直接调用者" code="CALLERS" items={report.direct_callers} onOpen={onOpenRelation} />
@@ -2363,6 +2529,15 @@ function IncrementalSummary({ result }: { result: IncrementalAnalysisResult }) {
 function stageLabel(stage: string): string {
   const labels: Record<string, string> = {
     queued: "任务排队中",
+    checking_remote: "正在检查远端版本",
+    downloading_update: "正在下载远端更新",
+    staging_analysis: "正在验证新版本",
+    sync_scanning: "正在扫描新版本",
+    sync_parsing: "正在解析新版本",
+    sync_indexing: "正在建立新版本索引",
+    sync_finalizing: "正在切换新版本",
+    up_to_date: "已是最新版本",
+    synchronized: "远程同步完成",
     downloading: "正在下载仓库",
     preparing: "正在准备文件",
     scanning: "正在扫描仓库",
@@ -2494,7 +2669,7 @@ function RepositoryQaTerminal({
               : (
                 <div className="qa-model-required" role="alert">
                   <strong>[MODEL_REQUIRED] 智能问答必须连接生成模型。</strong>
-                  <span>请先配置 Ollama 或在线模型 API；本地规则分析仅用于生成报告。</span>
+                  <span>请先配置 Ollama 或在线模型 API。</span>
                   <button type="button" onClick={onOpenProviders}>[ 配置生成模型 ]</button>
                 </div>
               )}
@@ -2918,6 +3093,9 @@ function QualityReportView({
   const severityLabels = { error: "高风险", warning: "中风险", info: "低风险" } as const;
   const scopeLabels = { production: "生产代码", test: "测试代码", generated: "生成/外部代码" } as const;
   const filteredTotal = report.filtered_findings ?? report.total_findings;
+  const qualityCoverageLevel = report.scoring.coverage_level ?? "high";
+  const qualityCoverageLimited = qualityCoverageLevel !== "high";
+  const qualityScoreAvailable = qualityCoverageLevel !== "none" && qualityCoverageLevel !== "limited";
 
   function changeSeverity(nextSeverity: string) {
     setSeverityFilter(nextSeverity);
@@ -2937,23 +3115,25 @@ function QualityReportView({
   return (
     <div className="quality-view">
       <section className="quality-hero">
-        <div
-          className={`quality-score grade-${report.grade.toLowerCase()}`}
-          role="meter"
-          aria-label={`综合质量评分 ${report.score} 分，评级 ${report.grade}`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={report.score}
-        >
-          <strong>{report.score}</strong><span>综合质量分</span><em>{report.grade}</em>
-        </div>
-        <div className="quality-overview"><p className="eyebrow">STATIC QUALITY REPORT</p><h3>{report.total_findings ? `发现 ${formatNumber(report.total_findings)} 项可改进问题` : "未发现规则命中的质量问题"}</h3><span>已执行 {report.rules.length} 条规则 · {report.elapsed_ms.toFixed(1)} ms</span></div>
+        {qualityScoreAvailable ? <div
+            className={`quality-score grade-${report.grade.toLowerCase()}`}
+            role="meter"
+            aria-label={`综合质量评分 ${report.score} 分，评级 ${report.grade}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={report.score}
+          >
+            <strong>{report.score}</strong><span>综合质量分</span><em>{report.grade}</em>
+          </div> : <div className="quality-score quality-score-unavailable" aria-label="综合质量评分不可用，检测覆盖不足"><strong>--</strong><span>覆盖不足</span><em>N/A</em></div>}
+        <div className="quality-overview"><p className="eyebrow">STATIC QUALITY REPORT</p><h3>{report.total_findings ? `发现 ${formatNumber(report.total_findings)} 项可改进问题` : qualityCoverageLimited ? "当前可执行规则未发现问题，但检测覆盖有限" : "未发现规则命中的质量问题"}</h3><span>可执行规则 {report.scoring.applicable_rule_count ?? report.rules.length} / {report.scoring.total_rule_count ?? report.rules.length} · {report.elapsed_ms.toFixed(1)} ms</span>{qualityCoverageLimited && report.scoring.coverage_message && <small className="quality-coverage-note">{report.scoring.coverage_message}</small>}</div>
         <div className="severity-summary"><div className="error"><strong>{report.severity_counts.error}</strong><span>高风险</span></div><div className="warning"><strong>{report.severity_counts.warning}</strong><span>中风险</span></div><div><strong>{report.severity_counts.info}</strong><span>低风险</span></div></div>
       </section>
       {report.scope_scores && <section className="quality-scope-scores" aria-label="分范围质量评分">
         {(["production", "test", "generated"] as const).map((scope) => {
           const summary = report.scope_scores[scope];
-          return <article key={scope} className={summary.available && summary.grade ? `grade-${summary.grade.toLowerCase()}` : "scope-unavailable"} title={summary.exclusion_reason ?? `${summary.label}参与综合评分`}><div><strong>{summary.score ?? "--"}</strong><em>{summary.grade ?? "N/A"}</em></div><span>{summary.label}</span>{!summary.available && <small>{summary.exclusion_reason}</small>}</article>;
+          const scopeScoreAvailable = qualityScoreAvailable && summary.available && summary.grade;
+          const unavailableReason = !qualityScoreAvailable && summary.available ? "检测覆盖不足，暂不评级。" : summary.exclusion_reason;
+          return <article key={scope} className={scopeScoreAvailable ? `grade-${summary.grade!.toLowerCase()}` : "scope-unavailable"} title={unavailableReason ?? `${summary.label}参与综合评分`}><div><strong>{scopeScoreAvailable ? summary.score : "--"}</strong><em>{scopeScoreAvailable ? summary.grade : "N/A"}</em></div><span>{summary.label}</span>{unavailableReason && <small>{unavailableReason}</small>}</article>;
         })}
       </section>}
       <section className="quality-rules">

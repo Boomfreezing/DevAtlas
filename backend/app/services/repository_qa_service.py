@@ -11,14 +11,13 @@ from app.core.config import Settings
 from app.models.analysis import CodeSymbol, ImportRelation
 from app.models.project import Project, ProjectFile
 from app.services.code_scope_service import classify_code_scope
-from app.services.report_provider_service import answer_with_report_provider
+from app.services.report_provider_service import ReportProviderError, answer_with_report_provider
 from app.services.repository_path_service import resolve_project_storage_path
 from app.services.search_service import search_project, tokenize
 from app.services.semantic_search_service import (
     semantic_rerank_candidates,
     semantic_search_project,
 )
-
 
 MAX_CITATIONS = 8
 MAX_EVIDENCE_CHARS = 1_600

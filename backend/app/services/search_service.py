@@ -7,6 +7,7 @@ import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -15,7 +16,6 @@ from app.models.project import Project, ProjectFile
 from app.services.code_parser import supports_extension
 from app.services.code_scope_service import classify_code_scope
 from app.services.repository_path_service import resolve_project_storage_path
-
 
 MAX_SEARCH_FILE_BYTES = 2 * 1024 * 1024
 MAX_CHUNK_LINES = 80

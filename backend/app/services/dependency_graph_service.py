@@ -13,7 +13,6 @@ from app.services.dependency_classification_service import (
     project_module_roots,
 )
 
-
 DEPENDENCY_CACHE_NAMESPACE = "dependency_graph_v2"
 
 
