@@ -85,9 +85,54 @@ test("安全拖入文件夹、搜索代码并执行无变化增量分析", async
       return projectId;
     }).toBeDefined();
 
+    await page.getByRole("button", { name: /智能问答/ }).click();
+    const qaPanel = page.getByRole("complementary", { name: "智能问答面板" });
+    await expect(qaPanel).toBeVisible();
+    await expect(qaPanel.getByText("DevAtlas Repository Shell")).toBeVisible();
+    await expect(qaPanel.getByRole("combobox", { name: "智能问答模型" })).toHaveValue("");
+    await expect(qaPanel.getByText("智能问答必须连接生成模型。", { exact: false })).toBeVisible();
+    await expect(qaPanel.getByLabel("输入仓库问题")).toBeDisabled();
+    await expect(qaPanel.getByRole("button", { name: /配置生成模型/ })).toBeVisible();
+    const terminalAppearance = await qaPanel.evaluate((element) => {
+      const terminal = element.querySelector<HTMLElement>(".qa-terminal")!;
+      const input = element.querySelector<HTMLInputElement>(".qa-command-line input")!;
+      const terminalStyle = getComputedStyle(terminal);
+      const inputStyle = getComputedStyle(input);
+      return {
+        terminalBackground: terminalStyle.backgroundColor,
+        terminalColor: terminalStyle.color,
+        inputBackground: inputStyle.backgroundColor,
+        inputBorder: inputStyle.borderTopWidth,
+      };
+    });
+    expect(terminalAppearance.terminalBackground).toBe("rgb(10, 10, 10)");
+    expect(terminalAppearance.terminalColor).toBe("rgb(201, 255, 192)");
+    expect(terminalAppearance.inputBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(terminalAppearance.inputBorder).toBe("0px");
+    const sidebarBox = await page.locator(".sidebar").boundingBox();
+    const mainBox = await page.locator(".main-content").boundingBox();
+    const qaPanelBox = await qaPanel.boundingBox();
+    expect(sidebarBox).not.toBeNull();
+    expect(mainBox).not.toBeNull();
+    expect(qaPanelBox).not.toBeNull();
+    expect(sidebarBox!.x + sidebarBox!.width).toBeLessThanOrEqual(mainBox!.x + 1);
+    expect(Math.abs(mainBox!.x - qaPanelBox!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(mainBox!.width - qaPanelBox!.width)).toBeLessThanOrEqual(1);
+    expect(mainBox!.y + mainBox!.height).toBeLessThanOrEqual(qaPanelBox!.y + 1);
+    await qaPanel.getByRole("button", { name: "关闭智能问答面板" }).click();
+    await expect(qaPanel).toHaveCount(0);
+    const qaToggleColor = await page.getByRole("button", { name: /智能问答/ }).evaluate((element) => getComputedStyle(element).color);
+    expect(qaToggleColor).toBe("rgb(51, 255, 0)");
+
+    await page.getByRole("button", { name: /API 配置/ }).click();
+    await expect(page.getByRole("heading", { name: "统一模型与 API 配置" })).toBeVisible();
+    await expect(page.getByLabel("分析报告默认模型")).toHaveValue("local");
+    await expect(page.getByLabel("智能问答默认模型")).toHaveValue("");
+    await expect(page.getByLabel("智能问答默认模型")).toBeDisabled();
+
     await page.getByRole("button", { name: /分析报告/ }).click();
-    await expect(page.getByRole("heading", { name: "选择分析接口" })).toBeVisible();
-    await expect(page.getByText("本地智能分析")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "报告预览" })).toBeVisible();
+    await expect(page.getByLabel("报告分析模型")).toHaveValue("local");
     await expect(page.getByLabel("Markdown 报告预览")).toContainText("智能分析结论");
     await expect(page.locator(".detail-metrics")).toHaveCount(0);
     const viewport = page.viewportSize();

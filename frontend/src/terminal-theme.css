@@ -176,7 +176,6 @@ h1::after {
 .display-scale-control button:hover:not(:disabled)::after { color: var(--terminal-bg); }
 .display-scale-control button:disabled { color: var(--terminal-faint); }
 .display-scale-control output { border-color: var(--terminal-border); }
-.display-scale-control output small { color: var(--terminal-faint); text-transform: uppercase; }
 .display-scale-control output strong { color: var(--terminal-primary); text-shadow: 0 0 4px rgba(51, 255, 0, .4); }
 
 .primary-button, .secondary-button, .source-button, .github-input-row button {
@@ -423,9 +422,9 @@ h1::after {
 .code-viewer-line-number { color: #3f6b3a; }
 .code-viewer-line mark { color: var(--terminal-bg); background: var(--terminal-primary); }
 
-.dependency-stats, .graph-toolbar, .node-inspector, .cycle-list,
+.dependency-stats, .graph-confidence, .graph-toolbar, .node-inspector, .cycle-list,
 .quality-hero, .severity-summary, .quality-rules article, .quality-toolbar,
-.quality-findings, .quality-finding {
+.quality-findings, .quality-finding, .quality-scope-scores article {
   border-color: var(--terminal-border);
   color: var(--terminal-text);
   background: var(--terminal-panel);
@@ -436,6 +435,7 @@ h1::after {
 .dependency-stats span, .graph-toolbar label, .graph-toolbar > small,
 .node-degrees span, .node-inspector > code { color: var(--terminal-muted); }
 .dependency-stats .warning strong, .graph-notice { color: var(--terminal-secondary); }
+.graph-confidence { border-color: var(--terminal-primary); background: #0b140b; }.graph-confidence strong, .graph-confidence span { color: var(--terminal-primary); }.graph-confidence p, .graph-confidence small { color: var(--terminal-muted); }.graph-confidence.confidence-medium { border-color: var(--terminal-secondary); background: #171104; }.graph-confidence.confidence-medium strong, .graph-confidence.confidence-medium span { color: var(--terminal-secondary); }.graph-confidence.confidence-low { border-color: var(--terminal-error); background: #180707; }.graph-confidence.confidence-low strong, .graph-confidence.confidence-low span { color: var(--terminal-error); }
 .graph-notice { border-color: var(--terminal-secondary); background: #171104; }
 .zoom-controls, .node-degrees { border-color: var(--terminal-border); background: var(--terminal-bg); }
 .zoom-controls button { color: var(--terminal-primary); }
@@ -499,6 +499,8 @@ h1::after {
   background: var(--quality-grade-color);
   box-shadow: 0 0 0 3px var(--terminal-panel);
 }
+.quality-scope-scores article { border-color: var(--terminal-border); border-left-color: var(--quality-grade-color); background: var(--terminal-panel); }.quality-scope-scores strong, .quality-scope-scores em { color: var(--quality-grade-color); }.quality-scope-scores span { color: var(--terminal-text); }.quality-scope-scores small, .finding-level small { color: var(--terminal-muted); }
+.quality-scope-scores article.scope-unavailable { --quality-grade-color: var(--terminal-muted); border-color: var(--terminal-border); background: var(--terminal-bg); opacity: .82; }
 .quality-overview h3, .quality-rules strong, .quality-toolbar > strong,
 .finding-main header strong { color: var(--terminal-primary); }
 .quality-overview > span, .quality-rules code, .quality-rules p, .quality-toolbar > span,
@@ -522,6 +524,93 @@ h1::after {
 .finding-suggestion { border-left-color: var(--terminal-primary); color: var(--terminal-muted); background: #0b140b; }
 .finding-suggestion b { color: var(--terminal-primary); }
 
+/* Analysis snapshots use the same phosphor terminal language as the rest of DevAtlas. */
+.snapshot-workspace { color: var(--terminal-text); background: var(--terminal-bg); }
+.snapshot-toolbar, .snapshot-list > article, .snapshot-comparison > header,
+.snapshot-metrics article, .snapshot-group {
+  border-color: var(--terminal-border);
+  color: var(--terminal-text);
+  background: var(--terminal-panel);
+}
+.snapshot-toolbar { border-left: 3px solid var(--terminal-primary); }
+.snapshot-toolbar > div:first-child span,
+.snapshot-comparison header span, .snapshot-group > header span,
+.snapshot-toolbar > div:first-child strong, .snapshot-list > article > div strong,
+.snapshot-list dd, .snapshot-comparison > header strong,
+.snapshot-metrics strong, .snapshot-group > header strong {
+  color: var(--terminal-primary);
+}
+.snapshot-toolbar > div:first-child small, .snapshot-list > article > div small,
+.snapshot-list dt, .snapshot-metrics span, .snapshot-metrics small,
+.snapshot-group > header em, .snapshot-group p { color: var(--terminal-muted); }
+.snapshot-toolbar input, .snapshot-compare-controls select {
+  border-color: var(--terminal-border);
+  color: var(--terminal-primary);
+  background: var(--terminal-bg);
+  caret-color: var(--terminal-primary);
+}
+.snapshot-toolbar input::placeholder { color: var(--terminal-faint); }
+.snapshot-toolbar input:focus, .snapshot-compare-controls select:focus {
+  border-color: var(--terminal-primary);
+}
+.snapshot-toolbar button, .snapshot-compare-controls > button {
+  border-color: var(--terminal-primary);
+  color: var(--terminal-primary);
+  background: var(--terminal-bg);
+  text-transform: uppercase;
+}
+.snapshot-toolbar button::before, .snapshot-compare-controls > button::before { content: "["; }
+.snapshot-toolbar button::after, .snapshot-compare-controls > button::after { content: "]"; }
+.snapshot-toolbar button:hover:not(:disabled), .snapshot-compare-controls > button:hover:not(:disabled) {
+  color: var(--terminal-bg);
+  background: var(--terminal-primary);
+}
+.snapshot-toolbar button:disabled, .snapshot-compare-controls > button:disabled {
+  color: var(--terminal-faint);
+  border-color: var(--terminal-faint);
+  background: var(--terminal-bg);
+}
+.snapshot-list { gap: 6px; }
+.snapshot-list > article:hover { border-color: var(--terminal-primary); background: #102010; }
+.snapshot-list > article > div span { color: var(--terminal-secondary); }
+.snapshot-list dl div { border-left-color: var(--terminal-border); }
+.snapshot-list > article > button {
+  border-color: var(--terminal-border);
+  color: var(--terminal-muted);
+  background: var(--terminal-bg);
+}
+.snapshot-list > article > button:hover {
+  border-color: var(--terminal-error);
+  color: var(--terminal-error);
+  background: #170808;
+}
+.snapshot-compare-controls {
+  border-color: var(--terminal-primary);
+  color: var(--terminal-text);
+  background: #070907;
+}
+.snapshot-compare-controls > span, .snapshot-compare-controls label span { color: var(--terminal-primary); }
+.snapshot-compare-controls select { border-color: var(--terminal-border); color: var(--terminal-primary); background: var(--terminal-panel); }
+.snapshot-comparison > header { border-left-color: var(--terminal-primary); background: #0b140b; }
+.snapshot-comparison > header i { color: var(--terminal-secondary); }
+.snapshot-metrics article { border-top: 2px solid var(--terminal-border); }
+.snapshot-metrics article:hover { border-top-color: var(--terminal-primary); background: #102010; }
+.snapshot-metrics em.good { color: var(--terminal-primary); }
+.snapshot-metrics em.bad { color: var(--terminal-error); }
+.snapshot-metrics em.neutral { color: var(--terminal-secondary); }
+.snapshot-group > header { border-bottom-color: var(--terminal-primary); background: #0b100b; }
+.snapshot-group > div { background: var(--terminal-bg); }
+.snapshot-group article { border-right-color: var(--terminal-border); background: var(--terminal-panel); }
+.snapshot-group h4 { color: var(--terminal-text); }
+.snapshot-group p { border-top-color: var(--terminal-border); }
+.snapshot-change-new { border-top: 2px solid var(--terminal-error); }
+.snapshot-change-fixed { border-top: 2px solid var(--terminal-primary); }
+.snapshot-change-persistent { border-top: 2px solid var(--terminal-secondary); }
+.snapshot-change-new h4 b { color: var(--terminal-error); }
+.snapshot-change-fixed h4 b { color: var(--terminal-primary); }
+.snapshot-change-persistent h4 b { color: var(--terminal-secondary); }
+
+
 .report-generator-section, .report-preview-section, .report-generator-card,
 .report-section-heading, .report-toolbar, .report-preview, .report-save-note {
   border-color: var(--terminal-border);
@@ -534,6 +623,10 @@ h1::after {
 .report-save-note span { color: var(--terminal-primary); }
 .report-section-heading small, .report-toolbar small, .report-generator-card p,
 .report-generator-card code, .report-save-note, .report-preview-empty { color: var(--terminal-muted); }
+.provider-usage-grid label { border-color: var(--terminal-border); color: var(--terminal-text); background: var(--terminal-bg); }
+.provider-usage-grid label > span, .provider-usage-grid label > strong { color: var(--terminal-primary); }
+.provider-usage-grid select { border-color: var(--terminal-border); color: var(--terminal-primary); background: var(--terminal-bg); }
+.provider-usage-tags span { border-color: var(--terminal-primary); color: var(--terminal-primary); }
 .report-mode-select { color: var(--terminal-muted); }
 .report-mode-select select { border-color: var(--terminal-border); color: var(--terminal-primary); background: var(--terminal-bg); }
 .report-generator-card:hover, .report-generator-card.active { border-color: var(--terminal-primary); background: #102010; }
@@ -614,6 +707,87 @@ h1::after {
 .github-pane label { color: var(--terminal-text); }
 .modal-footer { border-top-color: var(--terminal-border); color: var(--terminal-muted); background: var(--terminal-panel); }
 .modal-footer strong { color: var(--terminal-primary); }
+
+/* Repository shell: one continuous green terminal surface. */
+.qa-terminal-toggle {
+  border-color: var(--terminal-primary);
+  color: var(--terminal-primary);
+  background: var(--terminal-bg);
+  text-transform: uppercase;
+}
+.qa-terminal-toggle::before { content: "["; }
+.qa-terminal-toggle::after { content: "]"; }
+.qa-terminal-toggle span { color: currentColor; }
+.qa-terminal-toggle:hover, .qa-terminal-toggle.active {
+  border-color: var(--terminal-primary);
+  color: var(--terminal-bg);
+  background: var(--terminal-primary);
+}
+.qa-side-panel {
+  border-top-color: var(--terminal-primary);
+  color: var(--terminal-text);
+  background: var(--terminal-bg);
+}
+.qa-terminal { color: var(--terminal-text); background: var(--terminal-bg); }
+.qa-terminal-bar {
+  border-bottom-color: var(--terminal-border);
+  background: var(--terminal-panel);
+}
+.qa-terminal-title strong { color: var(--terminal-primary); text-shadow: 0 0 5px rgba(51, 255, 0, .35); }
+.qa-terminal-title span { color: var(--terminal-muted); }
+.qa-provider-select { color: var(--terminal-muted); }
+.qa-provider-select select { border-color: var(--terminal-border); color: var(--terminal-primary); background: var(--terminal-bg); }
+.qa-provider-select select:focus { border-color: var(--terminal-primary); }
+.qa-terminal-bar > .qa-panel-close {
+  border-color: transparent;
+  color: var(--terminal-primary);
+  background: transparent;
+}
+.qa-terminal-bar > .qa-panel-close:hover {
+  border-color: var(--terminal-primary);
+  color: var(--terminal-bg);
+  background: var(--terminal-primary);
+}
+.qa-transcript { scrollbar-color: var(--terminal-primary) var(--terminal-bg); }
+.qa-welcome { color: var(--terminal-text); }
+.qa-welcome p:first-child { color: var(--terminal-primary); text-shadow: 0 0 4px rgba(51, 255, 0, .3); }
+.qa-welcome p:nth-child(2), .qa-welcome p:nth-child(3) { color: var(--terminal-muted); }
+.qa-model-required { border-color: var(--terminal-secondary); color: var(--terminal-text); background: var(--terminal-panel); }
+.qa-model-required strong, .qa-model-required button { color: var(--terminal-secondary); }
+.qa-model-required span { color: var(--terminal-muted); }
+.qa-model-required button { border-color: var(--terminal-secondary); background: transparent; }
+.qa-model-required button:hover { color: var(--terminal-bg); background: var(--terminal-secondary); }
+.qa-message-prompt > span, .qa-assistant .qa-message-prompt > span { color: var(--terminal-primary); }
+.qa-message-prompt strong, .qa-answer-text { color: var(--terminal-text); }
+.qa-system .qa-message-prompt > span, .qa-system .qa-answer-text { color: var(--terminal-error); }
+.qa-answer-meta { color: var(--terminal-muted); }
+.qa-answer-meta span { color: var(--terminal-primary); }
+.qa-answer-meta b { color: var(--terminal-text); }
+.qa-answer-meta.qa-grounding-insufficient span,
+.qa-answer-meta.qa-grounding-reference_failed span { color: var(--terminal-error); }
+.qa-retry-button { border-color: var(--terminal-secondary); color: var(--terminal-secondary); background: transparent; }
+.qa-retry-button:hover:not(:disabled) { color: var(--terminal-bg); background: var(--terminal-secondary); }
+.qa-citations button { color: var(--terminal-primary); }
+.qa-citations button:hover { color: var(--terminal-text); }
+.qa-citations b { color: var(--terminal-secondary); }
+.qa-thinking { color: var(--terminal-primary); }
+.qa-thinking i { background: var(--terminal-primary); }
+.qa-thinking small { color: var(--terminal-muted); }
+.qa-command-line {
+  padding: 2px 16px 12px;
+  border-top: 0;
+  background: var(--terminal-bg);
+}
+.qa-command-line > span { color: var(--terminal-primary); }
+.qa-command-line input, .qa-command-line input:focus {
+  height: 28px;
+  padding: 0;
+  border: 0;
+  color: var(--terminal-text);
+  background: transparent;
+  caret-color: var(--terminal-primary);
+}
+.qa-command-line input:focus-visible { outline: 0 !important; }
 
 @keyframes terminal-blink { 0%, 48% { opacity: 1; } 49%, 100% { opacity: 0; } }
 @keyframes terminal-modal-in { from { opacity: 0; transform: translateY(8px); } }

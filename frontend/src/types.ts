@@ -126,6 +126,34 @@ export interface CodeSearchResponse {
   results: CodeSearchResult[];
 }
 
+export interface RepositoryCitation {
+  file_id: number;
+  file_path: string;
+  start_line: number;
+  end_line: number;
+  symbol_name: string | null;
+  snippet: string;
+  source: string;
+}
+
+export interface RepositoryAnswer {
+  question: string;
+  answer: string;
+  provider: string;
+  engine_name: string;
+  citations: RepositoryCitation[];
+  evidence_count: number;
+  reference_count: number;
+  confidence: "low" | "medium" | "high";
+  grounding_status: "project_context" | "grounded" | "insufficient" | "reference_failed";
+  elapsed_ms: number;
+}
+
+export interface RepositoryConversationItem {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface DependencyNode {
   id: number;
   path: string;
@@ -153,11 +181,114 @@ export interface DependencyGraph {
   total_edge_count: number;
   internal_import_count: number;
   external_import_count: number;
+  unresolved_import_count: number;
+  classified_import_count: number;
+  classification_confidence: number;
+  confidence_level: "high" | "medium" | "low";
   cycle_count: number;
   truncated: boolean;
   nodes: DependencyNode[];
   edges: DependencyEdge[];
   cycles: DependencyCycle[];
+}
+
+export interface ImpactTarget {
+  target_type: "file" | "symbol";
+  target_id: number;
+  file_id: number;
+  file_path: string;
+  name: string;
+  kind: string;
+  start_line: number;
+  end_line: number;
+}
+
+export interface ImpactRelation {
+  file_id: number;
+  file_path: string;
+  relation: string;
+  confidence: "high" | "medium" | "low";
+  depth: number;
+  line_numbers: number[];
+  symbol_id: number | null;
+  symbol_name: string | null;
+  symbol_kind: string | null;
+  start_line: number | null;
+  end_line: number | null;
+}
+
+export interface ChangeImpact {
+  target: ImpactTarget;
+  definition: ImpactRelation;
+  risk: {
+    model: string;
+    base_score: number;
+    level: "high" | "medium" | "low";
+    score: number;
+    confidence: "high" | "medium" | "low";
+    reasons: string[];
+    factors: Array<{
+      key: string;
+      label: string;
+      actual: number;
+      reference: number;
+      unit: string;
+      contribution: number;
+      explanation: string;
+    }>;
+  };
+  direct_callers: ImpactRelation[];
+  called_objects: ImpactRelation[];
+  dependencies: ImpactRelation[];
+  indirect_impacts: ImpactRelation[];
+  related_tests: ImpactRelation[];
+  related_apis: ImpactRelation[];
+  database_entities: ImpactRelation[];
+  cycles: DependencyCycle[];
+  limitations: string;
+}
+
+export interface AnalysisSnapshotSummary {
+  id: number;
+  project_id: number;
+  label: string;
+  reason: "manual" | "import" | "full" | "incremental";
+  created_at: string;
+  score: number;
+  grade: string;
+  file_count: number;
+  symbol_count: number;
+  import_count: number;
+  finding_count: number;
+  cycle_count: number;
+  parse_issue_count: number;
+}
+
+export interface SnapshotMetricChange {
+  key: string;
+  label: string;
+  base: number;
+  target: number;
+  delta: number;
+}
+
+export interface SnapshotComparisonGroup {
+  new_count: number;
+  fixed_count: number;
+  persistent_count: number;
+  new_items: Array<Record<string, unknown>>;
+  fixed_items: Array<Record<string, unknown>>;
+  persistent_items: Array<Record<string, unknown>>;
+  truncated: boolean;
+}
+
+export interface AnalysisSnapshotComparison {
+  base: AnalysisSnapshotSummary;
+  target: AnalysisSnapshotSummary;
+  metric_changes: SnapshotMetricChange[];
+  quality: SnapshotComparisonGroup;
+  parse_issues: SnapshotComparisonGroup;
+  cycles: SnapshotComparisonGroup;
 }
 
 export interface QualityRule {
@@ -171,6 +302,7 @@ export interface QualityFinding {
   id: string;
   rule_id: string;
   severity: "error" | "warning" | "info";
+  scope: "production" | "test" | "generated";
   title: string;
   description: string;
   suggestion: string;
@@ -193,13 +325,30 @@ export interface QualityScoring {
   base_penalty: number;
   adjusted_penalty: number;
   rule_penalties: Record<string, number>;
+  scope_weights: Record<"production" | "test" | "generated", number>;
+  effective_scope_weights: Record<"production" | "test" | "generated", number>;
+  excluded_scopes: Array<"production" | "test" | "generated">;
   explanation: string;
 }
 
 export interface QualityReport {
   score: number;
   grade: string;
+  score_scope: "composite";
   scoring: QualityScoring;
+  scope_scores: Record<"production" | "test" | "generated", {
+    scope: "production" | "test" | "generated";
+    label: string;
+    score: number | null;
+    grade: string | null;
+    available: boolean;
+    configured_weight: number;
+    effective_weight: number;
+    exclusion_reason: string | null;
+    finding_count: number;
+    severity_counts: Record<"error" | "warning" | "info", number>;
+    project_size: { file_count: number; code_line_count: number; symbol_count: number };
+  }>;
   total_findings: number;
   severity_counts: Record<"error" | "warning" | "info", number>;
   rule_counts: Record<string, number>;

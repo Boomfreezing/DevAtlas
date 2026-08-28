@@ -1,5 +1,6 @@
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
@@ -14,7 +15,9 @@ from app.services.structure_analyzer import analyze_project_file_subset
 
 
 def incrementally_analyze_project(
-    database: Session, project: Project
+    database: Session,
+    project: Project,
+    search_index_root: Path | None = None,
 ) -> dict[str, object]:
     started = time.perf_counter()
     stored_by_path = {item.relative_path: item for item in project.files}
@@ -93,7 +96,7 @@ def incrementally_analyze_project(
     project.file_count = len(scan.files)
     project.code_line_count = scan.code_line_count
     project.updated_at = datetime.now(timezone.utc)
-    build_project_search_index(database, project)
+    build_project_search_index(database, project, search_index_root)
     database.commit()
 
     parsed_file_count = sum(

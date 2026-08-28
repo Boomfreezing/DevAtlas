@@ -54,4 +54,3 @@ const createUser = (name: string) => ({ name });
 def test_reports_unsupported_extensions() -> None:
     assert supports_extension(".java") is False
     assert supports_extension(".tsx") is True
-

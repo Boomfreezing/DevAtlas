@@ -41,7 +41,11 @@ def test_runs_github_job_to_completion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     factory = make_session_factory(tmp_path)
-    settings = Settings(repository_root=tmp_path / "repositories")
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        search_index_root=tmp_path / "indexes",
+        semantic_search_enabled=False,
+    )
     settings.ensure_directories()
     add_job(factory, "github-job")
 
@@ -87,7 +91,11 @@ def test_failed_job_cleans_repository(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     factory = make_session_factory(tmp_path)
-    settings = Settings(repository_root=tmp_path / "repositories")
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        search_index_root=tmp_path / "indexes",
+        semantic_search_enabled=False,
+    )
     repository_path = settings.repository_root / "failed-import" / "repo"
     repository_path.mkdir(parents=True)
     add_job(factory, "failed-job")

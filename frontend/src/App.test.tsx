@@ -11,6 +11,7 @@ describe("App", () => {
       id: "LONG_FUNCTION:1",
       rule_id: "LONG_FUNCTION",
       severity: "warning",
+      scope: "production",
       title: "超长函数",
       description: "函数过长",
       suggestion: "拆分函数",
@@ -25,6 +26,7 @@ describe("App", () => {
       id: "CIRCULAR_DEPENDENCY:1",
       rule_id: "CIRCULAR_DEPENDENCY",
       severity: "error",
+      scope: "production",
       title: "循环依赖",
       description: "形成依赖环",
       suggestion: "调整依赖方向",
@@ -71,6 +73,10 @@ describe("App", () => {
     expect(await screen.findByText("还没有导入仓库")).toBeTruthy();
     expect(screen.getAllByText("项目管理").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /代码搜索/ })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: /API 配置/ })).toHaveProperty("disabled", false);
+    fireEvent.click(screen.getByRole("button", { name: /API 配置/ }));
+    expect(await screen.findByText("统一模型与 API 配置")).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).get("section")).toBe("providers");
   });
 
   it("persists an app-specific display scale across reloads", async () => {
@@ -253,6 +259,80 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/projects/2/dependency-graph"), undefined);
   });
 
+  it("opens repository QA as a workspace terminal and links citations to source", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = { id: 11, name: "qa-repo", source_filename: "qa-repo/", status: "ready", primary_language: "Python", file_count: 2, code_line_count: 20, created_at: timestamp, updated_at: timestamp };
+    let askAttempts = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/11")) return Response.json({ ...project, files: [] });
+      if (url.endsWith("/structure/summary")) return Response.json({ symbol_count: 1, class_count: 0, function_count: 1, import_count: 0, resolved_import_count: 0, issue_count: 0 });
+      if (url.endsWith("/report-generators")) return Response.json([
+        { id: "local", name: "本地智能分析", description: "本地检索", endpoint: "", cost_label: "免费", requires_configuration: false, available: true, configured: true, base_url: "local://", model: "DevAtlas", has_api_key: false, connection_status: "ready", connection_message: "ready", tested_at: null },
+        { id: "ollama", name: "Ollama 本地模型服务", description: "本地模型", endpoint: "/api/generate", cost_label: "免费", requires_configuration: true, available: true, configured: true, base_url: "http://127.0.0.1:11434", model: "qwen", has_api_key: false, connection_status: "success", connection_message: "ready", tested_at: timestamp },
+        { id: "openai-chat-compatible", name: "Chat Completions 兼容接口", description: "在线模型", endpoint: "/chat/completions", cost_label: "按量", requires_configuration: true, available: true, configured: true, base_url: "https://example.test", model: "code-model", has_api_key: true, connection_status: "success", connection_message: "ready", tested_at: timestamp },
+      ]);
+      if (url.endsWith("/api/projects/11/files/1/content")) return Response.json({ file_id: 1, file_path: "README.md", language: "Markdown", size_bytes: 12, total_lines: 3, lines: ["# QA Repo", "", "npm run dev"] });
+      if (url.endsWith("/api/projects/11/ask")) {
+        askAttempts += 1;
+        if (askAttempts === 1) return Response.json({ detail: "Ollama 模型调用失败" }, { status: 502 });
+        return Response.json({
+          question: "这个项目如何启动？",
+          answer: "启动命令记录在 README。\n[1] `README.md:3-3`",
+          provider: "openai-chat-compatible",
+          engine_name: "openai-chat-compatible",
+          evidence_count: 1,
+          reference_count: 1,
+          confidence: "high",
+          grounding_status: "grounded",
+          elapsed_ms: 12.4,
+          citations: [{ file_id: 1, file_path: "README.md", start_line: 3, end_line: 3, symbol_name: null, snippet: "npm run dev", source: "project_file" }],
+        });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("qa-repo"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("qa-repo"));
+    expect(document.querySelector(".sidebar")?.textContent).not.toContain("智能问答");
+    const qaToggle = screen.getByRole("button", { name: /智能问答/ });
+    expect(qaToggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+
+    expect(await screen.findByText("DevAtlas Repository Shell")).toBeTruthy();
+    expect(qaToggle.getAttribute("aria-expanded")).toBe("true");
+    expect(document.querySelector(".app-shell")?.classList.contains("qa-side-open")).toBe(true);
+    expect(document.querySelector(".qa-side-panel")?.parentElement).toBe(document.querySelector(".app-shell"));
+    const qaProviderSelect = screen.getByLabelText("智能问答模型");
+    expect(qaProviderSelect).toHaveProperty("value", "ollama");
+    const qaInput = screen.getByLabelText("输入仓库问题");
+    fireEvent.change(qaInput, { target: { value: "这个项目如何启动？" } });
+    fireEvent.submit(qaInput.closest("form") as HTMLFormElement);
+    expect(await screen.findByRole("button", { name: /使用当前模型重试/ })).toBeTruthy();
+    fireEvent.change(qaProviderSelect, { target: { value: "openai-chat-compatible" } });
+    fireEvent.click(screen.getByRole("button", { name: /使用当前模型重试/ }));
+    expect(await screen.findByText("README.md:3-3")).toBeTruthy();
+    expect(screen.getByText("启动命令记录在 README。", { exact: false })).toBeTruthy();
+    expect(screen.getByText("[证据已校验]")).toBeTruthy();
+    expect(screen.getByText("高置信")).toBeTruthy();
+    expect(screen.getByText("1 条证据 · 1 个有效引用 · 12.4 ms")).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).get("section")).toBe("projects");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/11/ask",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const askCalls = fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/api/projects/11/ask"));
+    expect(askCalls).toHaveLength(2);
+    expect(JSON.parse(String(askCalls[0]?.[1]?.body))).toMatchObject({ provider: "ollama" });
+    expect(JSON.parse(String(askCalls[1]?.[1]?.body))).toMatchObject({ provider: "openai-chat-compatible" });
+    fireEvent.click(screen.getByRole("button", { name: /README\.md:3-3/ }));
+    expect(await screen.findByRole("dialog", { name: "README.md" })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/11/files/1/content", undefined);
+  });
+
   it("shows the displayed search count and loads more results", async () => {
     const timestamp = "2026-08-26T10:00:00Z";
     const project = {
@@ -279,6 +359,10 @@ describe("App", () => {
       snippet: `function result${index + 1}() { return "needle"; }`,
       score: 1 / (index + 1),
     });
+    let finishInitialSearch!: () => void;
+    const initialSearchPending = new Promise<void>((resolve) => {
+      finishInitialSearch = resolve;
+    });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/api/projects")) return Response.json([project]);
@@ -287,7 +371,7 @@ describe("App", () => {
       if (url.endsWith("/files/1/content")) return Response.json({ file_id: 1, file_path: "src/result-1.ts", language: "TypeScript", size_bytes: 72, total_lines: 3, lines: ["export function result1() {", "  return \"needle\";", "}"] });
       if (url.includes("/search?")) {
         const offset = Number(new URL(url, "http://localhost").searchParams.get("offset") ?? "0");
-        if (offset === 0) await new Promise((resolve) => setTimeout(resolve, 20));
+        if (offset === 0) await initialSearchPending;
         const results = Array.from({ length: offset === 0 ? 10 : 2 }, (_, index) => makeResult(offset + index));
         return Response.json({ query: "needle", indexed_chunks: 12, total_matches: 12, limit: 10, offset, has_more: offset + results.length < 12, elapsed_ms: 1.2, results });
       }
@@ -304,6 +388,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("status", { name: "代码搜索进行中" })).toBeTruthy();
     expect(screen.getByText("正在当前仓库中检索“needle”")).toBeTruthy();
+    finishInitialSearch();
     expect(await screen.findByText("显示 10 / 12 条匹配")).toBeTruthy();
     expect(document.querySelectorAll(".search-result")).toHaveLength(10);
     fireEvent.click(screen.getAllByRole("button", { name: "查看代码" })[0]);
@@ -389,7 +474,11 @@ describe("App", () => {
       total_node_count: 3,
       total_edge_count: 3,
       internal_import_count: 4,
-      external_import_count: 0,
+      external_import_count: 2,
+      unresolved_import_count: 1,
+      classified_import_count: 6,
+      classification_confidence: 85.7,
+      confidence_level: "medium",
       cycle_count: 1,
       truncated: false,
       nodes: [
@@ -422,10 +511,14 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /依赖图谱/ }));
 
     expect(await screen.findByText("A → B 表示 A 导入并依赖 B")).toBeTruthy();
+    expect(screen.getByText("依赖分类可信度 85.7%")).toBeTruthy();
+    expect(screen.getByText(/推定外部 2 · 待确认 1/)).toBeTruthy();
     expect(screen.getByText("普通模块")).toBeTruthy();
     expect(screen.getByText("选中的循环模块")).toBeTruthy();
-    expect(screen.getByText("循环依赖边（橙黄色虚线）")).toBeTruthy();
-    expect(screen.getByText(/节点越大表示入度与出度总和越高/)).toBeTruthy();
+    expect(screen.getByText("循环依赖边")).toBeTruthy();
+    expect(screen.queryByText(/橙黄色虚线/)).toBeNull();
+    expect(screen.queryByText(/节点越大表示入度与出度总和越高/)).toBeNull();
+    expect(screen.queryByText(/“待确认”表示导入看起来指向项目代码/)).toBeNull();
     const inspector = document.querySelector(".node-inspector");
     expect(inspector?.textContent).toContain("当前模块依赖");
     expect(inspector?.textContent).toContain("依赖当前模块");
@@ -457,6 +550,12 @@ describe("App", () => {
     const qualityReport = {
       score: 100,
       grade: "A",
+      score_scope: "composite",
+      scope_scores: {
+        production: { scope: "production", label: "生产代码", score: 100, grade: "A", available: true, configured_weight: .7, effective_weight: 1, exclusion_reason: null, finding_count: 0, severity_counts: { error: 0, warning: 0, info: 0 }, project_size: { file_count: 1, code_line_count: 20, symbol_count: 1 } },
+        test: { scope: "test", label: "测试代码", score: null, grade: null, available: false, configured_weight: .2, effective_weight: 0, exclusion_reason: "未检测到测试代码文件，不参与综合评分。", finding_count: 0, severity_counts: { error: 0, warning: 0, info: 0 }, project_size: { file_count: 0, code_line_count: 0, symbol_count: 0 } },
+        generated: { scope: "generated", label: "生成/外部代码", score: null, grade: null, available: false, configured_weight: .1, effective_weight: 0, exclusion_reason: "未检测到生成/外部代码文件，不参与综合评分。", finding_count: 0, severity_counts: { error: 0, warning: 0, info: 0 }, project_size: { file_count: 0, code_line_count: 0, symbol_count: 0 } },
+      },
       scoring: {
         model: "size_normalized_v2",
         size_factor: 1,
@@ -498,7 +597,11 @@ describe("App", () => {
     await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("quality-repo"));
     fireEvent.click(screen.getByRole("button", { name: /质量检测/ }));
     expect(await screen.findByText("未发现规则命中的质量问题")).toBeTruthy();
-    expect(screen.getByRole("meter", { name: "质量评分 100 分，评级 A" }).classList.contains("grade-a")).toBe(true);
+    expect(screen.getByRole("meter", { name: "综合质量评分 100 分，评级 A" }).classList.contains("grade-a")).toBe(true);
+    expect(screen.getAllByText("N/A")).toHaveLength(2);
+    expect(screen.getByText("未检测到测试代码文件，不参与综合评分。")).toBeTruthy();
+    expect(screen.queryByText(/1 文件 · 0 项风险 · 权重/)).toBeNull();
+    expect(screen.queryByText("检测过长函数")).toBeNull();
     expect(screen.queryByRole("region", { name: "质量评分依据" })).toBeNull();
     expect(screen.queryByRole("button", { name: "全量" })).toBeNull();
 
@@ -581,6 +684,62 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("offset=0"), undefined);
   });
 
+  it("searches a symbol and displays its bounded change impact", async () => {
+    const timestamp = "2026-08-26T10:00:00Z";
+    const project = { id: 12, name: "impact-repo", source_filename: "impact-repo/", status: "ready", primary_language: "Python", file_count: 4, code_line_count: 80, created_at: timestamp, updated_at: timestamp };
+    const target = { target_type: "symbol", target_id: 7, file_id: 2, file_path: "app/auth.py", name: "authenticate_user", kind: "function", start_line: 3, end_line: 8 };
+    const relation = (fileId: number, filePath: string, relationName: string, confidence: "high" | "medium" | "low" = "high") => ({
+      file_id: fileId, file_path: filePath, relation: relationName, confidence, depth: 1,
+      line_numbers: [2], symbol_id: null, symbol_name: null, symbol_kind: null, start_line: 2, end_line: 2,
+    });
+    const impact = {
+      target,
+      definition: { ...relation(2, "app/auth.py", "definition"), depth: 0, symbol_id: 7, symbol_name: "authenticate_user", symbol_kind: "function", start_line: 3, end_line: 8 },
+      risk: {
+        model: "reference_v2", base_score: 8, level: "high", score: 72, confidence: "medium",
+        reasons: ["存在 2 个直接调用或引用位置", "影响范围触及接口或路由层"],
+        factors: [{ key: "direct_callers", label: "直接调用或引用", actual: 2, reference: 8, unit: "个", contribution: 10, explanation: "达到参考值时计满该项风险。" }],
+      },
+      direct_callers: [relation(3, "app/api/login.py", "symbol_reference", "medium")],
+      called_objects: [relation(4, "app/models/user.py", "target_imports_module")],
+      dependencies: [relation(4, "app/models/user.py", "target_imports_module")],
+      indirect_impacts: [relation(1, "app/main.py", "transitive_caller", "medium")],
+      related_tests: [relation(5, "tests/test_auth.py", "symbol_reference", "medium")],
+      related_apis: [relation(3, "app/api/login.py", "symbol_reference", "medium")],
+      database_entities: [relation(4, "app/models/user.py", "target_imports_module")],
+      cycles: [],
+      limitations: "函数关系来自有界源码引用推断。",
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/projects")) return Response.json([project]);
+      if (url.endsWith("/api/projects/12")) return Response.json(project);
+      if (url.endsWith("/structure/summary")) return Response.json({ symbol_count: 1, class_count: 0, function_count: 1, import_count: 2, resolved_import_count: 2, issue_count: 0 });
+      if (url.includes("/impact-targets?")) return Response.json([target]);
+      if (url.includes("/impact?")) return Response.json(impact);
+      if (url.endsWith("/report-generators")) return Response.json([]);
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("impact-repo"));
+    await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("impact-repo"));
+    fireEvent.click(screen.getByRole("button", { name: /影响分析/ }));
+    fireEvent.change(screen.getByLabelText(/选择要修改的文件、类或函数/), { target: { value: "authenticate" } });
+    fireEvent.click(screen.getByRole("button", { name: "查找对象" }));
+    fireEvent.click(await screen.findByRole("button", { name: /authenticate_user/ }));
+
+    expect(await screen.findByText("72")).toBeTruthy();
+    expect(screen.queryByText("CHANGE_RISK")).toBeNull();
+    expect(screen.getByText("高风险 · 中置信")).toBeTruthy();
+    expect(screen.queryByText("风险参考变量")).toBeNull();
+    expect(screen.getByText("直接调用者")).toBeTruthy();
+    expect(screen.getAllByText("app/api/login.py").length).toBeGreaterThan(0);
+    expect(screen.getByText("函数关系来自有界源码引用推断。")).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).get("section")).toBe("impact");
+  });
+
   it("generates a targeted report and saves it from the dedicated report workspace", async () => {
     const timestamp = "2026-08-26T10:00:00Z";
     const project = { id: 10, name: "report-repo", source_filename: "report-repo/", status: "ready", primary_language: "Python", file_count: 1, code_line_count: 20, created_at: timestamp, updated_at: timestamp };
@@ -608,32 +767,41 @@ describe("App", () => {
     Object.defineProperty(window, "showSaveFilePicker", { configurable: true, value: showSaveFilePicker });
     render(<App />);
 
+    const sidebarNavigation = Array.from(document.querySelectorAll(".sidebar > nav"));
+    expect(sidebarNavigation.map((item) => item.textContent).join(" ")).not.toContain("PROJECT_TOOLS");
+    expect(sidebarNavigation.map((item) => item.textContent).join(" ")).not.toContain("MODEL_RUNTIME");
+
     fireEvent.click(await screen.findByText("report-repo"));
     await waitFor(() => expect(document.querySelector(".topbar h1")?.textContent).toBe("report-repo"));
     expect(screen.queryByRole("button", { name: /导出 MD/ })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /分析报告/ }));
-    expect(await screen.findByText("选择分析接口")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /API 配置/ }));
+    expect(await screen.findByText("统一模型与 API 配置")).toBeTruthy();
     expect(document.querySelector(".detail-metrics")).toBeNull();
-    expect(screen.getByText("本地智能分析")).toBeTruthy();
-    expect(screen.getByText("Ollama 本地模型服务")).toBeTruthy();
-    expect(screen.getByLabelText("Markdown 报告预览").textContent).toContain("智能分析结论");
-    expect(screen.getByLabelText("报告范围")).toHaveProperty("value", "summary");
+    expect(screen.getByLabelText("分析报告默认模型")).toHaveProperty("value", "local");
+    expect(screen.getByLabelText("智能问答默认模型")).toHaveProperty("value", "");
 
-    const ollamaCard = screen.getByText("Ollama 本地模型服务").closest("article") as HTMLElement;
-    expect(ollamaCard.querySelector(".provider-select-button")).toHaveProperty("disabled", true);
+    const ollamaCard = Array.from(document.querySelectorAll<HTMLElement>(".report-generator-card")).find((card) => card.textContent?.includes("Ollama 本地模型服务")) as HTMLElement;
+    expect(ollamaCard.classList.contains("unavailable")).toBe(true);
     fireEvent.click(ollamaCard.querySelector(".provider-card-footer button") as HTMLButtonElement);
     expect(screen.getByText("配置 Ollama 本地模型服务")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("模型名称"), { target: { value: "local-code-model" } });
     fireEvent.click(screen.getByRole("button", { name: "保存配置" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/report-generators/ollama"), expect.objectContaining({ method: "PUT" })));
     expect(await screen.findByText("配置已保存到本机后端，请继续测试连接。")).toBeTruthy();
-    await waitFor(() => expect(ollamaCard.querySelector(".provider-select-button")).toHaveProperty("disabled", false));
+    await waitFor(() => expect(ollamaCard.classList.contains("unavailable")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
     expect(await screen.findByText("Ollama 连接成功")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("分析报告默认模型"), { target: { value: "local" } });
+    fireEvent.change(screen.getByLabelText("智能问答默认模型"), { target: { value: "ollama" } });
+    expect(screen.getByLabelText("智能问答默认模型")).toHaveProperty("value", "ollama");
 
-    fireEvent.click(screen.getByText("本地智能分析").closest("button") as HTMLButtonElement);
+    fireEvent.click(screen.getByRole("button", { name: /分析报告/ }));
     expect(screen.queryByText("配置 Ollama 本地模型服务")).toBeNull();
+    expect(screen.queryByText("统一模型与 API 配置")).toBeNull();
+    expect((await screen.findByLabelText("Markdown 报告预览")).textContent).toContain("智能分析结论");
+    expect(screen.getByLabelText("报告分析模型")).toHaveProperty("value", "local");
+    expect(screen.getByLabelText("报告范围")).toHaveProperty("value", "summary");
     fireEvent.click(screen.getByRole("button", { name: /重新生成/ }));
     await waitFor(() => expect(screen.getByLabelText("Markdown 报告预览").textContent).toContain("智能分析结论"));
 

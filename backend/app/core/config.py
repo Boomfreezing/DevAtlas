@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data/devatlas.db"
     repository_root: Path = Path("./data/repositories")
     temporary_root: Path = Path("./data/tmp")
+    search_index_root: Path = Path("./data/indexes")
+    semantic_search_enabled: bool = True
     provider_config_path: Path = Path("./data/report-providers.json")
     max_upload_mb: int = 200
     max_folder_files: int = 20_000
@@ -48,6 +50,8 @@ class Settings(BaseSettings):
             self.repository_root = (PROJECT_ROOT / self.repository_root).resolve()
         if not self.temporary_root.is_absolute():
             self.temporary_root = (PROJECT_ROOT / self.temporary_root).resolve()
+        if not self.search_index_root.is_absolute():
+            self.search_index_root = (PROJECT_ROOT / self.search_index_root).resolve()
         if not self.provider_config_path.is_absolute():
             self.provider_config_path = (PROJECT_ROOT / self.provider_config_path).resolve()
         return self
@@ -71,6 +75,8 @@ class Settings(BaseSettings):
     def ensure_directories(self) -> None:
         self.repository_root.mkdir(parents=True, exist_ok=True)
         self.temporary_root.mkdir(parents=True, exist_ok=True)
+        self.search_index_root.mkdir(parents=True, exist_ok=True)
+        (self.search_index_root.parent / "models").mkdir(parents=True, exist_ok=True)
         self.provider_config_path.parent.mkdir(parents=True, exist_ok=True)
         if self.database_url.startswith("sqlite:///"):
             database_path = Path(self.database_url.removeprefix("sqlite:///"))

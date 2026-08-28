@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -194,11 +195,80 @@ class DependencyGraphResponse(BaseModel):
     total_edge_count: int
     internal_import_count: int
     external_import_count: int
+    unresolved_import_count: int
+    classified_import_count: int
+    classification_confidence: float
+    confidence_level: str
     cycle_count: int
     truncated: bool
     nodes: list[DependencyNodeResponse]
     edges: list[DependencyEdgeResponse]
     cycles: list[DependencyCycleResponse]
+
+
+class ImpactTargetResponse(BaseModel):
+    target_type: str
+    target_id: int
+    file_id: int
+    file_path: str
+    name: str
+    kind: str
+    start_line: int
+    end_line: int
+
+
+class ImpactRelationResponse(BaseModel):
+    file_id: int
+    file_path: str
+    relation: str
+    confidence: str
+    depth: int
+    line_numbers: list[int]
+    symbol_id: int | None
+    symbol_name: str | None
+    symbol_kind: str | None
+    start_line: int | None
+    end_line: int | None
+
+
+class ImpactRiskFactorResponse(BaseModel):
+    key: str
+    label: str
+    actual: float
+    reference: float
+    unit: str
+    contribution: int
+    explanation: str
+
+
+class ImpactRiskResponse(BaseModel):
+    model: str
+    base_score: int
+    level: str
+    score: int
+    confidence: str
+    reasons: list[str]
+    factors: list[ImpactRiskFactorResponse]
+
+
+class ImpactCycleResponse(BaseModel):
+    file_ids: list[int]
+    paths: list[str]
+
+
+class ChangeImpactResponse(BaseModel):
+    target: ImpactTargetResponse
+    definition: ImpactRelationResponse
+    risk: ImpactRiskResponse
+    direct_callers: list[ImpactRelationResponse]
+    called_objects: list[ImpactRelationResponse]
+    dependencies: list[ImpactRelationResponse]
+    indirect_impacts: list[ImpactRelationResponse]
+    related_tests: list[ImpactRelationResponse]
+    related_apis: list[ImpactRelationResponse]
+    database_entities: list[ImpactRelationResponse]
+    cycles: list[ImpactCycleResponse]
+    limitations: str
 
 
 class QualityRuleResponse(BaseModel):
@@ -212,6 +282,7 @@ class QualityFindingResponse(BaseModel):
     id: str
     rule_id: str
     severity: str
+    scope: str
     title: str
     description: str
     suggestion: str
@@ -240,13 +311,32 @@ class QualityScoringResponse(BaseModel):
     base_penalty: float
     adjusted_penalty: int
     rule_penalties: dict[str, float]
+    scope_weights: dict[str, float]
+    effective_scope_weights: dict[str, float]
+    excluded_scopes: list[str]
     explanation: str
+
+
+class QualityScopeSummaryResponse(BaseModel):
+    scope: str
+    label: str
+    score: int | None
+    grade: str | None
+    available: bool
+    configured_weight: float
+    effective_weight: float
+    exclusion_reason: str | None
+    finding_count: int
+    severity_counts: dict[str, int]
+    project_size: QualityProjectSizeResponse
 
 
 class QualityReportResponse(BaseModel):
     score: int
     grade: str
+    score_scope: str
     scoring: QualityScoringResponse
+    scope_scores: dict[str, QualityScopeSummaryResponse]
     total_findings: int
     severity_counts: dict[str, int]
     rule_counts: dict[str, int]
@@ -290,7 +380,90 @@ class IncrementalAnalysisResponse(BaseModel):
     elapsed_ms: float
 
 
+class AnalysisSnapshotCreateRequest(BaseModel):
+    label: str | None = Field(default=None, max_length=120)
+
+
+class AnalysisSnapshotSummaryResponse(BaseModel):
+    id: int
+    project_id: int
+    label: str
+    reason: str
+    created_at: datetime
+    score: int
+    grade: str
+    file_count: int
+    symbol_count: int
+    import_count: int
+    finding_count: int
+    cycle_count: int
+    parse_issue_count: int
+
+
+class SnapshotMetricChangeResponse(BaseModel):
+    key: str
+    label: str
+    base: int
+    target: int
+    delta: int
+
+
+class SnapshotItemComparisonResponse(BaseModel):
+    new_count: int
+    fixed_count: int
+    persistent_count: int
+    new_items: list[dict[str, Any]]
+    fixed_items: list[dict[str, Any]]
+    persistent_items: list[dict[str, Any]]
+    truncated: bool
+
+
+class AnalysisSnapshotComparisonResponse(BaseModel):
+    base: AnalysisSnapshotSummaryResponse
+    target: AnalysisSnapshotSummaryResponse
+    metric_changes: list[SnapshotMetricChangeResponse]
+    quality: SnapshotItemComparisonResponse
+    parse_issues: SnapshotItemComparisonResponse
+    cycles: SnapshotItemComparisonResponse
+
+
 class ReportProviderConfigurationRequest(BaseModel):
     base_url: str = Field(min_length=8, max_length=500)
     model: str = Field(min_length=1, max_length=200)
     api_key: str | None = Field(default=None, max_length=500)
+
+
+class RepositoryQuestionHistoryItem(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(min_length=1, max_length=4_000)
+
+
+class RepositoryQuestionRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=2_000)
+    provider: str = Field(min_length=1, max_length=80)
+    history: list[RepositoryQuestionHistoryItem] = Field(default_factory=list, max_length=10)
+
+
+class RepositoryCitationResponse(BaseModel):
+    file_id: int
+    file_path: str
+    start_line: int
+    end_line: int
+    symbol_name: str | None
+    snippet: str
+    source: str
+
+
+class RepositoryAnswerResponse(BaseModel):
+    question: str
+    answer: str
+    provider: str
+    engine_name: str
+    citations: list[RepositoryCitationResponse]
+    evidence_count: int
+    reference_count: int
+    confidence: Literal["low", "medium", "high"]
+    grounding_status: Literal[
+        "project_context", "grounded", "insufficient", "reference_failed"
+    ]
+    elapsed_ms: float

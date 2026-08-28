@@ -1,4 +1,4 @@
-import type { AnalysisJob, CodeSearchResponse, CodeSymbol, DependencyGraph, GeneratedReport, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileContent, ProjectFileTreeResponse, ProjectStructure, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, StructurePage } from "./types";
+import type { AnalysisJob, AnalysisSnapshotComparison, AnalysisSnapshotSummary, ChangeImpact, CodeSearchResponse, CodeSymbol, DependencyGraph, GeneratedReport, ImpactTarget, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileContent, ProjectFileTreeResponse, ProjectStructure, ProjectStructureSummary, ProjectSummary, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, RepositoryAnswer, RepositoryConversationItem, StructurePage } from "./types";
 
 const API_ROOT = "/api";
 export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
@@ -207,16 +207,56 @@ export function searchProject(id: number, query: string, limit = 10, offset = 0)
   return request<CodeSearchResponse>(`/projects/${id}/search?${params}`, "搜索代码");
 }
 
+export function askRepository(id: number, question: string, provider: string, history: RepositoryConversationItem[] = []): Promise<RepositoryAnswer> {
+  return request<RepositoryAnswer>(`/projects/${id}/ask`, "询问仓库", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, provider, history: history.slice(-10) }),
+  });
+}
+
 export function getDependencyGraph(id: number, limit = 40, cycle?: number): Promise<DependencyGraph> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (cycle !== undefined) params.set("cycle", String(cycle));
   return request<DependencyGraph>(`/projects/${id}/dependency-graph?${params}`, cycle === undefined ? "加载依赖图谱" : "加载循环依赖");
 }
 
-export function getQualityReport(id: number, limit = 100, offset = 0, severity = "all", rule = "all"): Promise<QualityReport> {
+export function searchImpactTargets(id: number, query: string, limit = 20): Promise<ImpactTarget[]> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return request<ImpactTarget[]>(`/projects/${id}/impact-targets?${params}`, "搜索影响分析对象");
+}
+
+export function getChangeImpact(id: number, targetType: "file" | "symbol", targetId: number): Promise<ChangeImpact> {
+  const params = new URLSearchParams({ target_type: targetType, target_id: String(targetId) });
+  return request<ChangeImpact>(`/projects/${id}/impact?${params}`, "分析修改影响");
+}
+
+export function listAnalysisSnapshots(id: number): Promise<AnalysisSnapshotSummary[]> {
+  return request<AnalysisSnapshotSummary[]>(`/projects/${id}/snapshots`, "加载分析快照");
+}
+
+export function createAnalysisSnapshot(id: number, label?: string): Promise<AnalysisSnapshotSummary> {
+  return request<AnalysisSnapshotSummary>(`/projects/${id}/snapshots`, "保存分析快照", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label: label?.trim() || null }),
+  });
+}
+
+export function compareAnalysisSnapshots(id: number, baseId: number, targetId: number): Promise<AnalysisSnapshotComparison> {
+  const params = new URLSearchParams({ base_id: String(baseId), target_id: String(targetId) });
+  return request<AnalysisSnapshotComparison>(`/projects/${id}/snapshots/compare?${params}`, "对比分析快照");
+}
+
+export function deleteAnalysisSnapshot(id: number, snapshotId: number): Promise<void> {
+  return request<void>(`/projects/${id}/snapshots/${snapshotId}`, "删除分析快照", { method: "DELETE" });
+}
+
+export function getQualityReport(id: number, limit = 100, offset = 0, severity = "all", rule = "all", scope = "all"): Promise<QualityReport> {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (severity !== "all") params.set("severity", severity);
   if (rule !== "all") params.set("rule", rule);
+  if (scope !== "all") params.set("scope", scope);
   return request<QualityReport>(`/projects/${id}/quality?${params}`, "生成质量报告");
 }
 

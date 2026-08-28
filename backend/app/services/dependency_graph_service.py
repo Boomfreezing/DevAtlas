@@ -7,9 +7,14 @@ from sqlalchemy.orm import Session
 from app.models.analysis import ImportRelation
 from app.models.project import ProjectFile
 from app.services.analysis_cache import get_or_create_project_analysis
+from app.services.dependency_classification_service import (
+    classify_unresolved_import,
+    confidence_level,
+    project_module_roots,
+)
 
 
-DEPENDENCY_CACHE_NAMESPACE = "dependency_graph_v1"
+DEPENDENCY_CACHE_NAMESPACE = "dependency_graph_v2"
 
 
 @dataclass(frozen=True)
@@ -17,6 +22,7 @@ class DependencyFile:
     id: int
     path: str
     language: str | None
+    extension: str
 
 
 @dataclass(frozen=True)
@@ -29,6 +35,7 @@ class DependencyGraphSnapshot:
     cycles: tuple[tuple[int, ...], ...]
     ranked_ids: tuple[int, ...]
     external_import_count: int
+    unresolved_import_count: int
 
 
 def load_dependency_graph(
@@ -37,12 +44,7 @@ def load_dependency_graph(
     limit: int = 40,
     cycle_index: int | None = None,
 ) -> dict[str, object]:
-    snapshot = get_or_create_project_analysis(
-        database,
-        project_id,
-        DEPENDENCY_CACHE_NAMESPACE,
-        lambda: _build_dependency_graph_snapshot(database, project_id),
-    )
+    snapshot = load_dependency_snapshot(database, project_id)
     file_by_id = snapshot.files
     edge_lines = snapshot.edge_lines
     participating_ids = snapshot.participating_ids
@@ -93,6 +95,12 @@ def load_dependency_graph(
         "total_edge_count": len(edge_lines),
         "internal_import_count": sum(map(len, edge_lines.values())),
         "external_import_count": snapshot.external_import_count,
+        "unresolved_import_count": snapshot.unresolved_import_count,
+        "classified_import_count": (
+            sum(map(len, edge_lines.values())) + snapshot.external_import_count
+        ),
+        "classification_confidence": _classification_confidence(snapshot),
+        "confidence_level": confidence_level(_classification_confidence(snapshot)),
         "cycle_count": len(cycles),
         "truncated": cycle_index is None and len(participating_ids) > len(visible_ids),
         "nodes": [
@@ -110,6 +118,25 @@ def load_dependency_graph(
     }
 
 
+def load_dependency_snapshot(
+    database: Session, project_id: int
+) -> DependencyGraphSnapshot:
+    """Return the shared dependency snapshot for graph and impact consumers."""
+    return get_or_create_project_analysis(
+        database,
+        project_id,
+        DEPENDENCY_CACHE_NAMESPACE,
+        lambda: build_dependency_snapshot(database, project_id),
+    )
+
+
+def build_dependency_snapshot(
+    database: Session, project_id: int
+) -> DependencyGraphSnapshot:
+    """Build dependency data without affecting the runtime analysis cache."""
+    return _build_dependency_graph_snapshot(database, project_id)
+
+
 def _build_dependency_graph_snapshot(
     database: Session, project_id: int
 ) -> DependencyGraphSnapshot:
@@ -121,7 +148,7 @@ def _build_dependency_graph_snapshot(
         )
     )
     file_by_id = {
-        item.id: DependencyFile(item.id, item.relative_path, item.language)
+        item.id: DependencyFile(item.id, item.relative_path, item.language, item.extension)
         for item in files
     }
     imports = list(
@@ -134,9 +161,20 @@ def _build_dependency_graph_snapshot(
 
     edge_lines: dict[tuple[int, int], list[int]] = defaultdict(list)
     external_import_count = 0
+    unresolved_import_count = 0
+    module_roots = project_module_roots([item.relative_path for item in files])
     for relation in imports:
         if relation.resolved_file_id is None or relation.resolved_file_id not in file_by_id:
-            external_import_count += 1
+            source_file = file_by_id.get(relation.file_id)
+            classification = classify_unresolved_import(
+                source_extension=source_file.extension if source_file else "",
+                target_module=relation.target_module,
+                module_roots=module_roots,
+            )
+            if classification == "likely_external":
+                external_import_count += 1
+            else:
+                unresolved_import_count += 1
             continue
         edge_lines[(relation.file_id, relation.resolved_file_id)].append(relation.line_number)
 
@@ -166,7 +204,16 @@ def _build_dependency_graph_snapshot(
         cycles=tuple(tuple(cycle) for cycle in cycles),
         ranked_ids=tuple(ranked_ids),
         external_import_count=external_import_count,
+        unresolved_import_count=unresolved_import_count,
     )
+
+
+def _classification_confidence(snapshot: DependencyGraphSnapshot) -> float:
+    internal_count = sum(map(len, snapshot.edge_lines.values()))
+    total = internal_count + snapshot.external_import_count + snapshot.unresolved_import_count
+    if total == 0:
+        return 100.0
+    return round((internal_count + snapshot.external_import_count) / total * 100, 1)
 
 
 def find_cycles(

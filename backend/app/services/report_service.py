@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.models.project import Project
+from app.services.code_scope_service import classify_code_scope, code_scope_label
 from app.services.dependency_graph_service import load_dependency_graph
 from app.services.quality_service import build_quality_report
 from app.services.structure_analyzer import (
@@ -96,7 +97,9 @@ def build_markdown_report(
             f"| 依赖模块 | {graph['total_node_count']} |",
             f"| 项目内依赖边 | {graph['total_edge_count']} |",
             f"| 项目内导入次数 | {graph['internal_import_count']} |",
-            f"| 外部导入次数 | {graph['external_import_count']} |",
+            f"| 推定外部导入 | {graph['external_import_count']} |",
+            f"| 待确认导入 | {graph['unresolved_import_count']} |",
+            f"| 依赖分类可信度 | {graph['classification_confidence']}%（{_confidence_label(graph['confidence_level'])}） |",
             f"| 循环依赖 | {graph['cycle_count']} |",
             "",
             "### 关键模块",
@@ -123,18 +126,19 @@ def build_markdown_report(
             lines.append(f"\n> 当前模式展示 {cycle_limit} 个依赖环，完整分析共 {len(cycles)} 个。")
 
     severity_counts = quality["severity_counts"]
-    scoring = quality["scoring"]
     lines.extend(
         [
             "",
             "## 5. 代码质量",
             "",
-            f"**质量评分：{quality['score']} / 100（等级 {quality['grade']}）**",
+            f"**综合质量评分：{quality['score']} / 100（等级 {quality['grade']}）**",
             "",
-            (
-                f"> 评分采用项目规模归一化：规模系数 ×{scoring['size_factor']}，"
-                f"基础扣分 {scoring['base_penalty']} 调整为 {scoring['adjusted_penalty']} 分。"
-            ),
+            "> 综合分默认按生产代码 70%、测试代码 20%、生成/外部代码 10% 加权；不存在的范围不计 100 分，权重会按比例分配给已有范围。",
+            "> 各范围评分采用项目规模归一化，项目规模增大后单项风险的扣分权重会相应降低。",
+            "",
+            "| 代码范围 | 范围评分 | 默认权重 | 实际权重 | 说明 |",
+            "| --- | ---: | ---: | ---: | --- |",
+            *_quality_scope_score_rows(quality["scope_scores"]),
             "",
             "| 风险等级 | 数量 |",
             "| --- | ---: |",
@@ -225,26 +229,15 @@ def build_markdown_report(
 
 
 def _finding_scope(path: object) -> str:
-    normalized = str(path).replace("\\", "/").lower()
-    parts = [part for part in normalized.split("/") if part]
-    filename = parts[-1] if parts else ""
-    if (
-        any(part in {"test", "tests", "spec", "specs", "__tests__"} for part in parts)
-        or filename.startswith("test_")
-        or ".test." in filename
-        or ".spec." in filename
-    ):
-        return "test"
-    if (
-        any(part in {"vendor", "generated", "dist", "build"} for part in parts)
-        or ".min." in filename
-    ):
-        return "generated"
-    return "production"
+    return classify_code_scope(path)
 
 
 def _scope_label(scope: str) -> str:
-    return {"production": "生产代码", "test": "测试代码", "generated": "生成/外部代码"}[scope]
+    return code_scope_label(scope)
+
+
+def _confidence_label(level: object) -> str:
+    return {"high": "高", "medium": "中", "low": "低"}.get(str(level), "未知")
 
 
 def _prioritized_findings(findings: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -284,6 +277,25 @@ def _scope_rows(counts: dict[str, dict[str, int]]) -> list[str]:
         rows.append(
             f"| {_scope_label(scope)} | {values['error']} | {values['warning']} | "
             f"{values['info']} | {total} |"
+        )
+    return rows
+
+
+def _quality_scope_score_rows(scope_scores: object) -> list[str]:
+    if not isinstance(scope_scores, dict):
+        return []
+    rows: list[str] = []
+    for scope in ("production", "test", "generated"):
+        summary = scope_scores.get(scope)
+        if not isinstance(summary, dict):
+            continue
+        score = summary.get("score")
+        score_text = f"{score} / 100" if score is not None else "不适用"
+        reason = summary.get("exclusion_reason") or f"{summary.get('finding_count', 0)} 项风险"
+        rows.append(
+            f"| {_scope_label(scope)} | {score_text} | "
+            f"{float(summary.get('configured_weight', 0)):.0%} | "
+            f"{float(summary.get('effective_weight', 0)):.0%} | {_cell(reason)} |"
         )
     return rows
 
@@ -371,11 +383,11 @@ def _smart_insights(
     score = int(quality["score"])
     finding_count = int(quality["total_findings"])
     if score >= 90:
-        quality_summary = f"当前质量评分为 {score}/100，规则层面风险较低。"
+        quality_summary = f"三类代码加权后的综合质量评分为 {score}/100，规则层面风险较低。"
     elif score >= 70:
-        quality_summary = f"当前质量评分为 {score}/100，共发现 {finding_count} 项可改进项，建议先处理高风险和中风险项。"
+        quality_summary = f"三类代码加权后的综合质量评分为 {score}/100；全仓库共发现 {finding_count} 项可改进项，建议先处理生产代码中的高风险和中风险项。"
     else:
-        quality_summary = f"当前质量评分仅为 {score}/100，共发现 {finding_count} 项问题，应优先安排质量治理。"
+        quality_summary = f"三类代码加权后的综合质量评分仅为 {score}/100；全仓库共发现 {finding_count} 项问题，应优先安排生产代码质量治理。"
 
     nodes = list(graph["nodes"])
     hotspot = max(nodes, key=lambda node: int(node["in_degree"]) + int(node["out_degree"]), default=None)
@@ -401,10 +413,14 @@ def _smart_insights(
 
     language = project.primary_language or "未识别语言"
     issue_count = int(structure["issue_count"])
-    confidence = (
+    parser_confidence = (
         f"存在 {issue_count} 个解析问题，报告结论可能不完整，治理前应先处理解析失败文件。"
         if issue_count
         else "结构解析没有记录异常，本次结构、依赖与质量数据可作为当前仓库基线。"
+    )
+    dependency_confidence = (
+        f"依赖分类可信度为 {graph['classification_confidence']}%，"
+        f"另有 {graph['unresolved_import_count']} 条导入关系待确认。"
     )
 
     return [
@@ -412,7 +428,7 @@ def _smart_insights(
         f"- **质量判断：** {quality_summary}",
         f"- **架构关注点：** {hotspot_summary}",
         f"- **测试信号：** {test_summary}",
-        f"- **分析可信度：** {confidence}",
+        f"- **分析可信度：** {parser_confidence}{dependency_confidence}",
     ]
 
 

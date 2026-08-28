@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiRequestError, formatOperationError, generateProjectReport, getDependencyGraph, getProjectFileContent, getProjectFileTree, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, getQualityReport, listProjects, prepareFolderUpload, uploadFolder } from "./api";
+import { ApiRequestError, askRepository, compareAnalysisSnapshots, createAnalysisSnapshot, deleteAnalysisSnapshot, formatOperationError, generateProjectReport, getChangeImpact, getDependencyGraph, getProjectFileContent, getProjectFileTree, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, getQualityReport, listAnalysisSnapshots, listProjects, prepareFolderUpload, searchImpactTargets, uploadFolder } from "./api";
 
 
 describe("API error guidance", () => {
@@ -38,6 +38,38 @@ describe("API error guidance", () => {
     await getDependencyGraph(6, 40, 3);
 
     expect(fetchMock).toHaveBeenCalledWith("/api/projects/6/dependency-graph?limit=40&cycle=3", undefined);
+  });
+
+  it("searches impact targets and requests a typed impact report", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchImpactTargets(6, "login handler", 12);
+    await getChangeImpact(6, "symbol", 42);
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "/api/projects/6/impact-targets?q=login+handler&limit=12",
+      "/api/projects/6/impact?target_type=symbol&target_id=42",
+    ]);
+  });
+
+  it("creates, lists, compares and deletes analysis snapshots", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createAnalysisSnapshot(6, "重构前");
+    await listAnalysisSnapshots(6);
+    await compareAnalysisSnapshots(6, 10, 12);
+    await deleteAnalysisSnapshot(6, 10);
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "/api/projects/6/snapshots",
+      "/api/projects/6/snapshots",
+      "/api/projects/6/snapshots/compare?base_id=10&target_id=12",
+      "/api/projects/6/snapshots/10",
+    ]);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "DELETE" });
   });
 
   it("explains how to recover when the local backend is unreachable", async () => {
@@ -133,5 +165,22 @@ describe("API error guidance", () => {
       "/api/projects/6/report?generator=local&mode=full",
       undefined,
     );
+  });
+
+  it("sends repository questions with bounded conversation history", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ answer: "ok", citations: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const history = Array.from({ length: 12 }, (_, index) => ({ role: index % 2 ? "assistant" as const : "user" as const, content: `message-${index}` }));
+
+    await askRepository(6, "如何启动？", "ollama", history);
+
+    const [, options] = fetchMock.mock.calls[0];
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/projects/6/ask");
+    expect(options.method).toBe("POST");
+    const payload = JSON.parse(options.body);
+    expect(payload.question).toBe("如何启动？");
+    expect(payload.provider).toBe("ollama");
+    expect(payload.history).toHaveLength(10);
+    expect(payload.history[0].content).toBe("message-2");
   });
 });

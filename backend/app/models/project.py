@@ -38,6 +38,9 @@ class Project(Base):
     search_chunks: Mapped[list["SearchChunk"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    snapshots: Mapped[list["AnalysisSnapshot"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class ProjectFile(Base):

@@ -4,11 +4,16 @@ import type { FormEvent } from "react";
 import CodeViewer from "./CodeViewer";
 import {
   DEFAULT_IMPORT_LIMITS,
+  askRepository,
+  compareAnalysisSnapshots,
   configureReportGenerator,
+  createAnalysisSnapshot,
+  deleteAnalysisSnapshot,
   deleteProject,
   formatOperationError,
   formatUploadSize,
   generateProjectReport,
+  getChangeImpact,
   getAnalysisJob,
   getDependencyGraph,
   getImportLimits,
@@ -23,9 +28,11 @@ import {
   importGitHubProject,
   incrementalReanalyzeProject,
   listProjects,
+  listAnalysisSnapshots,
   prepareFolderUpload,
   reanalyzeProject,
   searchProject,
+  searchImpactTargets,
   testReportGenerator,
   uploadFolder,
   uploadProject,
@@ -33,9 +40,9 @@ import {
 import type { FolderUploadPreparation } from "./api";
 import { formatFolderScanProgress, pickFolderSafely, scanDroppedFolderSafely, supportsSafeFolderDrop, supportsSafeFolderPicker } from "./safeFolderPicker";
 import type { FolderScanProgress } from "./safeFolderPicker";
-import type { AnalysisJob, CodeSearchResponse, CodeSearchResult, CodeSymbol, DependencyGraph, DependencyNode, GeneratedReport, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileTreeNode, ProjectFileTreeResponse, ProjectStructureSummary, ProjectSummary, QualityFinding, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, StructurePage } from "./types";
+import type { AnalysisJob, AnalysisSnapshotComparison, AnalysisSnapshotSummary, ChangeImpact, CodeSearchResponse, CodeSearchResult, CodeSymbol, DependencyGraph, DependencyNode, GeneratedReport, ImpactRelation, ImpactTarget, ImportLimits, ImportRelation, IncrementalAnalysisResult, ParseIssue, ProjectFileTreeNode, ProjectFileTreeResponse, ProjectStructureSummary, ProjectSummary, QualityFinding, QualityReport, ReportGenerator, ReportGeneratorConfiguration, ReportGeneratorTestResult, RepositoryAnswer, RepositoryCitation, SnapshotComparisonGroup, StructurePage } from "./types";
 
-type ActiveSection = "projects" | "search" | "graph" | "quality" | "report";
+type ActiveSection = "projects" | "search" | "graph" | "impact" | "snapshots" | "quality" | "report" | "providers";
 type ProjectTab = "files" | "symbols" | "imports" | "issues";
 type DisplayScale = 90 | 100 | 110 | 120;
 type LoadedStructurePage<T> = StructurePage<T> & { projectId: number };
@@ -50,8 +57,11 @@ const SECTION_LABELS: Record<ActiveSection, string> = {
   projects: "仓库概览",
   search: "代码搜索",
   graph: "依赖图谱",
+  impact: "影响分析",
+  snapshots: "分析快照",
   quality: "质量检测",
   report: "分析报告",
+  providers: "API 配置",
 };
 
 const PROJECT_TAB_LABELS: Record<ProjectTab, string> = {
@@ -61,17 +71,24 @@ const PROJECT_TAB_LABELS: Record<ProjectTab, string> = {
   issues: "问题",
 };
 
-const ACTIVE_SECTIONS: ActiveSection[] = ["projects", "search", "graph", "quality", "report"];
+const ACTIVE_SECTIONS: ActiveSection[] = ["projects", "search", "graph", "impact", "snapshots", "quality", "report", "providers"];
 const PROJECT_TABS: ProjectTab[] = ["files", "symbols", "imports", "issues"];
 const DISPLAY_SCALES: DisplayScale[] = [90, 100, 110, 120];
 const STRUCTURE_ROWS_INCREMENT = 150;
-
 function readDisplayScale(): DisplayScale {
   try {
     const stored = Number(window.localStorage.getItem("devatlas-display-scale"));
     return DISPLAY_SCALES.includes(stored as DisplayScale) ? stored as DisplayScale : 100;
   } catch {
     return 100;
+  }
+}
+
+function readProviderPreference(key: "report" | "qa"): string {
+  try {
+    return window.localStorage.getItem(`devatlas-${key}-provider`) || (key === "report" ? "local" : "");
+  } catch {
+    return key === "report" ? "local" : "";
   }
 }
 
@@ -178,13 +195,17 @@ function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchLoadingMore, setSearchLoadingMore] = useState(false);
   const [codeViewerResult, setCodeViewerResult] = useState<CodeSearchResult | null>(null);
+  const [codeViewerQuery, setCodeViewerQuery] = useState("");
+  const [qaPanelOpen, setQaPanelOpen] = useState(false);
   const [dependencyGraph, setDependencyGraph] = useState<DependencyGraph | null>(null);
+  const [impactSeed, setImpactSeed] = useState<ImpactTarget | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
   const [qualityLoading, setQualityLoading] = useState(false);
   const [qualityPageLoading, setQualityPageLoading] = useState(false);
   const [reportGenerators, setReportGenerators] = useState<ReportGenerator[]>([]);
-  const [selectedReportGenerator, setSelectedReportGenerator] = useState("local");
+  const [selectedReportGenerator, setSelectedReportGenerator] = useState(() => readProviderPreference("report"));
+  const [selectedQaProvider, setSelectedQaProvider] = useState(() => readProviderPreference("qa"));
   const [selectedReportMode, setSelectedReportMode] = useState<"summary" | "full">("summary");
   const [generatedReport, setGeneratedReport] = useState<GeneratedReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -236,6 +257,31 @@ function App() {
   }, []);
 
   useEffect(() => {
+    void getReportGenerators().then(setReportGenerators).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!reportGenerators.length) return;
+    const reportProvider = reportGenerators.find((item) => item.id === selectedReportGenerator);
+    const qaProvider = reportGenerators.find((item) => item.id === selectedQaProvider);
+    if (!reportProvider?.available) setSelectedReportGenerator("local");
+    if (!qaProvider?.available || qaProvider.id === "local") {
+      setSelectedQaProvider(
+        reportGenerators.find((item) => item.id !== "local" && item.available)?.id ?? "",
+      );
+    }
+  }, [reportGenerators, selectedReportGenerator, selectedQaProvider]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("devatlas-report-provider", selectedReportGenerator);
+      window.localStorage.setItem("devatlas-qa-provider", selectedQaProvider);
+    } catch {
+      // Provider selection still works for the current session when storage is disabled.
+    }
+  }, [selectedReportGenerator, selectedQaProvider]);
+
+  useEffect(() => {
     document.documentElement.dataset.displayScale = String(displayScale);
     try {
       window.localStorage.setItem("devatlas-display-scale", String(displayScale));
@@ -253,6 +299,60 @@ function App() {
   useEffect(() => {
     setCodeViewerResult(null);
   }, [selected?.id]);
+
+  useEffect(() => {
+    const handleQaShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "j" || !selected) return;
+      event.preventDefault();
+      setQaPanelOpen((current) => !current);
+    };
+    window.addEventListener("keydown", handleQaShortcut);
+    return () => window.removeEventListener("keydown", handleQaShortcut);
+  }, [selected?.id]);
+
+  function openQaCitation(citation: RepositoryCitation, citationIndex: number) {
+    setCodeViewerQuery(citation.symbol_name ?? "");
+    setCodeViewerResult({
+      chunk_id: -(citationIndex + 1),
+      file_id: citation.file_id,
+      file_path: citation.file_path,
+      symbol_name: citation.symbol_name,
+      kind: "repository-evidence",
+      start_line: citation.start_line,
+      end_line: citation.end_line,
+      snippet_start_line: citation.start_line,
+      snippet_end_line: citation.end_line,
+      snippet: citation.snippet,
+      score: 1,
+    });
+  }
+
+  function openImpactRelation(relation: ImpactRelation) {
+    const startLine = relation.start_line ?? relation.line_numbers[0] ?? 1;
+    const endLine = relation.end_line ?? startLine;
+    setCodeViewerQuery(relation.symbol_name ?? "");
+    setCodeViewerResult({
+      chunk_id: -(relation.file_id * 10_000 + startLine),
+      file_id: relation.file_id,
+      file_path: relation.file_path,
+      symbol_name: relation.symbol_name,
+      kind: relation.symbol_kind ?? relation.relation,
+      start_line: startLine,
+      end_line: endLine,
+      snippet_start_line: startLine,
+      snippet_end_line: endLine,
+      snippet: "",
+      score: 1,
+    });
+  }
+
+  function openImpactTarget(target: ImpactTarget) {
+    if (!selected) return;
+    setImpactSeed(target);
+    setActiveSection("impact");
+    setWorkspaceError(null);
+    writeNavigationState({ section: "impact", tab: projectTab, projectId: selected.id });
+  }
 
   function clearStructurePages() {
     structurePageRequestRef.current += 1;
@@ -452,6 +552,7 @@ function App() {
     setSearchQuery("");
     setSearchResponse(null);
     setDependencyGraph(null);
+    setImpactSeed(null);
     setQualityReport(null);
     setGeneratedReport(null);
     setIncrementalResult(null);
@@ -627,11 +728,16 @@ function App() {
     setProjectTab(tabAtSelection);
     setProjectPickerOpen(false);
     setSelectingProjectId(project.id);
+    setSelected(project);
+    if (options.syncUrl !== false) {
+      writeNavigationState({ section: sectionAtSelection, tab: tabAtSelection, projectId: project.id });
+    }
     try {
       setWorkspaceError(null);
       setSearchQuery("");
       setSearchResponse(null);
       setDependencyGraph(null);
+      setImpactSeed(null);
       setQualityReport(null);
       setQualityPageLoading(false);
       setGeneratedReport(null);
@@ -641,15 +747,20 @@ function App() {
       setGraphLoading(sectionAtSelection === "graph");
       setQualityLoading(sectionAtSelection === "quality");
       setReportLoading(sectionAtSelection === "report");
-      const detail = await getProject(project.id);
-      if (selectionRequestRef.current !== requestId) return;
-      setSelected(detail);
-      if (options.syncUrl !== false) {
-        writeNavigationState({ section: sectionAtSelection, tab: tabAtSelection, projectId: project.id });
-      }
       setStructure(null);
+      const structurePromise = getProjectStructureSummary(project.id);
+      const graphPromise = sectionAtSelection === "graph" ? getDependencyGraph(project.id) : null;
+      const qualityPromise = sectionAtSelection === "quality" ? getQualityReport(project.id) : null;
+      const reportPromise = sectionAtSelection === "report"
+        ? Promise.all([getReportGenerators(), generateProjectReport(project.id, "local")])
+        : null;
+      // Mark eagerly-started feature requests as handled until their dedicated
+      // error boundary below awaits them.
+      void graphPromise?.catch(() => undefined);
+      void qualityPromise?.catch(() => undefined);
+      void reportPromise?.catch(() => undefined);
       try {
-        const projectStructure = await getProjectStructureSummary(project.id);
+        const projectStructure = await structurePromise;
         if (selectionRequestRef.current !== requestId) return;
         setStructure(projectStructure);
       } catch (structureError) {
@@ -657,7 +768,7 @@ function App() {
       }
       if (sectionAtSelection === "graph") {
         try {
-          const graph = await getDependencyGraph(project.id);
+          const graph = await graphPromise!;
           if (selectionRequestRef.current !== requestId) return;
           setDependencyGraph(graph);
         } catch (graphError) {
@@ -666,7 +777,7 @@ function App() {
       }
       if (sectionAtSelection === "quality") {
         try {
-          const report = await getQualityReport(project.id);
+          const report = await qualityPromise!;
           if (selectionRequestRef.current !== requestId) return;
           setQualityReport(report);
         } catch (qualityError) {
@@ -675,10 +786,7 @@ function App() {
       }
       if (sectionAtSelection === "report") {
         try {
-          const [generators, report] = await Promise.all([
-            getReportGenerators(),
-            generateProjectReport(project.id, "local"),
-          ]);
+          const [generators, report] = await reportPromise!;
           if (selectionRequestRef.current !== requestId) return;
           setReportGenerators(generators);
           setSelectedReportGenerator("local");
@@ -712,6 +820,7 @@ function App() {
         clearStructurePages();
         setSearchResponse(null);
         setDependencyGraph(null);
+        setImpactSeed(null);
         setQualityReport(null);
         setGeneratedReport(null);
         setIncrementalResult(null);
@@ -814,7 +923,6 @@ function App() {
   ): Promise<ReportGenerator> {
     const provider = await configureReportGenerator(generator, configuration);
     setReportGenerators((current) => current.map((item) => item.id === provider.id ? provider : item));
-    handleSelectReportGenerator(provider.id);
     return provider;
   }
 
@@ -885,7 +993,7 @@ function App() {
     }
   }
 
-  async function handleQualityPageRequest(severity: string, rule: string, offset: number, append: boolean) {
+  async function handleQualityPageRequest(severity: string, rule: string, scope: string, offset: number, append: boolean) {
     if (!selected) return;
     const projectId = selected.id;
     const requestId = selectionRequestRef.current;
@@ -893,7 +1001,7 @@ function App() {
     setQualityPageLoading(true);
     setWorkspaceError(null);
     try {
-      const nextPage = await getQualityReport(projectId, 100, offset, severity, rule);
+      const nextPage = await getQualityReport(projectId, 100, offset, severity, rule, scope);
       if (selectionRequestRef.current !== requestId || qualityPageRequestRef.current !== pageRequestId || selected.id !== projectId) return;
       setQualityReport((current) => {
         if (!append || !current) return nextPage;
@@ -940,6 +1048,23 @@ function App() {
     }
   }
 
+  async function handleOpenProviders(options: { syncUrl?: boolean } = {}) {
+    setActiveSection("providers");
+    setWorkspaceError(null);
+    if (options.syncUrl !== false) {
+      writeNavigationState({ section: "providers", tab: projectTab, projectId: selected?.id ?? null });
+    }
+    if (reportGenerators.length) return;
+    setReportLoading(true);
+    try {
+      setReportGenerators(await getReportGenerators());
+    } catch (requestError) {
+      setWorkspaceError(requestError instanceof Error ? requestError.message : "无法读取 API 配置");
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   function clearSelectedProject() {
     selectionRequestRef.current += 1;
     qualityPageRequestRef.current += 1;
@@ -949,6 +1074,7 @@ function App() {
     setSearchQuery("");
     setSearchResponse(null);
     setDependencyGraph(null);
+    setImpactSeed(null);
     setQualityReport(null);
     setGeneratedReport(null);
     setIncrementalResult(null);
@@ -960,7 +1086,7 @@ function App() {
     setReportLoading(false);
   }
 
-  function navigateToSection(section: "projects" | "search") {
+  function navigateToSection(section: "projects" | "search" | "impact" | "snapshots") {
     if (!selected) return;
     setActiveSection(section);
     setWorkspaceError(null);
@@ -1041,7 +1167,7 @@ function App() {
         : null;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${selected && qaPanelOpen ? "qa-side-open" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark"><span>&gt;_</span></div>
@@ -1088,7 +1214,6 @@ function App() {
         </section>
 
         <nav aria-label="主导航">
-          <p className="sidebar-label">PROJECT_TOOLS</p>
           <button disabled={!selected} className={`nav-item ${selected && activeSection === "projects" ? "active" : ""}`} onClick={() => navigateToSection("projects")}><span className="nav-icon">⌘</span>仓库概览</button>
           <button
             disabled={!selected}
@@ -1096,8 +1221,11 @@ function App() {
             onClick={() => navigateToSection("search")}
           ><span className="nav-icon">⌕</span>代码搜索<em>BM25</em></button>
           <button disabled={!selected} className={`nav-item ${selected && activeSection === "graph" ? "active" : ""}`} onClick={() => void handleOpenGraph()}><span className="nav-icon">◇</span>依赖图谱<em>LOCAL</em></button>
+          <button disabled={!selected} className={`nav-item ${selected && activeSection === "impact" ? "active" : ""}`} onClick={() => navigateToSection("impact")}><span className="nav-icon">◎</span>影响分析<em>TRACE</em></button>
+          <button disabled={!selected} className={`nav-item ${selected && activeSection === "snapshots" ? "active" : ""}`} onClick={() => navigateToSection("snapshots")}><span className="nav-icon">◫</span>分析快照<em>DIFF</em></button>
           <button disabled={!selected} className={`nav-item ${selected && activeSection === "quality" ? "active" : ""}`} onClick={() => void handleOpenQuality()}><span className="nav-icon">✓</span>质量检测<em>6 RULES</em></button>
           <button disabled={!selected} className={`nav-item ${selected && activeSection === "report" ? "active" : ""}`} onClick={() => void handleOpenReport()}><span className="nav-icon">▤</span>分析报告<em>SMART</em></button>
+          <button className={`nav-item ${activeSection === "providers" ? "active" : ""}`} onClick={() => void handleOpenProviders()}><span className="nav-icon">⚙</span>API 配置<em>GLOBAL</em></button>
         </nav>
 
         <div className="sidebar-note">
@@ -1107,15 +1235,17 @@ function App() {
         <div className="version">$ devatlas --version<br />v0.9.0</div>
       </aside>
 
-      <main className={`main-content ${selected || selectingProjectId !== null ? "workspace-mode" : ""}`}>
+      <main className={`main-content ${selected || selectingProjectId !== null || activeSection === "providers" ? "workspace-mode" : ""}`}>
         <header className="topbar">
           <div>
             <p className="eyebrow">
-              {selected
+              {activeSection === "providers"
+                ? "root@devatlas:~/runtime/providers"
+                : selected
                 ? `CURRENT_PROJECT · ${selected.primary_language ?? "未识别语言"} · ${formatNumber(selected.file_count)} 文件`
                 : "root@devatlas:~/workspace/projects"}
             </p>
-            <h1>{selected?.name ?? "项目管理"}</h1>
+            <h1>{activeSection === "providers" ? "API 配置" : selected?.name ?? "项目管理"}</h1>
           </div>
           <div className="topbar-actions">
             <div className="display-scale-control" aria-label="页面显示比例">
@@ -1126,7 +1256,7 @@ function App() {
                 onClick={() => adjustDisplayScale(-1)}
               ><span aria-hidden="true">−</span></button>
               <output aria-live="polite" title="仅调整 DevAtlas 页面，不受浏览器独立缩放设置影响">
-                <small>$ FONT</small><strong>{displayScale}%</strong>
+                <strong>{displayScale}%</strong>
               </output>
               <button
                 type="button"
@@ -1135,9 +1265,20 @@ function App() {
                 onClick={() => adjustDisplayScale(1)}
               ><span aria-hidden="true">＋</span></button>
             </div>
-            <button className="primary-button" onClick={() => openImporter()} disabled={uploading}>
-              <span>＋</span>{uploading ? "正在分析…" : "导入仓库"}
-            </button>
+            <div className="topbar-primary-actions">
+              {selected && (
+                <button
+                  type="button"
+                  className={`qa-terminal-toggle ${qaPanelOpen ? "active" : ""}`}
+                  aria-expanded={qaPanelOpen}
+                  aria-controls="repository-qa-terminal"
+                  onClick={() => setQaPanelOpen((current) => !current)}
+                ><span>&gt;_</span> 智能问答</button>
+              )}
+              <button className="primary-button" onClick={() => openImporter()} disabled={uploading}>
+                <span>＋</span>{uploading ? "正在分析…" : "导入仓库"}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1145,7 +1286,7 @@ function App() {
 
         {activeJob && <JobProgress job={activeJob} />}
 
-        {!selected && selectingProjectId === null && <>
+        {!selected && selectingProjectId === null && activeSection !== "providers" && <>
         <section className="stats-grid" aria-label="项目统计">
           <StatCard label="仓库总数" value={formatNumber(stats.projects)} meta="已完成本地扫描" tone="indigo" />
           <StatCard label="已索引文件" value={formatNumber(stats.files)} meta="文本与源代码文件" tone="cyan" />
@@ -1178,8 +1319,8 @@ function App() {
         </section>
         </>}
 
-        <div className={`content-grid ${selected || selectingProjectId !== null ? "workspace-single" : "project-manager-grid"}`}>
-          {!selected && selectingProjectId === null && (
+        <div className={`content-grid ${selected || selectingProjectId !== null || activeSection === "providers" ? "workspace-single" : "project-manager-grid"}`}>
+          {!selected && selectingProjectId === null && activeSection !== "providers" && (
           <section className="panel project-panel">
             <div className="panel-heading">
               <div><p className="eyebrow">~/repositories</p><h2>项目管理</h2></div>
@@ -1219,16 +1360,31 @@ function App() {
           </section>
           )}
 
-          {(selected || selectingProjectId !== null) && (
+          {(selected || selectingProjectId !== null || activeSection === "providers") && (
           <section className="panel detail-panel" aria-busy={selectingProjectId !== null}>
             <div className="panel-heading">
-              <div><p className="eyebrow">{activeSection === "projects" ? "REPOSITORY_OVERVIEW" : "PROJECT_TOOL"}</p><h2>{SECTION_LABELS[activeSection]}</h2></div>
+              <div><p className="eyebrow">{activeSection === "providers" ? "MODEL_RUNTIME" : activeSection === "projects" ? "REPOSITORY_OVERVIEW" : "PROJECT_TOOL"}</p><h2>{SECTION_LABELS[activeSection]}</h2></div>
               <div className="workspace-breadcrumb" aria-label="当前位置">
-                <strong>{selected?.name ?? "no-project"}</strong><i>/</i><em>{activeSection === "projects" ? PROJECT_TAB_LABELS[projectTab] : SECTION_LABELS[activeSection]}</em>
+                <strong>{activeSection === "providers" ? "global" : selected?.name ?? "no-project"}</strong><i>/</i><em>{activeSection === "projects" ? PROJECT_TAB_LABELS[projectTab] : SECTION_LABELS[activeSection]}</em>
               </div>
             </div>
             {workspaceError && <div className="workspace-error" role="alert"><strong>操作未完成</strong><span>{workspaceError}</span><button aria-label="关闭工作区错误" onClick={() => setWorkspaceError(null)}>×</button></div>}
-            {!selected ? (
+            {activeSection === "providers" ? (
+              <div className="detail-content">
+                <div className="file-list structure-list feature-content">
+                  <ProviderWorkspace
+                    generators={reportGenerators}
+                    selectedReportProvider={selectedReportGenerator}
+                    selectedQaProvider={selectedQaProvider}
+                    loading={reportLoading}
+                    onSelectReportProvider={handleSelectReportGenerator}
+                    onSelectQaProvider={setSelectedQaProvider}
+                    onConfigureGenerator={handleConfigureReportGenerator}
+                    onTestGenerator={handleTestReportGenerator}
+                  />
+                </div>
+              </div>
+            ) : !selected ? (
               selectingProjectId !== null
                 ? <div className="empty-state compact"><div className="spinner" /><h3>正在切换项目</h3><p>读取项目详情与结构分析…</p></div>
                 : <div className="empty-state compact"><div className="empty-glyph">&gt;_</div><h3>选择一个仓库</h3><p>查看语言、文件和扫描信息。</p></div>
@@ -1261,6 +1417,15 @@ function App() {
                   {activeSection === "quality" && qualityReport && <QualityReportView key={selected.id} report={qualityReport} loading={qualityPageLoading} onRequestPage={handleQualityPageRequest} />}
                   {activeSection === "graph" && graphLoading && <div className="mini-empty"><div className="spinner" />正在聚合项目内依赖…</div>}
                   {activeSection === "graph" && dependencyGraph && <DependencyGraphView key={selected.id} projectId={selected.id} graph={dependencyGraph} />}
+                  {activeSection === "impact" && (
+                    <ImpactWorkspace
+                      key={`${selected.id}:${impactSeed?.target_type ?? "none"}:${impactSeed?.target_id ?? 0}`}
+                      projectId={selected.id}
+                      initialTarget={impactSeed}
+                      onOpenRelation={openImpactRelation}
+                    />
+                  )}
+                  {activeSection === "snapshots" && <SnapshotWorkspace key={selected.id} projectId={selected.id} />}
                   {activeSection === "report" && (
                     <ReportWorkspace
                       generators={reportGenerators}
@@ -1271,8 +1436,6 @@ function App() {
                       exporting={exportingReport}
                       onSelectGenerator={handleSelectReportGenerator}
                       onSelectMode={handleSelectReportMode}
-                      onConfigureGenerator={handleConfigureReportGenerator}
-                      onTestGenerator={handleTestReportGenerator}
                       onGenerate={() => void handleGenerateReport()}
                       onExport={() => void handleExportReport()}
                     />
@@ -1305,7 +1468,7 @@ function App() {
                         <article className="search-result" key={result.chunk_id}>
                           <header>
                             <div><strong>{result.symbol_name ?? result.file_path}</strong><span>{result.file_path} · 第 {result.snippet_start_line}–{result.snippet_end_line} 行</span></div>
-                            <div className="search-result-actions"><small>{result.kind} · {result.score.toFixed(2)}</small><button type="button" onClick={() => setCodeViewerResult(result)}>查看代码</button></div>
+                            <div className="search-result-actions"><small>{result.kind} · {result.score.toFixed(2)}</small><button type="button" onClick={() => openImpactTarget({ target_type: "file", target_id: result.file_id, file_id: result.file_id, file_path: result.file_path, name: result.file_path, kind: "file", start_line: 1, end_line: result.end_line })}>分析影响</button><button type="button" onClick={() => { setCodeViewerQuery(searchResponse.query); setCodeViewerResult(result); }}>查看代码</button></div>
                           </header>
                           <pre>{result.snippet}</pre>
                         </article>
@@ -1321,7 +1484,7 @@ function App() {
                       )}
                     </div>
                   )}
-                  {activeSection === "projects" && projectTab === "files" && <FileTree key={selected.id} projectId={selected.id} totalFiles={selected.file_count} />}
+                  {activeSection === "projects" && projectTab === "files" && <FileTree key={selected.id} projectId={selected.id} totalFiles={selected.file_count} onAnalyzeImpact={openImpactTarget} />}
                   {activeSection === "projects" && projectTab !== "files" && activeStructurePage && (
                     <div className="structure-list-summary">
                       <span className="structure-summary-prompt">&gt; list --buffer</span>
@@ -1335,6 +1498,7 @@ function App() {
                       <span className={`kind-badge kind-${symbol.kind}`}>{symbol.kind.slice(0, 2).toUpperCase()}</span>
                       <div><strong>{symbol.qualified_name}</strong><span>{symbol.file_path}</span></div>
                       <small>第 {symbol.start_line}–{symbol.end_line} 行</small>
+                      <button type="button" className="row-action" onClick={() => openImpactTarget({ target_type: "symbol", target_id: symbol.id, file_id: symbol.file_id, file_path: symbol.file_path, name: symbol.qualified_name, kind: symbol.kind, start_line: symbol.start_line, end_line: symbol.end_line })}>影响</button>
                     </div>
                   ))}
                   {activeSection === "projects" && projectTab === "imports" && visibleImportPage?.items.map((relation) => (
@@ -1363,6 +1527,25 @@ function App() {
           )}
         </div>
       </main>
+
+      {selected && qaPanelOpen && (
+        <aside className="qa-side-panel" aria-label="智能问答面板">
+          <RepositoryQaTerminal
+            key={selected.id}
+            projectId={selected.id}
+            projectName={selected.name}
+            providers={reportGenerators}
+            selectedProvider={selectedQaProvider}
+            onSelectProvider={setSelectedQaProvider}
+            onOpenProviders={() => {
+              setQaPanelOpen(false);
+              void handleOpenProviders();
+            }}
+            onClose={() => setQaPanelOpen(false)}
+            onOpenCitation={openQaCitation}
+          />
+        </aside>
+      )}
 
       {importOpen && (
         <div className="modal-backdrop" onMouseDown={() => { if (!uploading) { cancelFolderScan(); setImportOpen(false); setFolderSelection(null); } }}>
@@ -1475,7 +1658,7 @@ function App() {
         <CodeViewer
           projectId={selected.id}
           result={codeViewerResult}
-          query={searchResponse?.query ?? searchQuery}
+          query={codeViewerQuery || searchResponse?.query || searchQuery}
           onClose={() => setCodeViewerResult(null)}
         />
       )}
@@ -1483,7 +1666,295 @@ function App() {
   );
 }
 
-function FileTree({ projectId, totalFiles }: { projectId: number; totalFiles: number }) {
+function SnapshotWorkspace({ projectId }: { projectId: number }) {
+  const [snapshots, setSnapshots] = useState<AnalysisSnapshotSummary[]>([]);
+  const [label, setLabel] = useState("");
+  const [baseId, setBaseId] = useState<number | null>(null);
+  const [targetId, setTargetId] = useState<number | null>(null);
+  const [comparison, setComparison] = useState<AnalysisSnapshotComparison | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const applySnapshots = useCallback((items: AnalysisSnapshotSummary[]) => {
+    setSnapshots(items);
+    setTargetId((current) => current && items.some((item) => item.id === current) ? current : items[0]?.id ?? null);
+    setBaseId((current) => current && items.some((item) => item.id === current) ? current : items[1]?.id ?? null);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    listAnalysisSnapshots(projectId)
+      .then((items) => { if (active) applySnapshots(items); })
+      .catch((requestError) => { if (active) setError(requestError instanceof Error ? requestError.message : "无法加载分析快照"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [projectId, applySnapshots]);
+
+  async function handleCreate() {
+    if (working) return;
+    setWorking(true);
+    setError(null);
+    try {
+      await createAnalysisSnapshot(projectId, label);
+      const items = await listAnalysisSnapshots(projectId);
+      applySnapshots(items);
+      setLabel("");
+      setComparison(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "无法保存分析快照");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleCompare() {
+    if (!baseId || !targetId || baseId === targetId || working) return;
+    setWorking(true);
+    setError(null);
+    try {
+      setComparison(await compareAnalysisSnapshots(projectId, baseId, targetId));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "无法对比分析快照");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleDelete(snapshot: AnalysisSnapshotSummary) {
+    if (!window.confirm(`删除快照“${snapshot.label}”？此操作不会删除项目源码。`)) return;
+    setWorking(true);
+    setError(null);
+    try {
+      await deleteAnalysisSnapshot(projectId, snapshot.id);
+      applySnapshots(snapshots.filter((item) => item.id !== snapshot.id));
+      setComparison(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "无法删除分析快照");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="snapshot-workspace">
+      <section className="snapshot-toolbar">
+        <div><span>CAPTURE</span><strong>保存当前分析状态</strong><small>仅保存指标与问题定位，不复制仓库源码 · 每个项目最多保留 30 个</small></div>
+        <div><input value={label} maxLength={120} onChange={(event) => setLabel(event.target.value)} placeholder="快照名称（可选）" aria-label="快照名称" /><button type="button" onClick={() => void handleCreate()} disabled={working}>{working ? "处理中…" : "＋ 保存当前快照"}</button></div>
+      </section>
+      {error && <div className="impact-error" role="alert">[ERR] {error}</div>}
+      {loading && <div className="mini-empty"><div className="spinner" />正在读取分析快照…</div>}
+      {!loading && snapshots.length === 0 && <div className="impact-empty"><span>◫</span><h3>还没有分析快照</h3><p>保存当前状态后，再次分析仓库即可对比质量问题、解析结果和依赖变化。</p></div>}
+      {!loading && snapshots.length > 0 && (
+        <>
+          <div className="snapshot-list">
+            {snapshots.map((snapshot) => <article key={snapshot.id}>
+              <div><span>{snapshotReasonLabel(snapshot.reason)}</span><strong>{snapshot.label}</strong><small>{formatDate(snapshot.created_at)}</small></div>
+              <dl><div><dt>质量</dt><dd>{snapshot.score} / {snapshot.grade}</dd></div><div><dt>文件</dt><dd>{formatNumber(snapshot.file_count)}</dd></div><div><dt>符号</dt><dd>{formatNumber(snapshot.symbol_count)}</dd></div><div><dt>问题</dt><dd>{formatNumber(snapshot.finding_count)}</dd></div></dl>
+              <button type="button" onClick={() => void handleDelete(snapshot)} disabled={working} aria-label={`删除快照 ${snapshot.label}`}>×</button>
+            </article>)}
+          </div>
+          <section className="snapshot-compare-controls">
+            <label><span>BASE</span><select value={baseId ?? ""} onChange={(event) => setBaseId(Number(event.target.value) || null)}><option value="">选择较早快照</option>{snapshots.map((item) => <option key={item.id} value={item.id}>{item.label} · {formatDate(item.created_at)}</option>)}</select></label>
+            <span>→</span>
+            <label><span>TARGET</span><select value={targetId ?? ""} onChange={(event) => setTargetId(Number(event.target.value) || null)}><option value="">选择较新快照</option>{snapshots.map((item) => <option key={item.id} value={item.id}>{item.label} · {formatDate(item.created_at)}</option>)}</select></label>
+            <button type="button" onClick={() => void handleCompare()} disabled={!baseId || !targetId || baseId === targetId || working}>{working ? "COMPARING..." : "开始对比"}</button>
+          </section>
+        </>
+      )}
+      {comparison && <SnapshotComparisonView comparison={comparison} />}
+    </div>
+  );
+}
+
+function SnapshotComparisonView({ comparison }: { comparison: AnalysisSnapshotComparison }) {
+  return <div className="snapshot-comparison">
+    <header><div><span>DIFF_RESULT</span><strong>{comparison.base.label}</strong></div><i>→</i><div><span>TARGET</span><strong>{comparison.target.label}</strong></div></header>
+    <div className="snapshot-metrics">{comparison.metric_changes.map((metric) => <article key={metric.key}><span>{metric.label}</span><strong>{formatNumber(metric.target)}</strong><em className={snapshotMetricTone(metric.key, metric.delta)}>{metric.delta > 0 ? "+" : ""}{formatNumber(metric.delta)}</em><small>{formatNumber(metric.base)} → {formatNumber(metric.target)}</small></article>)}</div>
+    <SnapshotGroup title="质量问题" code="QUALITY" group={comparison.quality} />
+    <SnapshotGroup title="解析问题" code="PARSER" group={comparison.parse_issues} />
+    <SnapshotGroup title="循环依赖" code="CYCLES" group={comparison.cycles} />
+  </div>;
+}
+
+function SnapshotGroup({ title, code, group }: { title: string; code: string; group: SnapshotComparisonGroup }) {
+  const sections = [
+    { label: "新增", tone: "new", count: group.new_count, items: group.new_items },
+    { label: "已修复", tone: "fixed", count: group.fixed_count, items: group.fixed_items },
+    { label: "持续存在", tone: "persistent", count: group.persistent_count, items: group.persistent_items },
+  ];
+  return <section className="snapshot-group"><header><span>{code}</span><strong>{title}</strong>{group.truncated && <em>仅显示前 100 条</em>}</header><div>{sections.map((section) => <article className={`snapshot-change-${section.tone}`} key={section.tone}><h4>{section.label}<b>{formatNumber(section.count)}</b></h4>{section.items.length === 0 ? <p>无</p> : section.items.map((item, index) => <p key={String(item.key ?? index)}>{snapshotItemLabel(item)}</p>)}</article>)}</div></section>;
+}
+
+function snapshotItemLabel(item: Record<string, unknown>): string {
+  if (Array.isArray(item.paths)) return item.paths.join(" → ");
+  const location = item.start_line ? `${String(item.file_path)}:${String(item.start_line)}` : String(item.file_path ?? "未知位置");
+  return `${location} · ${String(item.title ?? item.message ?? item.rule_id ?? "分析项")}`;
+}
+
+function snapshotMetricTone(key: string, delta: number): "good" | "bad" | "neutral" {
+  if (delta === 0 || ["files", "symbols", "imports"].includes(key)) return "neutral";
+  if (key === "score") return delta > 0 ? "good" : "bad";
+  return delta < 0 ? "good" : "bad";
+}
+
+function snapshotReasonLabel(reason: AnalysisSnapshotSummary["reason"]): string {
+  return ({ manual: "MANUAL", import: "IMPORT", full: "FULL", incremental: "INCREMENTAL" } as const)[reason] ?? reason.toUpperCase();
+}
+
+const IMPACT_RELATION_LABELS: Record<string, string> = {
+  definition: "定义位置",
+  imports_target_module: "直接导入目标模块",
+  target_imports_module: "目标导入该模块",
+  transitive_caller: "二级影响模块",
+  symbol_reference: "源码引用目标符号",
+  calls_or_references_symbol: "目标可能调用或引用",
+};
+
+function ImpactWorkspace({
+  projectId,
+  initialTarget,
+  onOpenRelation,
+}: {
+  projectId: number;
+  initialTarget: ImpactTarget | null;
+  onOpenRelation: (relation: ImpactRelation) => void;
+}) {
+  const [query, setQuery] = useState(initialTarget?.name ?? "");
+  const [targets, setTargets] = useState<ImpactTarget[]>([]);
+  const [report, setReport] = useState<ChangeImpact | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadImpact = useCallback(async (target: ImpactTarget) => {
+    setLoading(true);
+    setError(null);
+    setTargets([]);
+    try {
+      setReport(await getChangeImpact(projectId, target.target_type, target.target_id));
+      setQuery(target.name);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "修改影响分析失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (initialTarget) void loadImpact(initialTarget);
+  }, [initialTarget, loadImpact]);
+
+  async function handleTargetSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!query.trim() || searching) return;
+    setSearching(true);
+    setError(null);
+    setReport(null);
+    try {
+      setTargets(await searchImpactTargets(projectId, query.trim()));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "无法搜索分析对象");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  return (
+    <div className="impact-workspace">
+      <form className="impact-search" onSubmit={(event) => void handleTargetSearch(event)}>
+        <label htmlFor="impact-target-query"><span>TARGET</span>选择要修改的文件、类或函数</label>
+        <div>
+          <input id="impact-target-query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入文件路径、类名或函数名" />
+          <button disabled={!query.trim() || searching || loading}>{searching ? "SEARCHING..." : "查找对象"}</button>
+        </div>
+      </form>
+      {error && <div className="impact-error" role="alert">[ERR] {error}</div>}
+      {searching && <div className="mini-empty"><div className="spinner" />正在查找文件和符号…</div>}
+      {!searching && targets.length > 0 && (
+        <div className="impact-target-list" aria-label="影响分析对象">
+          {targets.map((target) => (
+            <button type="button" key={`${target.target_type}:${target.target_id}`} onClick={() => void loadImpact(target)}>
+              <span className={`kind-badge kind-${target.kind}`}>{target.target_type === "file" ? "FI" : target.kind.slice(0, 2).toUpperCase()}</span>
+              <div><strong>{target.name}</strong><small>{target.file_path} · 第 {target.start_line}–{target.end_line} 行</small></div>
+              <em>ANALYZE →</em>
+            </button>
+          ))}
+        </div>
+      )}
+      {!searching && !loading && !report && targets.length === 0 && (
+        <div className="impact-empty">
+          <span>◎</span>
+          <h3>从一个具体修改对象开始</h3>
+          <p>搜索文件、类、接口、函数或方法，或者在“仓库概览”的文件和符号列表中点击“影响”。</p>
+        </div>
+      )}
+      {loading && <div className="mini-empty"><div className="spinner" />正在追踪调用者、依赖和相关测试…</div>}
+      {report && !loading && (
+        <div className="impact-report">
+          <header className="impact-report-header">
+            <div>
+              <span>IMPACT_TARGET::{report.target.target_type.toUpperCase()}</span>
+              <h3>{report.target.name}</h3>
+              <p>{report.target.file_path} · 第 {report.target.start_line}–{report.target.end_line} 行</p>
+            </div>
+            <div className={`impact-risk impact-risk-${report.risk.level}`}>
+              <strong>{report.risk.score}<i> / 100</i></strong>
+              <span>{impactRiskLabel(report.risk.level)} · {impactConfidenceLabel(report.risk.confidence)}置信</span>
+            </div>
+          </header>
+          <section className="impact-definition">
+            <div><span>DEFINITION</span><strong>{report.definition.symbol_name ?? report.definition.file_path}</strong><small>{report.definition.file_path}</small></div>
+            <button type="button" onClick={() => onOpenRelation(report.definition)}>查看源码</button>
+          </section>
+          <div className="impact-risk-reasons">
+            {report.risk.reasons.map((reason, index) => <span key={reason}><i>[{String(index + 1).padStart(2, "0")}]</i><b>{reason}</b></span>)}
+          </div>
+          <div className="impact-grid">
+            <ImpactRelationGroup title="直接调用者" code="CALLERS" items={report.direct_callers} onOpen={onOpenRelation} />
+            <ImpactRelationGroup title="被调用对象与依赖" code="CALLEES" items={report.called_objects} onOpen={onOpenRelation} />
+            <ImpactRelationGroup title="间接影响模块" code="TRANSITIVE" items={report.indirect_impacts} onOpen={onOpenRelation} />
+            <ImpactRelationGroup title="相关测试" code="TESTS" items={report.related_tests} onOpen={onOpenRelation} />
+            <ImpactRelationGroup title="相关接口" code="APIS" items={report.related_apis} onOpen={onOpenRelation} />
+            <ImpactRelationGroup title="数据库实体" code="DATABASE" items={report.database_entities} onOpen={onOpenRelation} />
+          </div>
+          <section className="impact-cycles">
+            <header><span>CYCLES</span><strong>循环依赖</strong><em>{report.cycles.length}</em></header>
+            {report.cycles.length === 0
+              ? <p>目标不在已识别的循环依赖中。</p>
+              : report.cycles.map((cycle, index) => <p key={`${index}:${cycle.paths.join(":")}`}>{cycle.paths.join(" → ")} → {cycle.paths[0]}</p>)}
+          </section>
+          <p className="impact-limit">{report.limitations}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImpactRelationGroup({ title, code, items, onOpen }: { title: string; code: string; items: ImpactRelation[]; onOpen: (relation: ImpactRelation) => void }) {
+  return (
+    <section className="impact-group">
+      <header><span>{code}</span><strong>{title}</strong><em>{items.length}</em></header>
+      {items.length === 0 ? <p>未发现</p> : items.map((item) => (
+        <button type="button" key={`${item.relation}:${item.file_id}:${item.symbol_id ?? 0}`} onClick={() => onOpen(item)}>
+          <div><strong>{item.symbol_name ?? item.file_path}</strong><small>{item.file_path}</small></div>
+          <span>{IMPACT_RELATION_LABELS[item.relation] ?? item.relation} · {impactConfidenceLabel(item.confidence)}</span>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function impactRiskLabel(level: ChangeImpact["risk"]["level"]): string {
+  return level === "high" ? "高风险" : level === "medium" ? "中风险" : "低风险";
+}
+
+function impactConfidenceLabel(confidence: ImpactRelation["confidence"]): string {
+  return confidence === "high" ? "高" : confidence === "medium" ? "中" : "低";
+}
+
+function FileTree({ projectId, totalFiles, onAnalyzeImpact }: { projectId: number; totalFiles: number; onAnalyzeImpact: (target: ImpactTarget) => void }) {
   const [root, setRoot] = useState<ProjectFileTreeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1519,13 +1990,13 @@ function FileTree({ projectId, totalFiles }: { projectId: number; totalFiles: nu
         <span>files · 展开目录时按需读取</span>
       </div>
       <div className="file-tree" role="tree" aria-label="仓库文件树">
-        {root.items.map((node) => <FileTreeNodeView key={`${node.kind}:${node.path}`} projectId={projectId} node={node} />)}
+        {root.items.map((node) => <FileTreeNodeView key={`${node.kind}:${node.path}`} projectId={projectId} node={node} onAnalyzeImpact={onAnalyzeImpact} />)}
       </div>
     </>
   );
 }
 
-function FileTreeNodeView({ projectId, node }: { projectId: number; node: ProjectFileTreeNode }) {
+function FileTreeNodeView({ projectId, node, onAnalyzeImpact }: { projectId: number; node: ProjectFileTreeNode; onAnalyzeImpact: (target: ImpactTarget) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState<ProjectFileTreeNode[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1540,6 +2011,7 @@ function FileTreeNodeView({ projectId, node }: { projectId: number; node: Projec
         <span>{node.language ?? "Text"}</span>
         <small>{formatNumber(node.line_count ?? 0)} 行</small>
         <small>{formatBytes(node.size_bytes ?? 0)}</small>
+        <button type="button" className="file-tree-impact-button" onClick={() => onAnalyzeImpact({ target_type: "file", target_id: node.id!, file_id: node.id!, file_path: node.path, name: node.path, kind: "file", start_line: 1, end_line: Math.max(1, node.line_count ?? 1) })}>影响</button>
       </div>
     );
   }
@@ -1584,7 +2056,7 @@ function FileTreeNodeView({ projectId, node }: { projectId: number; node: Projec
         <div className="file-tree-children" role="group">
           {loading && <div className="file-tree-loading"><div className="spinner" />正在读取目录…</div>}
           {error && <div className="file-tree-loading"><span>{error}</span><button type="button" className="file-tree-retry" onClick={() => void loadChildren()}>[ RETRY ]</button></div>}
-          {!loading && !error && children?.map((child) => <FileTreeNodeView key={`${child.kind}:${child.path}`} projectId={projectId} node={child} />)}
+          {!loading && !error && children?.map((child) => <FileTreeNodeView key={`${child.kind}:${child.path}`} projectId={projectId} node={child} onAnalyzeImpact={onAnalyzeImpact} />)}
           {!loading && !error && children?.length === 0 && <div className="file-tree-loading">空目录</div>}
         </div>
       )}
@@ -1622,51 +2094,38 @@ function ParseIssueRow({ issue }: { issue: ParseIssue }) {
   );
 }
 
-function ReportWorkspace({
+function ProviderWorkspace({
   generators,
-  selectedGenerator,
-  selectedMode,
-  report,
+  selectedReportProvider,
+  selectedQaProvider,
   loading,
-  exporting,
-  onSelectGenerator,
-  onSelectMode,
+  onSelectReportProvider,
+  onSelectQaProvider,
   onConfigureGenerator,
   onTestGenerator,
-  onGenerate,
-  onExport,
 }: {
   generators: ReportGenerator[];
-  selectedGenerator: string;
-  selectedMode: "summary" | "full";
-  report: GeneratedReport | null;
+  selectedReportProvider: string;
+  selectedQaProvider: string;
   loading: boolean;
-  exporting: boolean;
-  onSelectGenerator: (generator: string) => void;
-  onSelectMode: (mode: "summary" | "full") => void;
+  onSelectReportProvider: (generator: string) => void;
+  onSelectQaProvider: (generator: string) => void;
   onConfigureGenerator: (generator: string, configuration: ReportGeneratorConfiguration) => Promise<ReportGenerator>;
   onTestGenerator: (generator: string) => Promise<ReportGeneratorTestResult>;
-  onGenerate: () => void;
-  onExport: () => void;
 }) {
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const [configDraft, setConfigDraft] = useState({ base_url: "", model: "", api_key: "" });
   const [configurationBusy, setConfigurationBusy] = useState<"save" | "test" | null>(null);
   const [configurationMessage, setConfigurationMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  const selectedProvider = generators.find((generator) => generator.id === selectedGenerator);
   const configuringProvider = generators.find((generator) => generator.id === configuringId);
+  const qaGenerators = generators.filter((generator) => generator.id !== "local");
+  const selectedQaModel = qaGenerators.some((generator) => generator.id === selectedQaProvider && generator.available)
+    ? selectedQaProvider
+    : "";
 
   function openConfiguration(generator: ReportGenerator) {
-    onSelectGenerator(generator.id);
     setConfiguringId(generator.id);
     setConfigDraft({ base_url: generator.base_url, model: generator.model, api_key: "" });
-    setConfigurationMessage(null);
-  }
-
-  function selectProvider(generator: ReportGenerator) {
-    if (!generator.available) return;
-    onSelectGenerator(generator.id);
-    setConfiguringId(null);
     setConfigurationMessage(null);
   }
 
@@ -1705,25 +2164,47 @@ function ReportWorkspace({
   }
 
   return (
-    <div className="report-workspace">
+    <div className="report-workspace provider-workspace">
       <section className="report-generator-section" aria-labelledby="report-generator-title">
         <div className="report-section-heading">
-          <div><span>API_PROVIDER</span><h3 id="report-generator-title">选择分析接口</h3></div>
-          <small>默认本地分析免费、无需配置</small>
+          <div><span>MODEL_PROVIDER_REGISTRY</span><h3 id="report-generator-title">统一模型与 API 配置</h3></div>
+          <small>一次配置，同时供分析报告与智能问答使用</small>
+        </div>
+        <div className="provider-usage-grid">
+          <label>
+            <span>REPORT_DEFAULT</span>
+            <strong>分析报告默认模型</strong>
+            <select aria-label="分析报告默认模型" value={selectedReportProvider} onChange={(event) => onSelectReportProvider(event.target.value)}>
+              {generators.map((generator) => <option key={generator.id} value={generator.id} disabled={!generator.available}>{generator.name}{generator.available ? "" : "（未配置）"}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>QA_DEFAULT</span>
+            <strong>智能问答默认模型</strong>
+            <select aria-label="智能问答默认模型" value={selectedQaModel} disabled={!qaGenerators.some((generator) => generator.available)} onChange={(event) => onSelectQaProvider(event.target.value)}>
+              {!selectedQaModel && <option value="">请先配置生成模型</option>}
+              {qaGenerators.map((generator) => <option key={generator.id} value={generator.id} disabled={!generator.available}>{generator.name}{generator.available ? "" : "（未配置）"}</option>)}
+            </select>
+            <small>智能问答不支持本地规则引擎，必须使用 Ollama 或在线模型。</small>
+          </label>
         </div>
         <div className="report-generator-grid">
           {generators.map((generator) => (
             <article
               key={generator.id}
-              className={`report-generator-card ${selectedGenerator === generator.id ? "active" : ""} ${!generator.available ? "unavailable" : ""}`}
+              className={`report-generator-card ${selectedReportProvider === generator.id || selectedQaProvider === generator.id ? "active" : ""} ${!generator.available ? "unavailable" : ""}`}
             >
-              <button className="provider-select-button" disabled={loading || !generator.available} onClick={() => selectProvider(generator)} aria-pressed={selectedGenerator === generator.id}>
+              <div className="provider-select-button">
                 <span className={`generator-status status-${generator.connection_status}`}>{providerStatusLabel(generator)}</span>
                 <strong>{generator.name}</strong>
                 <p>{generator.description}</p>
                 <code>{generator.base_url}{generator.endpoint}</code>
                 <em>{generator.cost_label}</em>
-              </button>
+                <div className="provider-usage-tags">
+                  {selectedReportProvider === generator.id && <span>REPORT</span>}
+                  {generator.id !== "local" && selectedQaProvider === generator.id && <span>Q&amp;A</span>}
+                </div>
+              </div>
               <div className="provider-card-footer">
                 {generator.requires_configuration
                   ? <button onClick={() => openConfiguration(generator)}>{generator.configured ? "修改 API 配置" : "配置 API"}</button>
@@ -1743,13 +2224,13 @@ function ReportWorkspace({
             <div className="provider-config-fields">
               <label>
                 <span>API 服务地址</span>
-                <input value={configDraft.base_url} onChange={(event) => setConfigDraft((current) => ({ ...current, base_url: event.target.value }))} placeholder={configuringProvider.id === "ollama" ? "http://127.0.0.1:11434" : "https://api.openai.com/v1"} disabled={configurationBusy !== null} />
+                <input value={configDraft.base_url} onChange={(event) => setConfigDraft((current) => ({ ...current, base_url: event.target.value }))} placeholder={providerBaseUrlPlaceholder(configuringProvider.id)} disabled={configurationBusy !== null} />
               </label>
               <label>
                 <span>模型名称</span>
                 <input value={configDraft.model} onChange={(event) => setConfigDraft((current) => ({ ...current, model: event.target.value }))} placeholder={configuringProvider.id === "ollama" ? "填写 ollama list 中的模型名称" : "填写账号可用的模型 ID"} disabled={configurationBusy !== null} />
               </label>
-              {configuringProvider.id === "openai-compatible" && (
+              {configuringProvider.id !== "ollama" && (
                 <label className="provider-key-field">
                   <span>API Key</span>
                   <input type="password" autoComplete="new-password" value={configDraft.api_key} onChange={(event) => setConfigDraft((current) => ({ ...current, api_key: event.target.value }))} placeholder={configuringProvider.has_api_key ? "已安全保存；留空表示不修改" : "输入 API Key（不会回显）"} disabled={configurationBusy !== null} />
@@ -1760,11 +2241,50 @@ function ReportWorkspace({
             {configurationMessage && <div className={`provider-config-message ${configurationMessage.tone}`} role="status">{configurationMessage.text}</div>}
             <div className="provider-config-actions">
               <button type="button" className="secondary-button" onClick={() => void testConfiguration()} disabled={configurationBusy !== null || !configuringProvider.configured}>{configurationBusy === "test" ? "测试中…" : "测试连接"}</button>
-              <button type="submit" className="primary-button" disabled={configurationBusy !== null || !configDraft.base_url.trim() || !configDraft.model.trim()}>{configurationBusy === "save" ? "保存中…" : "保存配置"}</button>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={
+                  configurationBusy !== null
+                  || !configDraft.base_url.trim()
+                  || !configDraft.model.trim()
+                  || (configuringProvider.id !== "ollama" && !configuringProvider.has_api_key && !configDraft.api_key.trim())
+                }
+              >{configurationBusy === "save" ? "保存中…" : "保存配置"}</button>
             </div>
           </form>
         )}
       </section>
+    </div>
+  );
+}
+
+function ReportWorkspace({
+  generators,
+  selectedGenerator,
+  selectedMode,
+  report,
+  loading,
+  exporting,
+  onSelectGenerator,
+  onSelectMode,
+  onGenerate,
+  onExport,
+}: {
+  generators: ReportGenerator[];
+  selectedGenerator: string;
+  selectedMode: "summary" | "full";
+  report: GeneratedReport | null;
+  loading: boolean;
+  exporting: boolean;
+  onSelectGenerator: (generator: string) => void;
+  onSelectMode: (mode: "summary" | "full") => void;
+  onGenerate: () => void;
+  onExport: () => void;
+}) {
+  const selectedProvider = generators.find((generator) => generator.id === selectedGenerator);
+  return (
+    <div className="report-workspace">
 
       <section className="report-preview-section" aria-labelledby="report-preview-title">
         <div className="report-toolbar">
@@ -1774,6 +2294,12 @@ function ReportWorkspace({
             {report && <small>{report.filename} · {formatDate(report.generated_at)}</small>}
           </div>
           <div className="report-actions">
+            <label className="report-mode-select">
+              <span>分析模型</span>
+              <select aria-label="报告分析模型" value={selectedGenerator} disabled={loading || exporting} onChange={(event) => onSelectGenerator(event.target.value)}>
+                {generators.map((generator) => <option key={generator.id} value={generator.id} disabled={!generator.available}>{generator.name}{generator.available ? "" : "（未配置）"}</option>)}
+              </select>
+            </label>
             <label className="report-mode-select">
               <span>报告范围</span>
               <select
@@ -1795,12 +2321,22 @@ function ReportWorkspace({
           </div>
         </div>
         {loading && !report && <div className="report-preview-empty"><div className="spinner" /><strong>正在进行针对性智能分析</strong><span>综合项目结构、依赖热点、质量评分与测试信号…</span></div>}
-        {!loading && !report && <div className="report-preview-empty"><strong>{selectedProvider?.available ? "尚未生成报告" : "当前接口尚未配置"}</strong><span>{selectedProvider?.available ? "点击生成按钮，使用当前接口分析项目。" : "点击上方接口卡片填写地址、模型和认证信息。"}</span></div>}
+        {!loading && !report && <div className="report-preview-empty"><strong>{selectedProvider?.available ? "尚未生成报告" : "当前接口尚未配置"}</strong><span>{selectedProvider?.available ? "点击生成按钮，使用当前模型分析项目。" : "请前往“API 配置”菜单完成配置和连接测试。"}</span></div>}
         {report && <pre className="report-preview" aria-label="Markdown 报告预览">{report.content}</pre>}
         <div className="report-save-note"><span>PATH</span> 导出时会打开系统保存窗口，可选择目录和文件名；不支持该能力的浏览器将保存到默认下载目录。</div>
       </section>
     </div>
   );
+}
+
+function providerBaseUrlPlaceholder(providerId: string): string {
+  return {
+    ollama: "http://127.0.0.1:11434",
+    "openai-compatible": "https://api.openai.com/v1",
+    "openai-chat-compatible": "https://api.deepseek.com",
+    anthropic: "https://api.anthropic.com/v1",
+    gemini: "https://generativelanguage.googleapis.com/v1beta",
+  }[providerId] ?? "https://api.example.com/v1";
 }
 
 function providerStatusLabel(generator: ReportGenerator): string {
@@ -1842,6 +2378,176 @@ function stageLabel(stage: string): string {
 function LanguageBadge({ language }: { language: string | null }) {
   const key = (language ?? "text").toLowerCase().replaceAll("#", "sharp").replaceAll("+", "p");
   return <span className={`language-badge lang-${key}`}><i />{language ?? "Text"}</span>;
+}
+
+type QaTerminalMessage = {
+  id: number;
+  role: "user" | "assistant" | "system";
+  content: string;
+  response?: RepositoryAnswer;
+  retryQuestion?: string;
+};
+
+function qaGroundingLabel(status: RepositoryAnswer["grounding_status"]): string {
+  if (status === "project_context") return "项目上下文";
+  if (status === "insufficient") return "证据不足";
+  if (status === "reference_failed") return "引用校验失败";
+  return "证据已校验";
+}
+
+function qaConfidenceLabel(confidence: RepositoryAnswer["confidence"]): string {
+  return confidence === "high" ? "高置信" : confidence === "medium" ? "中置信" : "低置信";
+}
+
+function RepositoryQaTerminal({
+  projectId,
+  projectName,
+  providers,
+  selectedProvider,
+  onSelectProvider,
+  onOpenProviders,
+  onClose,
+  onOpenCitation,
+}: {
+  projectId: number;
+  projectName: string;
+  providers: ReportGenerator[];
+  selectedProvider: string;
+  onSelectProvider: (provider: string) => void;
+  onOpenProviders: () => void;
+  onClose: () => void;
+  onOpenCitation: (citation: RepositoryCitation, citationIndex: number) => void;
+}) {
+  const [messages, setMessages] = useState<QaTerminalMessage[]>([]);
+  const [question, setQuestion] = useState("");
+  const [loading, setLoading] = useState(false);
+  const messageIdRef = useRef(0);
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const qaProviders = providers.filter((item) => item.id !== "local");
+  const provider = qaProviders.find((item) => item.id === selectedProvider && item.available);
+  const modelReady = Boolean(provider);
+
+  useEffect(() => {
+    if (transcriptRef.current) transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+  }, [messages, loading]);
+
+  async function submitQuestion(value = question) {
+    const normalized = value.trim();
+    if (!normalized || loading || !modelReady) return;
+    if (normalized === "/clear") {
+      setMessages([]);
+      setQuestion("");
+      return;
+    }
+    const userMessage: QaTerminalMessage = { id: ++messageIdRef.current, role: "user", content: normalized };
+    const history = messages
+      .filter((item): item is QaTerminalMessage & { role: "user" | "assistant" } => item.role !== "system")
+      .map((item) => ({ role: item.role, content: item.content }));
+    setMessages((current) => [...current, userMessage]);
+    setQuestion("");
+    setLoading(true);
+    try {
+      const response = await askRepository(projectId, normalized, selectedProvider, history);
+      setMessages((current) => [...current, {
+        id: ++messageIdRef.current,
+        role: "assistant",
+        content: response.answer,
+        response,
+      }]);
+    } catch (requestError) {
+      setMessages((current) => [...current, {
+        id: ++messageIdRef.current,
+        role: "system",
+        content: requestError instanceof Error ? requestError.message : "智能问答请求失败",
+        retryQuestion: normalized,
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitQuestion();
+  }
+
+  return (
+    <section className="qa-terminal" id="repository-qa-terminal" aria-label="智能问答终端">
+      <header className="qa-terminal-bar">
+        <div className="qa-terminal-title"><strong>DevAtlas 智能问答</strong><span>{projectName}</span></div>
+        <label className="qa-provider-select">
+          <span>MODEL</span>
+          <select aria-label="智能问答模型" value={modelReady ? selectedProvider : ""} disabled={loading || qaProviders.length === 0} onChange={(event) => onSelectProvider(event.target.value)}>
+            {!modelReady && <option value="">未配置生成模型</option>}
+            {qaProviders.map((item) => <option key={item.id} value={item.id} disabled={!item.available}>{item.name}{item.available ? "" : "（未配置）"}</option>)}
+          </select>
+        </label>
+        <button type="button" className="qa-panel-close" onClick={onClose} aria-label="关闭智能问答面板">×</button>
+      </header>
+      <div className="qa-transcript" ref={transcriptRef} aria-live="polite">
+        {!messages.length && (
+          <div className="qa-welcome">
+            <p>DevAtlas Repository Shell</p>
+            <p>当前仓库：{projectName}</p>
+            {modelReady
+              ? <p>当前模型：{provider?.name} · 输入问题并按 Enter，/clear 清空会话。</p>
+              : (
+                <div className="qa-model-required" role="alert">
+                  <strong>[MODEL_REQUIRED] 智能问答必须连接生成模型。</strong>
+                  <span>请先配置 Ollama 或在线模型 API；本地规则分析仅用于生成报告。</span>
+                  <button type="button" onClick={onOpenProviders}>[ 配置生成模型 ]</button>
+                </div>
+              )}
+          </div>
+        )}
+        {messages.map((message) => (
+          <article className={`qa-message qa-${message.role}`} key={message.id}>
+            <div className="qa-message-prompt">
+              <span>{message.role === "user" ? `${projectName} $` : message.role === "assistant" ? "devatlas >" : "system !"}</span>
+              {message.role === "user" && <strong>{message.content}</strong>}
+            </div>
+            {message.role !== "user" && <div className="qa-answer-text">{message.content}</div>}
+            {message.response && (
+              <div className={`qa-answer-meta qa-grounding-${message.response.grounding_status}`}>
+                <span>[{qaGroundingLabel(message.response.grounding_status)}]</span>
+                <b>{qaConfidenceLabel(message.response.confidence)}</b>
+                <small>{message.response.evidence_count} 条证据 · {message.response.reference_count} 个有效引用 · {message.response.elapsed_ms.toFixed(1)} ms</small>
+              </div>
+            )}
+            {message.retryQuestion && (
+              <button
+                type="button"
+                className="qa-retry-button"
+                disabled={loading || !modelReady}
+                onClick={() => void submitQuestion(message.retryQuestion)}
+              >[ 使用当前模型重试 ]</button>
+            )}
+            {message.response && (
+              <div className="qa-citations">
+                {message.response.citations.map((citation, index) => (
+                  <button type="button" key={`${citation.file_id}-${citation.start_line}-${index}`} onClick={() => onOpenCitation(citation, index)}>
+                    <b>[{index + 1}]</b> {citation.file_path}:{citation.start_line}-{citation.end_line}
+                  </button>
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
+        {loading && <div className="qa-thinking"><span>devatlas &gt;</span><i /><i /><i /><small>{`正在检索仓库证据并调用 ${provider?.name ?? "生成模型"}`}</small></div>}
+      </div>
+      <form className="qa-command-line" onSubmit={handleSubmit}>
+        <span>PS {projectName}&gt;</span>
+        <input
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          maxLength={2000}
+          aria-label="输入仓库问题"
+          autoFocus
+          disabled={loading || !modelReady}
+        />
+      </form>
+    </section>
+  );
 }
 
 function DependencyGraphView({ projectId, graph }: { projectId: number; graph: DependencyGraph }) {
@@ -1966,6 +2672,10 @@ function DependencyGraphView({ projectId, graph }: { projectId: number; graph: D
         <div><strong>{formatNumber(graph.internal_import_count)}</strong><span>内部导入</span></div>
         <div className={graph.cycle_count ? "warning" : ""}><strong>{formatNumber(graph.cycle_count)}</strong><span>循环依赖</span></div>
       </div>
+      <div className={`graph-confidence confidence-${graph.confidence_level ?? "low"}`} role="status">
+        <div><strong>依赖分类可信度 {Number(graph.classification_confidence ?? 0).toFixed(1)}%</strong><span>{dependencyConfidenceLabel(graph.confidence_level)}</span></div>
+        <p>项目内 {formatNumber(graph.internal_import_count)} · 推定外部 {formatNumber(graph.external_import_count)} · 待确认 {formatNumber(graph.unresolved_import_count ?? 0)}</p>
+      </div>
       {graph.truncated && <div className="graph-notice">仓库规模较大，图中优先展示循环模块和连接度最高的 {graph.nodes.length} 个文件。</div>}
       <div className="graph-toolbar">
         <label><span>筛选模块</span><input value={moduleFilter} onChange={(event) => setModuleFilter(event.target.value)} placeholder="输入文件名或路径" /></label>
@@ -1996,8 +2706,7 @@ function DependencyGraphView({ projectId, graph }: { projectId: number; graph: D
         <b className="legend-group-label">EDGE</b>
         <span><i className="legend-edge outgoing" />当前模块依赖</span>
         <span><i className="legend-edge incoming" />依赖当前模块</span>
-        <span><i className="legend-edge cyclic" />循环依赖边（橙黄色虚线）</span>
-        <small>节点越大表示入度与出度总和越高 · ×N 表示两文件间合并后的导入次数 · 点击连线查看文件与行号</small>
+        <span><i className="legend-edge cyclic" />循环依赖边</span>
       </div>
       <div className="dependency-layout">
         <div className="dependency-canvas" aria-busy={cycleFocusLoading}>
@@ -2190,6 +2899,10 @@ function shortFileName(path: string): string {
   return path.split("/").at(-1) ?? path;
 }
 
+function dependencyConfidenceLabel(level: DependencyGraph["confidence_level"] | undefined): string {
+  return { high: "HIGH", medium: "MEDIUM", low: "LOW" }[level ?? "low"];
+}
+
 function QualityReportView({
   report,
   loading,
@@ -2197,21 +2910,28 @@ function QualityReportView({
 }: {
   report: QualityReport;
   loading: boolean;
-  onRequestPage: (severity: string, rule: string, offset: number, append: boolean) => Promise<void>;
+  onRequestPage: (severity: string, rule: string, scope: string, offset: number, append: boolean) => Promise<void>;
 }) {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [ruleFilter, setRuleFilter] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all");
   const severityLabels = { error: "高风险", warning: "中风险", info: "低风险" } as const;
+  const scopeLabels = { production: "生产代码", test: "测试代码", generated: "生成/外部代码" } as const;
   const filteredTotal = report.filtered_findings ?? report.total_findings;
 
   function changeSeverity(nextSeverity: string) {
     setSeverityFilter(nextSeverity);
-    void onRequestPage(nextSeverity, ruleFilter, 0, false);
+    void onRequestPage(nextSeverity, ruleFilter, scopeFilter, 0, false);
   }
 
   function changeRule(nextRule: string) {
     setRuleFilter(nextRule);
-    void onRequestPage(severityFilter, nextRule, 0, false);
+    void onRequestPage(severityFilter, nextRule, scopeFilter, 0, false);
+  }
+
+  function changeScope(nextScope: string) {
+    setScopeFilter(nextScope);
+    void onRequestPage(severityFilter, ruleFilter, nextScope, 0, false);
   }
 
   return (
@@ -2220,29 +2940,36 @@ function QualityReportView({
         <div
           className={`quality-score grade-${report.grade.toLowerCase()}`}
           role="meter"
-          aria-label={`质量评分 ${report.score} 分，评级 ${report.grade}`}
+          aria-label={`综合质量评分 ${report.score} 分，评级 ${report.grade}`}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={report.score}
         >
-          <strong>{report.score}</strong><span>质量分</span><em>{report.grade}</em>
+          <strong>{report.score}</strong><span>综合质量分</span><em>{report.grade}</em>
         </div>
         <div className="quality-overview"><p className="eyebrow">STATIC QUALITY REPORT</p><h3>{report.total_findings ? `发现 ${formatNumber(report.total_findings)} 项可改进问题` : "未发现规则命中的质量问题"}</h3><span>已执行 {report.rules.length} 条规则 · {report.elapsed_ms.toFixed(1)} ms</span></div>
         <div className="severity-summary"><div className="error"><strong>{report.severity_counts.error}</strong><span>高风险</span></div><div className="warning"><strong>{report.severity_counts.warning}</strong><span>中风险</span></div><div><strong>{report.severity_counts.info}</strong><span>低风险</span></div></div>
       </section>
+      {report.scope_scores && <section className="quality-scope-scores" aria-label="分范围质量评分">
+        {(["production", "test", "generated"] as const).map((scope) => {
+          const summary = report.scope_scores[scope];
+          return <article key={scope} className={summary.available && summary.grade ? `grade-${summary.grade.toLowerCase()}` : "scope-unavailable"} title={summary.exclusion_reason ?? `${summary.label}参与综合评分`}><div><strong>{summary.score ?? "--"}</strong><em>{summary.grade ?? "N/A"}</em></div><span>{summary.label}</span>{!summary.available && <small>{summary.exclusion_reason}</small>}</article>;
+        })}
+      </section>}
       <section className="quality-rules">
-        {report.rules.map((rule) => <article key={rule.id}><div><strong>{rule.title}</strong><code>{rule.id}</code></div><span>{report.rule_counts[rule.id] ?? 0}</span><p>{rule.description}</p></article>)}
+        {report.rules.map((rule) => <article key={rule.id}><div><strong>{rule.title}</strong><code>{rule.id}</code></div><span>{report.rule_counts[rule.id] ?? 0}</span></article>)}
       </section>
       <div className="quality-toolbar">
         <strong>问题明细</strong>
         <span>当前显示 {report.findings.length} / {filteredTotal}{filteredTotal !== report.total_findings ? `（全部 ${report.total_findings}）` : ""}</span>
+        <label>代码范围<select value={scopeFilter} disabled={loading} onChange={(event) => changeScope(event.target.value)}><option value="all">全部范围</option><option value="production">生产代码</option><option value="test">测试代码</option><option value="generated">生成/外部代码</option></select></label>
         <label>风险等级<select value={severityFilter} disabled={loading} onChange={(event) => changeSeverity(event.target.value)}><option value="all">全部</option><option value="error">高风险</option><option value="warning">中风险</option><option value="info">低风险</option></select></label>
         <label>检测规则<select value={ruleFilter} disabled={loading} onChange={(event) => changeRule(event.target.value)}><option value="all">全部规则</option>{report.rules.map((rule) => <option value={rule.id} key={rule.id}>{rule.title}</option>)}</select></label>
       </div>
       <section className="quality-findings">
         {report.findings.map((finding) => (
           <article className={`quality-finding severity-${finding.severity}`} key={finding.id}>
-            <div className="finding-level"><span>{severityLabels[finding.severity]}</span><code>{finding.rule_id}</code></div>
+            <div className="finding-level"><span>{severityLabels[finding.severity]}</span><code>{finding.rule_id}</code><small>{scopeLabels[finding.scope] ?? "未分类"}</small></div>
             <div className="finding-main">
               <header><div><strong>{finding.title}</strong><span>{finding.file_path}{finding.start_line ? ` · 第 ${finding.start_line}${finding.end_line && finding.end_line !== finding.start_line ? `–${finding.end_line}` : ""} 行` : ""}</span></div><small>{qualityMetricSummary(finding)}</small></header>
               <p>{finding.description}</p>
@@ -2257,7 +2984,7 @@ function QualityReportView({
             <button
               type="button"
               disabled={loading}
-              onClick={() => void onRequestPage(severityFilter, ruleFilter, report.findings.length, true)}
+              onClick={() => void onRequestPage(severityFilter, ruleFilter, scopeFilter, report.findings.length, true)}
             >
               {loading ? "LOADING..." : "LOAD_NEXT"} <span>＋{Math.min(100, filteredTotal - report.findings.length)} ROWS</span>
             </button>

@@ -14,12 +14,17 @@ from app.models.analysis import AnalysisJob
 from app.models.project import Project
 from app.schemas.project import (
     AnalysisJobResponse,
+    AnalysisSnapshotComparisonResponse,
+    AnalysisSnapshotCreateRequest,
+    AnalysisSnapshotSummaryResponse,
     CodeSymbolPageResponse,
     CodeSearchResponse,
+    ChangeImpactResponse,
     DependencyGraphResponse,
     QualityReportResponse,
     GitHubImportRequest,
     IncrementalAnalysisResponse,
+    ImpactTargetResponse,
     ImportRelationPageResponse,
     ParseIssuePageResponse,
     ProjectDetail,
@@ -28,6 +33,8 @@ from app.schemas.project import (
     ProjectStructureResponse,
     ProjectStructureSummaryResponse,
     ProjectSummary,
+    RepositoryAnswerResponse,
+    RepositoryQuestionRequest,
     ReportProviderConfigurationRequest,
 )
 from app.services.archive_service import (
@@ -54,6 +61,7 @@ from app.services.project_service import (
     remove_managed_repository,
 )
 from app.services.repository_path_service import resolve_project_storage_path
+from app.services.repository_qa_service import answer_repository_question
 from app.services.dependency_graph_service import load_dependency_graph
 from app.services.quality_service import build_quality_report
 from app.services.report_service import build_markdown_report
@@ -66,7 +74,20 @@ from app.services.report_provider_service import (
 )
 from app.services.job_service import run_github_job, run_repository_job
 from app.services.incremental_analyzer import incrementally_analyze_project
-from app.services.search_service import search_project
+from app.services.snapshot_service import (
+    SnapshotNotFoundError,
+    compare_analysis_snapshots,
+    create_analysis_snapshot,
+    delete_analysis_snapshot,
+    list_analysis_snapshots,
+)
+from app.services.impact_analysis_service import (
+    ImpactTargetNotFoundError,
+    analyze_change_impact,
+    search_impact_targets,
+)
+from app.services.search_service import remove_persisted_search_index, search_project
+from app.services.semantic_search_service import warm_project_semantic_index
 from app.services.structure_analyzer import (
     analyze_project_structure,
     load_project_imports,
@@ -388,6 +409,7 @@ def search_project_code(
     limit: int = Query(default=10, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
     database: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
     statement = (
         select(Project)
@@ -397,7 +419,9 @@ def search_project_code(
     project = database.scalar(statement)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
-    return search_project(database, project, q.strip(), limit, offset)
+    return search_project(
+        database, project, q.strip(), limit, offset, settings.search_index_root
+    )
 
 
 @router.get("/{project_id}/dependency-graph", response_model=DependencyGraphResponse)
@@ -420,6 +444,31 @@ def get_dependency_graph(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
+@router.get("/{project_id}/impact-targets", response_model=list[ImpactTargetResponse])
+def get_impact_targets(
+    project_id: int,
+    q: str = Query(min_length=1, max_length=200),
+    limit: int = Query(default=20, ge=1, le=30),
+    database: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    _ensure_project_exists(database, project_id)
+    return search_impact_targets(database, project_id, q, limit)
+
+
+@router.get("/{project_id}/impact", response_model=ChangeImpactResponse)
+def get_change_impact(
+    project_id: int,
+    target_type: str = Query(pattern="^(file|symbol)$"),
+    target_id: int = Query(ge=1),
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_project_exists(database, project_id)
+    try:
+        return analyze_change_impact(database, project_id, target_type, target_id)
+    except ImpactTargetNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+
 @router.get("/{project_id}/quality", response_model=QualityReportResponse)
 def get_quality_report(
     project_id: int,
@@ -427,6 +476,7 @@ def get_quality_report(
     offset: int = Query(default=0, ge=0),
     severity: str | None = Query(default=None, pattern="^(error|warning|info)$"),
     rule: str | None = Query(default=None, max_length=80),
+    scope: str | None = Query(default=None, pattern="^(production|test|generated)$"),
     database: Session = Depends(get_db),
 ) -> dict[str, object]:
     if database.get(Project, project_id) is None:
@@ -438,7 +488,55 @@ def get_quality_report(
         offset=offset,
         severity=severity,
         rule_id=rule,
+        scope=scope,
     )
+
+
+@router.post("/{project_id}/ask", response_model=RepositoryAnswerResponse)
+def ask_repository(
+    project_id: int,
+    request: RepositoryQuestionRequest,
+    background_tasks: BackgroundTasks,
+    database: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    project = database.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    if request.provider == "local":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="智能问答必须选择已配置的生成模型；本地规则引擎仅用于分析报告。",
+        )
+    provider = next(
+        (item for item in list_report_providers(settings) if item["id"] == request.provider),
+        None,
+    )
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown question provider.")
+    if not provider["available"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="所选生成模型尚未完成配置，请先前往 API 配置。",
+        )
+    try:
+        answer = answer_repository_question(
+            database,
+            settings,
+            project,
+            request.question,
+            request.provider,
+            [item.model_dump() for item in request.history],
+        )
+        if settings.semantic_search_enabled and int(answer["evidence_count"]) > 0:
+            background_tasks.add_task(
+                warm_project_semantic_index,
+                project.id,
+                settings.search_index_root,
+            )
+        return answer
+    except ReportProviderError as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
 
 
 @router.get("/{project_id}/report.md", response_class=Response)
@@ -494,7 +592,9 @@ def generate_project_report(
 
 @router.post("/{project_id}/reanalyze", response_model=ProjectStructureSummaryResponse)
 def reanalyze_project(
-    project_id: int, database: Session = Depends(get_db)
+    project_id: int,
+    database: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
     statement = (
         select(Project)
@@ -504,8 +604,13 @@ def reanalyze_project(
     project = database.scalar(statement)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
-    analyze_project_structure(database, project)
+    analyze_project_structure(
+        database,
+        project,
+        search_index_root=settings.search_index_root,
+    )
     database.commit()
+    create_analysis_snapshot(database, project, reason="full", use_runtime_cache=False)
     return load_project_structure_summary(database, project_id)
 
 
@@ -513,7 +618,9 @@ def reanalyze_project(
     "/{project_id}/incremental-reanalyze", response_model=IncrementalAnalysisResponse
 )
 def incremental_reanalyze_project(
-    project_id: int, database: Session = Depends(get_db)
+    project_id: int,
+    database: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
     statement = (
         select(Project)
@@ -523,7 +630,70 @@ def incremental_reanalyze_project(
     project = database.scalar(statement)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
-    return incrementally_analyze_project(database, project)
+    result = incrementally_analyze_project(
+        database,
+        project,
+        settings.search_index_root,
+    )
+    if result["added_file_count"] or result["changed_file_count"] or result["deleted_file_count"]:
+        create_analysis_snapshot(database, project, reason="incremental", use_runtime_cache=False)
+    return result
+
+
+@router.post(
+    "/{project_id}/snapshots",
+    response_model=AnalysisSnapshotSummaryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_project_snapshot(
+    project_id: int,
+    request: AnalysisSnapshotCreateRequest,
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    project = database.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    return create_analysis_snapshot(database, project, label=request.label, reason="manual")
+
+
+@router.get("/{project_id}/snapshots", response_model=list[AnalysisSnapshotSummaryResponse])
+def get_project_snapshots(
+    project_id: int, database: Session = Depends(get_db)
+) -> list[dict[str, object]]:
+    _ensure_project_exists(database, project_id)
+    return list_analysis_snapshots(database, project_id)
+
+
+@router.get(
+    "/{project_id}/snapshots/compare",
+    response_model=AnalysisSnapshotComparisonResponse,
+)
+def compare_project_snapshots(
+    project_id: int,
+    base_id: int = Query(gt=0),
+    target_id: int = Query(gt=0),
+    database: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_project_exists(database, project_id)
+    try:
+        return compare_analysis_snapshots(database, project_id, base_id, target_id)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    except SnapshotNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+
+@router.delete("/{project_id}/snapshots/{snapshot_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project_snapshot(
+    project_id: int,
+    snapshot_id: int,
+    database: Session = Depends(get_db),
+) -> None:
+    _ensure_project_exists(database, project_id)
+    try:
+        delete_analysis_snapshot(database, project_id, snapshot_id)
+    except SnapshotNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -538,6 +708,7 @@ def delete_project(
 
     storage_path = resolve_project_storage_path(project.storage_path)
     invalidate_project_analysis(database, project_id)
+    remove_persisted_search_index(settings.search_index_root, project)
     database.delete(project)
     database.commit()
     remove_managed_repository(storage_path, settings.repository_root)
@@ -582,6 +753,7 @@ def _persist_import(
             repository_path,
             source_filename=source_filename,
             project_name=project_name,
+            search_index_root=settings.search_index_root,
         )
         return get_project(project.id, database)
     except Exception:

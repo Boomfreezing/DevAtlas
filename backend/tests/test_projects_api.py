@@ -15,7 +15,7 @@ from app.core.database import Base, get_db
 from app.main import app
 from app.api.routes import projects as project_routes
 from app.services.analysis_cache import analysis_cache_stats, clear_analysis_cache
-from app.services import repository_path_service
+from app.services import repository_path_service, repository_qa_service, search_service
 
 
 @pytest.fixture
@@ -29,6 +29,8 @@ def client(tmp_path: Path) -> Generator[TestClient, None, None]:
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
         repository_root=tmp_path / "repositories",
+        search_index_root=tmp_path / "indexes",
+        semantic_search_enabled=False,
         provider_config_path=tmp_path / "report-providers.json",
         max_upload_mb=5,
     )
@@ -55,6 +57,47 @@ def make_archive(files: dict[str, str]) -> bytes:
         for filename, content in files.items():
             archive.writestr(filename, content)
     return buffer.getvalue()
+
+
+def test_analysis_snapshots_can_be_created_compared_and_deleted(client: TestClient) -> None:
+    archive = make_archive(
+        {"snapshot/main.py": "def oversized():\n" + "    value = 1\n" * 90}
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("snapshot.zip", archive, "application/zip")},
+    )
+    project_id = created.json()["id"]
+
+    initial = client.get(f"/api/projects/{project_id}/snapshots")
+    assert initial.status_code == 200
+    assert len(initial.json()) == 1
+    assert initial.json()[0]["reason"] == "import"
+
+    manual = client.post(
+        f"/api/projects/{project_id}/snapshots",
+        json={"label": "重构前"},
+    )
+    assert manual.status_code == 201
+    assert manual.json()["label"] == "重构前"
+    assert manual.json()["finding_count"] >= 1
+
+    comparison = client.get(
+        f"/api/projects/{project_id}/snapshots/compare",
+        params={"base_id": initial.json()[0]["id"], "target_id": manual.json()["id"]},
+    )
+    assert comparison.status_code == 200
+    body = comparison.json()
+    assert body["metric_changes"][0]["key"] == "score"
+    assert body["quality"]["new_count"] == 0
+    assert body["quality"]["fixed_count"] == 0
+    assert body["quality"]["persistent_count"] >= 1
+
+    deleted = client.delete(
+        f"/api/projects/{project_id}/snapshots/{manual.json()['id']}"
+    )
+    assert deleted.status_code == 204
+    assert len(client.get(f"/api/projects/{project_id}/snapshots").json()) == 1
 
 
 def test_import_limits_follow_backend_configuration(client: TestClient) -> None:
@@ -113,8 +156,10 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert quality.status_code == 200
     assert quality.json()["score"] == 100
     assert len(quality.json()["rules"]) == 6
-    assert quality.json()["scoring"]["model"] == "size_normalized_v2"
+    assert quality.json()["scoring"]["model"] == "scope_weighted_size_normalized_v3"
     assert quality.json()["scoring"]["adjusted_penalty"] == 0
+    assert quality.json()["scope_scores"]["test"]["score"] is None
+    assert quality.json()["scope_scores"]["test"]["available"] is False
 
     report = client.get(f"/api/projects/{body['id']}/report.md")
     assert report.status_code == 200
@@ -209,6 +254,228 @@ def test_code_search_supports_offset_pagination(client: TestClient) -> None:
     assert len(second_page.json()["results"]) == 1
     assert second_page.json()["offset"] == 1
     assert first_page.json()["results"][0]["chunk_id"] != second_page.json()["results"][0]["chunk_id"]
+
+
+def test_code_search_uses_inferred_concepts_for_api_routes(client: TestClient) -> None:
+    archive = make_archive(
+        {
+            "concept-search/routes.py": (
+                "from fastapi import APIRouter\n\n"
+                "router = APIRouter()\n\n"
+                "@router.post('/archives')\n"
+                "def store_archive(payload):\n"
+                "    return payload\n"
+            ),
+            "concept-search/math_utils.py": "def add(left, right):\n    return left + right\n",
+        }
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("concept-search.zip", archive, "application/zip")},
+    ).json()
+
+    response = client.get(
+        f"/api/projects/{created['id']}/search",
+        params={"q": "接口路由", "limit": 5},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["results"][0]["file_path"] == "routes.py"
+    assert "@router.post('/archives')" in response.json()["results"][0]["snippet"]
+
+
+def test_search_index_persists_across_memory_cache_resets(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive = make_archive(
+        {
+            "persistent-search/main.py": (
+                "def persistent_lookup():\n"
+                "    return 'restart-safe-index-token'\n"
+            )
+        }
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("persistent-search.zip", archive, "application/zip")},
+    ).json()
+    index_files = list((tmp_path / "indexes").glob("*.json.gz"))
+    assert len(index_files) == 1
+    assert index_files[0].stat().st_size > 0
+
+    search_service._SEARCH_CACHE.clear()
+
+    def fail_runtime_rebuild(*args: object, **kwargs: object) -> object:
+        raise AssertionError("persisted index should be loaded instead of retokenizing")
+
+    monkeypatch.setattr(search_service, "_build_runtime_search_index", fail_runtime_rebuild)
+    response = client.get(
+        f"/api/projects/{created['id']}/search",
+        params={"q": "restart-safe-index-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total_matches"] >= 1
+    assert response.json()["results"][0]["file_path"] == "main.py"
+
+    assert client.delete(f"/api/projects/{created['id']}").status_code == 204
+    assert list((tmp_path / "indexes").glob("*.json.gz")) == []
+
+
+def test_repository_questions_require_generation_provider_and_return_source_citations(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive = make_archive(
+        {
+            "qa-demo/README.md": "# QA Demo\n\nRun the project with `npm run dev`.\n",
+            "qa-demo/package.json": '{\n  "scripts": {\n    "dev": "vite",\n    "start": "node server.js"\n  }\n}\n',
+            "qa-demo/models.py": (
+                "class User:\n"
+                "    __tablename__ = \"users\"\n"
+            ),
+            "qa-demo/auth.py": (
+                "from models import User\n\n"
+                "def login_user(username, password):\n"
+                "    token = create_access_token(username)\n"
+                "    return token, User.__tablename__\n"
+            ),
+            "qa-demo/service.py": (
+                "from auth import login_user\n\n"
+                "def create_session(username, password):\n"
+                "    return login_user(username, password)\n"
+            ),
+            "qa-demo/tests/test_auth.py": (
+                "from auth import login_user\n\n"
+                "def test_login_user():\n"
+                "    assert login_user('demo', 'secret')\n"
+            ),
+            "qa-demo/upload.py": (
+                "def store_archive(payload):\n"
+                "    # 接收并保存用户上传的压缩文件\n"
+                "    return payload\n"
+            ),
+        }
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("qa-demo.zip", archive, "application/zip")},
+    ).json()
+    project_id = created["id"]
+
+    missing_provider = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "这个项目如何启动？"},
+    )
+    assert missing_provider.status_code == 422
+
+    local_provider = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "这个项目如何启动？", "provider": "local"},
+    )
+    assert local_provider.status_code == 400
+    assert "必须选择已配置的生成模型" in local_provider.json()["detail"]
+
+    configured = client.put(
+        "/api/projects/report-generators/ollama",
+        json={"base_url": "http://127.0.0.1:11434", "model": "code-model"},
+    )
+    assert configured.status_code == 200
+
+    generated_answers: list[dict[str, object]] = []
+
+    def fake_model_answer(
+        settings: Settings,
+        provider_id: str,
+        *,
+        question: str,
+        evidence: str,
+        history: list[dict[str, str]],
+    ) -> str:
+        generated_answers.append(
+            {"provider": provider_id, "question": question, "evidence": evidence, "history": history}
+        )
+        return "这是生成模型基于仓库证据给出的回答。[1]"
+
+    monkeypatch.setattr(repository_qa_service, "answer_with_report_provider", fake_model_answer)
+
+    startup = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "这个项目如何启动？", "provider": "ollama", "history": []},
+    )
+    assert startup.status_code == 200
+    startup_body = startup.json()
+    assert startup_body["provider"] == "ollama"
+    assert startup_body["engine_name"] == "ollama"
+    assert startup_body["evidence_count"] >= 1
+    assert startup_body["reference_count"] == 1
+    assert startup_body["confidence"] == "high"
+    assert startup_body["grounding_status"] == "grounded"
+    assert any(item["file_path"] == "README.md" for item in startup_body["citations"])
+    assert startup_body["answer"].startswith("这是生成模型")
+    assert generated_answers[-1]["provider"] == "ollama"
+    assert "README.md" in str(generated_answers[-1]["evidence"])
+
+    login = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "登录功能 login_user 在哪里？", "provider": "ollama"},
+    )
+    assert login.status_code == 200
+    login_body = login.json()
+    citation = next(item for item in login_body["citations"] if item["file_path"] == "auth.py")
+    assert citation["start_line"] == 3
+    assert citation["end_line"] >= 1
+    assert "login_user" in citation["snippet"]
+
+    fuzzy_symbol = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "login_usr 在哪里？", "provider": "ollama"},
+    )
+    assert fuzzy_symbol.status_code == 200
+    assert any(
+        item["file_path"] == "auth.py" and item["source"] == "symbol_fuzzy"
+        for item in fuzzy_symbol.json()["citations"]
+    )
+
+    fuzzy_chinese = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "项目在哪里处理文件上传？", "provider": "ollama"},
+    )
+    assert fuzzy_chinese.status_code == 200
+    assert any(item["file_path"] == "upload.py" for item in fuzzy_chinese.json()["citations"])
+
+    database_answer = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "login_user 接口最后访问哪张表？", "provider": "ollama"},
+    )
+    assert database_answer.status_code == 200
+    assert any(item["file_path"] == "models.py" for item in database_answer.json()["citations"])
+
+    impact = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "修改 login_user 会影响什么？", "provider": "ollama"},
+    )
+    assert impact.status_code == 200
+    impact_body = impact.json()
+    assert any(item["source"] == "dependency_relation" for item in impact_body["citations"])
+    assert any(item["file_path"] == "tests/test_auth.py" for item in impact_body["citations"])
+    assert len(generated_answers) == 6
+
+    unsupported = client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "quantum_flux_controller_x91 在哪里？", "provider": "ollama"},
+    )
+    assert unsupported.status_code == 200
+    assert unsupported.json()["evidence_count"] == 0
+    assert unsupported.json()["citations"] == []
+    assert unsupported.json()["confidence"] == "low"
+    assert unsupported.json()["grounding_status"] == "insufficient"
+    assert "[EVIDENCE_INSUFFICIENT]" in unsupported.json()["answer"]
+    assert len(generated_answers) == 6
+
+    assert client.post(
+        f"/api/projects/{project_id}/ask",
+        json={"question": "项目做什么？", "provider": "missing"},
+    ).status_code == 400
 
 
 def test_structure_endpoints_use_server_side_pagination(client: TestClient) -> None:
@@ -509,8 +776,33 @@ def test_configures_report_providers_from_the_api(
     assert openai.status_code == 200
     assert openai.json()["has_api_key"] is True
     assert "api_key" not in openai.json()
+
+    additional_providers = [
+        ("openai-chat-compatible", "https://api.deepseek.com", "deepseek-chat"),
+        ("anthropic", "https://api.anthropic.com/v1", "claude-sonnet"),
+        ("gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-flash"),
+    ]
+    for provider_id, base_url, model in additional_providers:
+        configured = client.put(
+            f"/api/projects/report-generators/{provider_id}",
+            json={"base_url": base_url, "model": model, "api_key": "provider-secret"},
+        )
+        assert configured.status_code == 200
+        assert configured.json()["configured"] is True
+        assert configured.json()["has_api_key"] is True
+        assert "api_key" not in configured.json()
+
     listed = client.get("/api/projects/report-generators").json()
     assert "secret-test-key" not in str(listed)
+    assert "provider-secret" not in str(listed)
+    assert {item["id"] for item in listed} >= {
+        "local",
+        "ollama",
+        "openai-compatible",
+        "openai-chat-compatible",
+        "anthropic",
+        "gemini",
+    }
 
     provider = ollama.json() | {
         "connection_status": "success",
@@ -596,6 +888,9 @@ def test_imports_local_folder(client: TestClient) -> None:
     assert graph_body["total_node_count"] == 2
     assert graph_body["total_edge_count"] == 1
     assert graph_body["internal_import_count"] == 1
+    assert graph_body["unresolved_import_count"] == 0
+    assert graph_body["classification_confidence"] == 100
+    assert graph_body["confidence_level"] == "high"
     assert graph_body["cycle_count"] == 0
     assert graph_body["edges"][0]["source_path"] == "src/main.ts"
     assert graph_body["edges"][0]["target_path"] == "src/utils.ts"
@@ -640,6 +935,114 @@ def test_detects_python_dependency_cycle(client: TestClient) -> None:
     assert client.get(
         f"/api/projects/{project_id}/dependency-graph", params={"cycle": 2}
     ).status_code == 404
+
+
+def test_exposes_change_impact_targets_and_report(client: TestClient) -> None:
+    archive = make_archive(
+        {
+            "impact/app/main.py": "from service import calculate\n\ndef run():\n    return calculate()\n",
+            "impact/service.py": "def calculate():\n    return 42\n",
+            "impact/tests/test_service.py": "from service import calculate\n\ndef test_calculate():\n    assert calculate() == 42\n",
+        }
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("impact.zip", archive, "application/zip")},
+    ).json()
+    project_id = created["id"]
+
+    target_response = client.get(
+        f"/api/projects/{project_id}/impact-targets", params={"q": "calculate"}
+    )
+    assert target_response.status_code == 200
+    symbol_target = next(
+        item for item in target_response.json() if item["target_type"] == "symbol"
+    )
+
+    impact_response = client.get(
+        f"/api/projects/{project_id}/impact",
+        params={"target_type": "symbol", "target_id": symbol_target["target_id"]},
+    )
+    assert impact_response.status_code == 200
+    impact = impact_response.json()
+    assert impact["target"]["name"] == "calculate"
+    assert {item["file_path"] for item in impact["direct_callers"]} == {
+        "app/main.py",
+        "tests/test_service.py",
+    }
+    assert impact["related_tests"][0]["file_path"] == "tests/test_service.py"
+    assert impact["risk"]["confidence"] == "medium"
+    assert client.get(
+        f"/api/projects/{project_id}/impact",
+        params={"target_type": "file", "target_id": 999999},
+    ).status_code == 404
+
+
+def test_resolves_typescript_aliases_base_url_and_jsonc_config(
+    client: TestClient,
+) -> None:
+    archive = make_archive(
+        {
+            "aliases/tsconfig.json": """{
+              // Alias paths are relative to baseUrl.
+              "compilerOptions": {
+                "baseUrl": ".",
+                "paths": {
+                  "@/*": ["src/*"],
+                  "@core": ["src/core/index.ts"],
+                },
+              },
+            }
+            """,
+            "aliases/src/main.ts": """
+import { answer } from '@/utils';
+import { settings } from 'src/config';
+import { core } from '@core';
+import React from 'react';
+export const run = () => answer + settings + core;
+""",
+            "aliases/src/utils.ts": "export const answer = 40;\n",
+            "aliases/src/config.ts": "export const settings = 1;\n",
+            "aliases/src/core/index.ts": "export const core = 1;\n",
+        }
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("aliases.zip", archive, "application/zip")},
+    ).json()
+
+    structure = client.get(f"/api/projects/{created['id']}/structure").json()
+    assert structure["import_count"] == 4
+    assert structure["resolved_import_count"] == 3
+    resolved_targets = {
+        item["target_module"] for item in structure["imports"] if item["resolved_file_id"]
+    }
+    assert resolved_targets == {"@/utils", "src/config", "@core"}
+
+    graph = client.get(f"/api/projects/{created['id']}/dependency-graph").json()
+    assert graph["internal_import_count"] == 3
+    assert graph["external_import_count"] == 1
+    assert graph["unresolved_import_count"] == 0
+
+
+def test_resolves_python_imports_below_a_conventional_source_root(
+    client: TestClient,
+) -> None:
+    archive = make_archive(
+        {
+            "python-root/backend/app/main.py": "import app.services.user\n",
+            "python-root/backend/app/services/user.py": "def load_user():\n    return 1\n",
+        }
+    )
+    created = client.post(
+        "/api/projects",
+        files={"archive": ("python-root.zip", archive, "application/zip")},
+    ).json()
+
+    structure = client.get(f"/api/projects/{created['id']}/structure").json()
+    assert structure["import_count"] == 1
+    assert structure["resolved_import_count"] == 1
+    assert structure["imports"][0]["target_module"] == "app.services.user"
 
 
 def test_rejects_non_github_import_url(client: TestClient) -> None:

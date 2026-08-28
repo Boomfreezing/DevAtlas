@@ -5,6 +5,8 @@ services:
       DEVATLAS_ENV: production
       DEVATLAS_DATABASE_URL: sqlite:////data/devatlas.db
       DEVATLAS_REPOSITORY_ROOT: /data/repositories
+      DEVATLAS_SEARCH_INDEX_ROOT: /data/indexes
+      DEVATLAS_SEMANTIC_SEARCH_ENABLED: "true"
       DEVATLAS_PROVIDER_CONFIG_PATH: /data/report-providers.json
       DEVATLAS_ALLOWED_ORIGINS: http://localhost:8080
     volumes:

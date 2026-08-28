@@ -15,12 +15,15 @@ frontend/test-results/
 
 data/devatlas.db
 data/report-providers.json
+data/*.log
 data/repositories/*
 !data/repositories/.gitkeep
 data/tmp/*
 !data/tmp/.gitkeep
 data/indexes/*
 !data/indexes/.gitkeep
+data/models/*
+!data/models/.gitkeep
 data/reports/*
 !data/reports/.gitkeep
 backend/data/

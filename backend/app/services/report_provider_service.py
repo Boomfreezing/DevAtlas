@@ -2,7 +2,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 
@@ -11,8 +11,8 @@ from app.core.config import Settings
 
 PROVIDER_DEFINITIONS = {
     "local": {
-        "name": "本地智能分析",
-        "description": "综合代码结构、依赖图谱与质量规则生成针对性报告。",
+        "name": "本地规则分析",
+        "description": "综合代码结构、依赖图谱与质量规则生成离线报告，不用于智能问答。",
         "endpoint": "/api/projects/{project_id}/report?generator=local",
         "cost_label": "免费 · 默认",
         "requires_configuration": False,
@@ -26,9 +26,30 @@ PROVIDER_DEFINITIONS = {
     },
     "openai-compatible": {
         "name": "OpenAI Responses API",
-        "description": "连接 OpenAI 官方或实现 Responses 协议的兼容网关；不直接支持 DeepSeek、Claude 原生 API。",
+        "description": "连接 OpenAI 官方或实现 Responses 协议的兼容网关。",
         "endpoint": "/responses",
         "cost_label": "按供应商计费",
+        "requires_configuration": True,
+    },
+    "openai-chat-compatible": {
+        "name": "Chat Completions 兼容接口",
+        "description": "兼容 DeepSeek、通义千问、Moonshot、硅基流动、OpenRouter 等常见 OpenAI 风格接口。",
+        "endpoint": "/chat/completions",
+        "cost_label": "按供应商计费",
+        "requires_configuration": True,
+    },
+    "anthropic": {
+        "name": "Anthropic Messages API",
+        "description": "连接 Anthropic 官方 Claude Messages API。",
+        "endpoint": "/messages",
+        "cost_label": "按 Anthropic 计费",
+        "requires_configuration": True,
+    },
+    "gemini": {
+        "name": "Google Gemini API",
+        "description": "连接 Google Gemini GenerateContent API。",
+        "endpoint": "/models/{model}:generateContent",
+        "cost_label": "按 Google 配额或计费",
         "requires_configuration": True,
     },
 }
@@ -44,6 +65,30 @@ DEFAULT_CONFIGS: dict[str, dict[str, Any]] = {
     },
     "openai-compatible": {
         "base_url": "https://api.openai.com/v1",
+        "model": "",
+        "api_key": "",
+        "connection_status": "untested",
+        "connection_message": "尚未测试连接",
+        "tested_at": None,
+    },
+    "openai-chat-compatible": {
+        "base_url": "https://api.deepseek.com",
+        "model": "",
+        "api_key": "",
+        "connection_status": "untested",
+        "connection_message": "尚未测试连接",
+        "tested_at": None,
+    },
+    "anthropic": {
+        "base_url": "https://api.anthropic.com/v1",
+        "model": "",
+        "api_key": "",
+        "connection_status": "untested",
+        "connection_message": "尚未测试连接",
+        "tested_at": None,
+    },
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta",
         "model": "",
         "api_key": "",
         "connection_status": "untested",
@@ -116,8 +161,8 @@ def save_report_provider(
     config["model"] = normalized_model
     if api_key is not None and api_key.strip():
         config["api_key"] = api_key.strip()
-    if provider_id == "openai-compatible" and not config["api_key"]:
-        raise ReportProviderError("OpenAI Responses API 需要填写 API Key。")
+    if _requires_api_key(provider_id) and not config["api_key"]:
+        raise ReportProviderError("该在线模型接口需要填写 API Key。")
     config["connection_status"] = "untested"
     config["connection_message"] = "配置已保存，等待连接测试"
     config["tested_at"] = None
@@ -143,11 +188,29 @@ def test_report_provider(settings: Settings, provider_id: str) -> dict[str, obje
             else:
                 message = f"Ollama 连接成功，模型 {config['model']} 可用。"
                 ok = True
-        else:
+        elif provider_id in {"openai-compatible", "openai-chat-compatible"}:
             headers = {"Authorization": f"Bearer {config['api_key']}"}
             response = httpx.get(f"{config['base_url']}/models", headers=headers, timeout=12.0)
             response.raise_for_status()
             message = "API 认证与服务地址验证成功。"
+            ok = True
+        elif provider_id == "anthropic":
+            response = httpx.get(
+                f"{config['base_url']}/models/{quote(str(config['model']), safe='')}",
+                headers=_anthropic_headers(config),
+                timeout=12.0,
+            )
+            response.raise_for_status()
+            message = "Anthropic API 认证与模型验证成功。"
+            ok = True
+        else:
+            response = httpx.get(
+                f"{config['base_url']}/models/{quote(_gemini_model_name(str(config['model'])), safe='')}",
+                headers={"x-goog-api-key": str(config["api_key"])},
+                timeout=12.0,
+            )
+            response.raise_for_status()
+            message = "Gemini API 认证与模型验证成功。"
             ok = True
     except (httpx.HTTPError, ValueError) as error:
         ok = False
@@ -175,37 +238,14 @@ def enhance_markdown_report(
     )
     prompt = f"请生成最终代码仓库分析报告：\n\n{local_report[:60_000]}"
     try:
-        if provider_id == "ollama":
-            response = httpx.post(
-                f"{config['base_url']}/api/generate",
-                json={
-                    "model": config["model"],
-                    "system": instructions,
-                    "prompt": prompt,
-                    "stream": False,
-                },
-                timeout=180.0,
-            )
-            response.raise_for_status()
-            content = str(response.json().get("response", ""))
-        else:
-            response = httpx.post(
-                f"{config['base_url']}/responses",
-                headers={
-                    "Authorization": f"Bearer {config['api_key']}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": config["model"],
-                    "instructions": instructions,
-                    "input": prompt,
-                    "store": False,
-                    "max_output_tokens": 8_000,
-                },
-                timeout=180.0,
-            )
-            response.raise_for_status()
-            content = _extract_responses_text(response.json())
+        content = _generate_provider_text(
+            provider_id,
+            config,
+            instructions=instructions,
+            prompt=prompt,
+            max_output_tokens=8_000,
+            timeout=180.0,
+        )
     except (httpx.HTTPError, ValueError) as error:
         raise ReportProviderError(_safe_connection_message(error)) from error
 
@@ -213,6 +253,43 @@ def enhance_markdown_report(
     if not content:
         raise ReportProviderError("模型返回了空报告。")
     return content + "\n"
+
+
+def answer_with_report_provider(
+    settings: Settings,
+    provider_id: str,
+    *,
+    question: str,
+    evidence: str,
+    history: list[dict[str, str]],
+) -> str:
+    _require_configurable_provider(provider_id)
+    config = _read_configs(settings.provider_config_path)[provider_id]
+    if not _is_configured(provider_id, config):
+        raise ReportProviderError("所选问答接口尚未完成配置。")
+    instructions = (
+        "你是代码仓库智能问答助手。只能依据提供的仓库证据回答，不得编造文件、函数、配置或数据库表。"
+        "每个事实结论必须使用 [1] 这样的证据编号；证据不足时明确说明。回答使用简洁中文。"
+    )
+    history_text = "\n".join(
+        f"{item.get('role', 'user')}: {item.get('content', '')[:2000]}" for item in history
+    )
+    prompt = f"会话上下文：\n{history_text or '无'}\n\n问题：{question}\n\n仓库证据：\n{evidence}"
+    try:
+        content = _generate_provider_text(
+            provider_id,
+            config,
+            instructions=instructions,
+            prompt=prompt,
+            max_output_tokens=2_000,
+            timeout=120.0,
+        )
+    except (httpx.HTTPError, ValueError) as error:
+        raise ReportProviderError(_safe_connection_message(error)) from error
+    content = _strip_markdown_fence(content.strip())
+    if not content:
+        raise ReportProviderError("模型返回了空回答。")
+    return content
 
 
 def _provider_by_id(settings: Settings, provider_id: str) -> dict[str, object]:
@@ -258,7 +335,121 @@ def _require_configurable_provider(provider_id: str) -> None:
 
 def _is_configured(provider_id: str, config: dict[str, Any]) -> bool:
     complete = bool(config["base_url"] and config["model"])
-    return complete and (provider_id != "openai-compatible" or bool(config["api_key"]))
+    return complete and (not _requires_api_key(provider_id) or bool(config["api_key"]))
+
+
+def _requires_api_key(provider_id: str) -> bool:
+    return provider_id != "ollama"
+
+
+def _generate_provider_text(
+    provider_id: str,
+    config: dict[str, Any],
+    *,
+    instructions: str,
+    prompt: str,
+    max_output_tokens: int,
+    timeout: float,
+) -> str:
+    if provider_id == "ollama":
+        response = httpx.post(
+            f"{config['base_url']}/api/generate",
+            json={
+                "model": config["model"],
+                "system": instructions,
+                "prompt": prompt,
+                "stream": False,
+            },
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return str(response.json().get("response", ""))
+
+    if provider_id == "openai-compatible":
+        response = httpx.post(
+            f"{config['base_url']}/responses",
+            headers=_bearer_headers(config),
+            json={
+                "model": config["model"],
+                "instructions": instructions,
+                "input": prompt,
+                "store": False,
+                "max_output_tokens": max_output_tokens,
+            },
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return _extract_responses_text(response.json())
+
+    if provider_id == "openai-chat-compatible":
+        response = httpx.post(
+            f"{config['base_url']}/chat/completions",
+            headers=_bearer_headers(config),
+            json={
+                "model": config["model"],
+                "messages": [
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": prompt},
+                ],
+                "max_tokens": max_output_tokens,
+                "stream": False,
+            },
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return _extract_chat_completions_text(response.json())
+
+    if provider_id == "anthropic":
+        response = httpx.post(
+            f"{config['base_url']}/messages",
+            headers=_anthropic_headers(config),
+            json={
+                "model": config["model"],
+                "system": instructions,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_output_tokens,
+                "stream": False,
+            },
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return _extract_anthropic_text(response.json())
+
+    model = quote(_gemini_model_name(str(config["model"])), safe="")
+    response = httpx.post(
+        f"{config['base_url']}/models/{model}:generateContent",
+        headers={
+            "x-goog-api-key": str(config["api_key"]),
+            "Content-Type": "application/json",
+        },
+        json={
+            "systemInstruction": {"parts": [{"text": instructions}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": max_output_tokens},
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return _extract_gemini_text(response.json())
+
+
+def _bearer_headers(config: dict[str, Any]) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {config['api_key']}",
+        "Content-Type": "application/json",
+    }
+
+
+def _anthropic_headers(config: dict[str, Any]) -> dict[str, str]:
+    return {
+        "x-api-key": str(config["api_key"]),
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+
+
+def _gemini_model_name(model: str) -> str:
+    return model.removeprefix("models/")
 
 
 def _safe_connection_message(error: Exception) -> str:
@@ -282,6 +473,51 @@ def _extract_responses_text(payload: dict[str, Any]) -> str:
             if isinstance(item, dict) and item.get("type") == "output_text":
                 parts.append(str(item.get("text", "")))
     return "\n".join(parts)
+
+
+def _extract_chat_completions_text(payload: dict[str, Any]) -> str:
+    choices = payload.get("choices", [])
+    if not choices or not isinstance(choices[0], dict):
+        return ""
+    message = choices[0].get("message", {})
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            str(item.get("text", ""))
+            for item in content
+            if isinstance(item, dict) and item.get("type") == "text"
+        )
+    return ""
+
+
+def _extract_anthropic_text(payload: dict[str, Any]) -> str:
+    content = payload.get("content", [])
+    if not isinstance(content, list):
+        return ""
+    return "\n".join(
+        str(item.get("text", ""))
+        for item in content
+        if isinstance(item, dict) and item.get("type") == "text"
+    )
+
+
+def _extract_gemini_text(payload: dict[str, Any]) -> str:
+    candidates = payload.get("candidates", [])
+    if not candidates or not isinstance(candidates[0], dict):
+        return ""
+    content = candidates[0].get("content", {})
+    if not isinstance(content, dict):
+        return ""
+    parts = content.get("parts", [])
+    if not isinstance(parts, list):
+        return ""
+    return "\n".join(
+        str(item.get("text", "")) for item in parts if isinstance(item, dict) and item.get("text")
+    )
 
 
 def _strip_markdown_fence(content: str) -> str:

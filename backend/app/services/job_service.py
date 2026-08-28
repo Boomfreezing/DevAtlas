@@ -39,6 +39,7 @@ def run_repository_job(
                 repository_path,
                 source_filename=source_filename,
                 project_name=project_name,
+                search_index_root=settings.search_index_root,
                 progress_callback=lambda stage, progress, message: _update_job(
                     session_factory,
                     job_id,

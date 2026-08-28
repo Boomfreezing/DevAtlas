@@ -114,13 +114,18 @@ def test_reports_all_quality_rules() -> None:
     assert warning_page["has_more"] is True
     assert warning_next_page["offset"] == 1
     assert warning_next_page["findings"][0]["id"] != warning_page["findings"][0]["id"]
-    assert report["scoring"]["model"] == "size_normalized_v2"
+    assert report["scoring"]["model"] == "scope_weighted_size_normalized_v3"
     assert report["scoring"]["size_factor"] == 1
     assert report["scoring"]["project_size"] == {
         "file_count": 12,
         "code_line_count": 1_420,
         "symbol_count": 2,
     }
+    assert report["score_scope"] == "composite"
+    assert report["scope_scores"]["test"]["score"] is None
+    assert report["scope_scores"]["test"]["grade"] is None
+    assert report["scope_scores"]["test"]["effective_weight"] == 0
+    assert "不参与综合评分" in report["scope_scores"]["test"]["exclusion_reason"]
     clear_analysis_cache()
     engine.dispose()
 
@@ -149,3 +154,61 @@ def test_quality_penalties_are_reduced_for_larger_projects() -> None:
     assert large_scoring["base_penalty"] == 3
     assert large_scoring["adjusted_penalty"] == 1
     assert large_error_score < large_warning_score
+
+
+def test_composite_score_weights_all_available_code_scopes() -> None:
+    clear_analysis_cache()
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as database:
+        project = Project(
+            name="scoped-quality",
+            source_filename="scoped-quality.zip",
+            storage_path=".",
+            primary_language="Python",
+        )
+        project.files = [
+            ProjectFile(
+                relative_path="src/main.py",
+                extension=".py",
+                language="Python",
+                size_bytes=100,
+                line_count=20,
+                content_hash="production",
+            ),
+            ProjectFile(
+                relative_path="tests/test_main.py",
+                extension=".py",
+                language="Python",
+                size_bytes=5_000,
+                line_count=1_200,
+                content_hash="test",
+            ),
+            ProjectFile(
+                relative_path="dist/bundle.min.js",
+                extension=".js",
+                language="JavaScript",
+                size_bytes=5_000,
+                line_count=1_300,
+                content_hash="generated",
+            ),
+        ]
+        database.add(project)
+        database.commit()
+
+        report = build_quality_report(database, project.id)
+        test_page = build_quality_report(database, project.id, scope="test")
+
+    assert report["score_scope"] == "composite"
+    assert report["score"] == 99
+    assert report["total_findings"] == 2
+    assert report["scope_scores"]["production"]["finding_count"] == 0
+    assert report["scope_scores"]["test"]["finding_count"] == 1
+    assert report["scope_scores"]["generated"]["finding_count"] == 1
+    assert report["scope_scores"]["production"]["effective_weight"] == 0.7
+    assert report["scope_scores"]["test"]["effective_weight"] == 0.2
+    assert report["scope_scores"]["generated"]["effective_weight"] == 0.1
+    assert test_page["filtered_findings"] == 1
+    assert test_page["findings"][0]["scope"] == "test"
+    clear_analysis_cache()
+    engine.dispose()

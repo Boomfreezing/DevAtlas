@@ -1,26 +1,63 @@
+import gzip
+import hashlib
+import json
 import math
 import re
 import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from pathlib import Path
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models.analysis import CodeSymbol, SearchChunk
 from app.models.project import Project, ProjectFile
 from app.services.code_parser import supports_extension
+from app.services.code_scope_service import classify_code_scope
 from app.services.repository_path_service import resolve_project_storage_path
 
 
 MAX_SEARCH_FILE_BYTES = 2 * 1024 * 1024
-MAX_CHUNK_LINES = 120
-CHUNK_OVERLAP_LINES = 20
+MAX_CHUNK_LINES = 80
+CHUNK_OVERLAP_LINES = 12
 MAX_CONTAINER_LINES = 40
+SYMBOL_CONTEXT_BEFORE_LINES = 3
+SYMBOL_CONTEXT_AFTER_LINES = 2
 MAX_CHUNK_CHARS = 16_000
 MAX_INDEX_CHUNKS = 20_000
 TOKEN_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+|[\u4e00-\u9fff]+")
 CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 SEARCH_CACHE_LIMIT = 8
+MAX_CJK_NGRAM_SOURCE_LENGTH = 512
+SEARCH_INDEX_FORMAT_VERSION = 3
+TEST_QUERY_TERMS = {"test", "tests", "spec", "coverage", "测试", "用例", "覆盖率"}
+
+CONCEPT_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(r"(?:@\w*router\.|@app\.(?:get|post|put|patch|delete)|\b(?:route|router|endpoint|controller)\b)", re.IGNORECASE),
+        "api route endpoint controller handler 接口 路由 端点",
+    ),
+    (
+        re.compile(r"(?:__tablename__|\bselect\b.+\bfrom\b|\binsert\s+into\b|\bupdate\b.+\bset\b|\bdelete\s+from\b|sqlalchemy|prisma|repository|\bdao\b)", re.IGNORECASE),
+        "database table model query persistence repository 数据库 数据表 持久化",
+    ),
+    (
+        re.compile(r"(?:os\.environ|os\.getenv|process\.env|import\.meta\.env|base_settings|dotenv|environment)", re.IGNORECASE),
+        "config settings environment env configuration 配置 环境变量",
+    ),
+    (
+        re.compile(r"(?:\b(?:raise|throw|except|catch)\b|exception|error_handler|retry)", re.IGNORECASE),
+        "error exception failure handling retry 异常 错误 失败 重试",
+    ),
+    (
+        re.compile(r"(?:\b(?:login|signin|authenticate|authorize|jwt|token|session|password)\b)", re.IGNORECASE),
+        "authentication authorization login session user 登录 认证 鉴权 会话",
+    ),
+    (
+        re.compile(r"(?:\b(?:redis|cache|memoize|lru_cache)\b)", re.IGNORECASE),
+        "cache redis caching 缓存",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -58,10 +95,19 @@ def tokenize(value: str) -> list[str]:
             for underscore_part in match.split("_"):
                 parts.extend(CAMEL_BOUNDARY.split(underscore_part))
             tokens.extend(part.lower() for part in parts if part and part.lower() != normalized)
+        elif len(normalized) > 1:
+            # Character bigrams let differently phrased Chinese questions share useful
+            # lexical evidence without requiring an external segmenter or embedding model.
+            bounded = normalized[:MAX_CJK_NGRAM_SOURCE_LENGTH]
+            tokens.extend(bounded[index : index + 2] for index in range(len(bounded) - 1))
     return tokens
 
 
-def build_project_search_index(database: Session, project: Project) -> int:
+def build_project_search_index(
+    database: Session,
+    project: Project,
+    index_root: Path | None = None,
+) -> int:
     _SEARCH_CACHE.pop(_cache_key(project), None)
     database.execute(delete(SearchChunk).where(SearchChunk.project_id == project.id))
     database.flush()
@@ -110,18 +156,20 @@ def build_project_search_index(database: Session, project: Project) -> int:
 
         covered_intervals: list[tuple[int, int]] = []
         for symbol in file_symbols:
+            context_start = max(1, symbol.start_line - SYMBOL_CONTEXT_BEFORE_LINES)
+            context_end = min(len(lines), symbol.end_line + SYMBOL_CONTEXT_AFTER_LINES)
             chunk_count += _add_range_chunks(
                 database,
                 project,
                 project_file,
                 lines,
-                symbol.start_line,
-                symbol.end_line,
+                context_start,
+                context_end,
                 symbol.qualified_name,
                 symbol.kind,
                 MAX_INDEX_CHUNKS - chunk_count,
             )
-            covered_intervals.append((symbol.start_line, symbol.end_line))
+            covered_intervals.append((context_start, context_end))
             if chunk_count >= MAX_INDEX_CHUNKS:
                 break
 
@@ -136,6 +184,16 @@ def build_project_search_index(database: Session, project: Project) -> int:
                 break
 
     database.flush()
+    if index_root is not None:
+        maximum_chunk_id = database.scalar(
+            select(func.max(SearchChunk.id)).where(SearchChunk.project_id == project.id)
+        ) or 0
+        _load_search_index(
+            database,
+            project,
+            (chunk_count, int(maximum_chunk_id)),
+            index_root,
+        )
     return chunk_count
 
 
@@ -145,17 +203,25 @@ def search_project(
     query: str,
     limit: int = 10,
     offset: int = 0,
+    index_root: Path | None = None,
 ) -> dict[str, object]:
     started = time.perf_counter()
-    indexed_chunks, maximum_chunk_id, indexed_characters = database.execute(
+    indexed_chunks, maximum_chunk_id, indexed_characters, oversized_chunks = database.execute(
         select(
             func.count(SearchChunk.id),
             func.max(SearchChunk.id),
             func.coalesce(func.sum(func.length(SearchChunk.content)), 0),
+            func.count(SearchChunk.id).filter(
+                SearchChunk.end_line - SearchChunk.start_line + 1 > MAX_CHUNK_LINES
+            ),
         ).where(SearchChunk.project_id == project.id)
     ).one()
-    if indexed_chunks == 0 or indexed_characters > indexed_chunks * MAX_CHUNK_CHARS:
-        indexed_chunks = build_project_search_index(database, project)
+    if (
+        indexed_chunks == 0
+        or indexed_characters > indexed_chunks * MAX_CHUNK_CHARS
+        or oversized_chunks > 0
+    ):
+        indexed_chunks = build_project_search_index(database, project, index_root)
         database.commit()
         maximum_chunk_id = database.scalar(
             select(func.max(SearchChunk.id)).where(SearchChunk.project_id == project.id)
@@ -166,9 +232,13 @@ def search_project(
         return _response(query, int(indexed_chunks), 0, limit, offset, started, [])
 
     index = _load_search_index(
-        database, project, (int(indexed_chunks), int(maximum_chunk_id or 0))
+        database,
+        project,
+        (int(indexed_chunks), int(maximum_chunk_id or 0)),
+        index_root,
     )
     document_count = len(index.documents)
+    test_focused_query = any(term in query.lower() for term in TEST_QUERY_TERMS)
     scored: list[tuple[float, SearchDocument]] = []
     for document in index.documents:
         score = _bm25_score(
@@ -179,6 +249,15 @@ def search_project(
             document_count,
             index.document_frequency,
         )
+        scope = classify_code_scope(document.file_path)
+        if scope == "generated":
+            score *= 0.15
+        elif scope == "test":
+            score *= 1.15 if test_focused_query else 0.55
+        else:
+            score *= 1.08
+        if document.symbol_name:
+            score = score * 1.15 + 0.35
         if score > 0:
             scored.append((score, document))
 
@@ -215,12 +294,32 @@ def search_project(
 
 
 def _load_search_index(
-    database: Session, project: Project, signature: tuple[int, int]
+    database: Session,
+    project: Project,
+    signature: tuple[int, int],
+    index_root: Path | None = None,
 ) -> SearchIndex:
     cache_key = _cache_key(project)
     cached = _SEARCH_CACHE.get(cache_key)
     if cached is not None and cached.signature == signature:
         return cached
+
+    if index_root is not None:
+        persisted = _read_persisted_search_index(index_root, project, signature)
+        if persisted is not None:
+            _remember_search_index(cache_key, persisted)
+            return persisted
+
+    index = _build_runtime_search_index(database, project, signature)
+    _remember_search_index(cache_key, index)
+    if index_root is not None:
+        _write_persisted_search_index(index_root, project, index)
+    return index
+
+
+def _build_runtime_search_index(
+    database: Session, project: Project, signature: tuple[int, int]
+) -> SearchIndex:
 
     rows = database.execute(
         select(SearchChunk, ProjectFile.relative_path)
@@ -231,7 +330,12 @@ def _load_search_index(
     document_frequency: Counter[str] = Counter()
     total_tokens = 0
     for chunk, file_path in rows:
-        boosted_metadata = f"{file_path} {chunk.symbol_name or ''} {chunk.symbol_name or ''}"
+        boosted_metadata = build_search_passage_metadata(
+            file_path,
+            chunk.symbol_name,
+            chunk.kind,
+            chunk.content,
+        )
         tokens = tokenize(f"{boosted_metadata}\n{chunk.content}")
         frequencies = Counter(tokens)
         document_frequency.update(frequencies.keys())
@@ -250,16 +354,123 @@ def _load_search_index(
                 frequencies=frequencies,
             )
         )
-    index = SearchIndex(
+    return SearchIndex(
         signature=signature,
         documents=documents,
         average_length=total_tokens / len(documents) if documents else 1.0,
         document_frequency=document_frequency,
     )
+
+
+def _remember_search_index(cache_key: tuple[str, int], index: SearchIndex) -> None:
     if len(_SEARCH_CACHE) >= SEARCH_CACHE_LIMIT:
         _SEARCH_CACHE.pop(next(iter(_SEARCH_CACHE)))
     _SEARCH_CACHE[cache_key] = index
-    return index
+
+
+def _write_persisted_search_index(
+    index_root: Path, project: Project, index: SearchIndex
+) -> None:
+    path = _persisted_index_path(index_root, project)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    payload = {
+        "version": SEARCH_INDEX_FORMAT_VERSION,
+        "storage_key": _project_storage_key(project),
+        "signature": list(index.signature),
+        "average_length": index.average_length,
+        "document_frequency": dict(index.document_frequency),
+        "documents": [
+            [
+                document.chunk_id,
+                document.file_id,
+                document.file_path,
+                document.symbol_name,
+                document.kind,
+                document.start_line,
+                document.end_line,
+                document.content,
+                document.token_count,
+                dict(document.frequencies),
+            ]
+            for document in index.documents
+        ],
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=6) as stream:
+            json.dump(payload, stream, ensure_ascii=False, separators=(",", ":"))
+        temporary.replace(path)
+    except (OSError, TypeError, ValueError):
+        temporary.unlink(missing_ok=True)
+
+
+def _read_persisted_search_index(
+    index_root: Path, project: Project, signature: tuple[int, int]
+) -> SearchIndex | None:
+    path = _persisted_index_path(index_root, project)
+    if not path.is_file():
+        return None
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as stream:
+            payload = json.load(stream)
+        if (
+            payload.get("version") != SEARCH_INDEX_FORMAT_VERSION
+            or payload.get("storage_key") != _project_storage_key(project)
+            or tuple(payload.get("signature", ())) != signature
+        ):
+            return None
+        documents = [
+            SearchDocument(
+                chunk_id=int(item[0]),
+                file_id=int(item[1]),
+                file_path=str(item[2]),
+                symbol_name=str(item[3]) if item[3] is not None else None,
+                kind=str(item[4]),
+                start_line=int(item[5]),
+                end_line=int(item[6]),
+                content=str(item[7]),
+                token_count=int(item[8]),
+                frequencies=Counter(
+                    {str(token): int(count) for token, count in dict(item[9]).items()}
+                ),
+            )
+            for item in payload["documents"]
+            if isinstance(item, list) and len(item) == 10
+        ]
+        if len(documents) != signature[0]:
+            return None
+        return SearchIndex(
+            signature=signature,
+            documents=documents,
+            average_length=float(payload["average_length"]),
+            document_frequency=Counter(
+                {
+                    str(token): int(count)
+                    for token, count in dict(payload["document_frequency"]).items()
+                }
+            ),
+        )
+    except (OSError, EOFError, KeyError, TypeError, ValueError):
+        return None
+
+
+def remove_persisted_search_index(index_root: Path, project: Project) -> None:
+    _SEARCH_CACHE.pop(_cache_key(project), None)
+    _persisted_index_path(index_root, project).unlink(missing_ok=True)
+    from app.services.semantic_search_service import remove_persisted_semantic_index
+
+    remove_persisted_semantic_index(index_root, project)
+
+
+def _persisted_index_path(index_root: Path, project: Project) -> Path:
+    digest = hashlib.sha256(_project_storage_key(project).encode("utf-8")).hexdigest()[:12]
+    return index_root.resolve() / (
+        f"project-{project.id}-{digest}-search-v{SEARCH_INDEX_FORMAT_VERSION}.json.gz"
+    )
+
+
+def _project_storage_key(project: Project) -> str:
+    return str(resolve_project_storage_path(project.storage_path))
 
 
 def _bm25_score(
@@ -286,6 +497,26 @@ def _bm25_score(
         )
         score += inverse_document_frequency * frequency * (k1 + 1) / denominator
     return score
+
+
+def build_search_passage_metadata(
+    file_path: str,
+    symbol_name: str | None,
+    kind: str,
+    content: str,
+) -> str:
+    """Create query-oriented metadata without changing source line references."""
+    normalized_path = file_path.replace("\\", "/")
+    labels = [
+        f"path {normalized_path}",
+        f"symbol {symbol_name or ''} {symbol_name or ''}",
+        f"kind {kind}",
+    ]
+    if classify_code_scope(normalized_path.lower()) == "test":
+        labels.append("test tests spec coverage 测试 用例 覆盖率")
+    combined = f"{normalized_path}\n{symbol_name or ''}\n{content[:6_000]}"
+    labels.extend(label for pattern, label in CONCEPT_PATTERNS if pattern.search(combined))
+    return "\n".join(labels)
 
 
 def _add_range_chunks(
@@ -358,12 +589,25 @@ def _make_snippet(
     content: str, start_line: int, query_tokens: list[str]
 ) -> tuple[str, int, int]:
     lines = content.splitlines()
-    match_index = 0
+    match_index: int | None = None
     for index, line in enumerate(lines):
         line_tokens = set(tokenize(line))
         if any(token in line_tokens for token in query_tokens):
             match_index = index
             break
+    if match_index is None:
+        query_token_set = set(query_tokens)
+        for pattern, labels in CONCEPT_PATTERNS:
+            if not query_token_set.intersection(tokenize(labels)):
+                continue
+            match_index = next(
+                (index for index, line in enumerate(lines) if pattern.search(line)),
+                None,
+            )
+            if match_index is not None:
+                break
+    if match_index is None:
+        match_index = 0
     start_index = max(0, match_index - 2)
     end_index = min(len(lines), match_index + 3)
     return (

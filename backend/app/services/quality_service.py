@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.analysis import CodeSymbol, ImportRelation
 from app.models.project import ProjectFile
 from app.services.analysis_cache import get_or_create_project_analysis
+from app.services.code_scope_service import CODE_SCOPES, classify_code_scope, code_scope_label
 from app.services.dependency_graph_service import find_cycles
 
 
@@ -18,10 +19,12 @@ LARGE_FILE_LINES = 1_000
 TOO_MANY_IMPORTS = 25
 HIGH_FAN_OUT = 10
 QUALITY_SCORING_MODEL = "size_normalized_v2"
+COMPOSITE_SCORING_MODEL = "scope_weighted_size_normalized_v3"
+SCOPE_SCORE_WEIGHTS = {"production": 0.70, "test": 0.20, "generated": 0.10}
 BASE_SEVERITY_WEIGHTS = {"error": 8.0, "warning": 3.0, "info": 1.0}
 REFERENCE_PROJECT_SIZE = {"files": 50, "code_lines": 10_000, "symbols": 500}
 MAX_RULE_PENALTY = 20.0
-QUALITY_CACHE_NAMESPACE = "quality_report_v1"
+QUALITY_CACHE_NAMESPACE = "quality_report_v2"
 
 QUALITY_RULES = [
     {
@@ -221,16 +224,101 @@ def _build_quality_report_snapshot(
     )
     severity_counts = Counter(str(item["severity"]) for item in findings)
     rule_counts = Counter(str(item["rule_id"]) for item in findings)
-    score, scoring = _quality_score(
+    files_by_scope = {
+        scope: [item for item in files if classify_code_scope(item.relative_path) == scope]
+        for scope in CODE_SCOPES
+    }
+    symbols_by_scope = {
+        scope: [
+            item
+            for item in symbols
+            if item.file_id in {project_file.id for project_file in files_by_scope[scope]}
+        ]
+        for scope in CODE_SCOPES
+    }
+    findings_by_scope = {
+        scope: [item for item in findings if item["scope"] == scope]
+        for scope in CODE_SCOPES
+    }
+    scope_scores: dict[str, dict[str, object]] = {}
+    available_weight = sum(
+        SCOPE_SCORE_WEIGHTS[scope] for scope in CODE_SCOPES if files_by_scope[scope]
+    )
+    for scope in CODE_SCOPES:
+        scoped_findings = findings_by_scope[scope]
+        scoped_files = files_by_scope[scope]
+        available = bool(scoped_files)
+        if available:
+            scoped_score, scoped_scoring = _quality_score(
+                scoped_findings,
+                file_count=len(scoped_files),
+                code_line_count=sum(item.line_count for item in scoped_files),
+                symbol_count=len(symbols_by_scope[scope]),
+            )
+            scoped_grade: str | None = _grade(scoped_score)
+            effective_weight = SCOPE_SCORE_WEIGHTS[scope] / available_weight
+        else:
+            scoped_score = None
+            scoped_grade = None
+            effective_weight = 0.0
+        scoped_severity_counts = Counter(str(item["severity"]) for item in scoped_findings)
+        scope_scores[scope] = {
+            "scope": scope,
+            "label": code_scope_label(scope),
+            "score": scoped_score,
+            "grade": scoped_grade,
+            "available": available,
+            "configured_weight": SCOPE_SCORE_WEIGHTS[scope],
+            "effective_weight": round(effective_weight, 4),
+            "exclusion_reason": None if available else f"未检测到{code_scope_label(scope)}文件，不参与综合评分。",
+            "finding_count": len(scoped_findings),
+            "severity_counts": {
+                "error": scoped_severity_counts["error"],
+                "warning": scoped_severity_counts["warning"],
+                "info": scoped_severity_counts["info"],
+            },
+            "project_size": {
+                "file_count": len(scoped_files),
+                "code_line_count": sum(item.line_count for item in scoped_files),
+                "symbol_count": len(symbols_by_scope[scope]),
+            },
+        }
+    score = round(
+        sum(
+            int(scope_scores[scope]["score"]) * float(scope_scores[scope]["effective_weight"])
+            for scope in CODE_SCOPES
+            if scope_scores[scope]["available"]
+        )
+    )
+    _, scoring = _quality_score(
         findings,
         file_count=len(files),
         code_line_count=sum(item.line_count for item in files),
         symbol_count=len(symbols),
     )
+    scoring.update(
+        {
+            "model": COMPOSITE_SCORING_MODEL,
+            "adjusted_penalty": 100 - score,
+            "scope_weights": SCOPE_SCORE_WEIGHTS,
+            "effective_scope_weights": {
+                scope: scope_scores[scope]["effective_weight"] for scope in CODE_SCOPES
+            },
+            "excluded_scopes": [
+                scope for scope in CODE_SCOPES if not scope_scores[scope]["available"]
+            ],
+            "explanation": (
+                "综合分由生产代码、测试代码、生成/外部代码按 70%、20%、10% 加权；"
+                "不存在的代码范围不计 100 分且不参与评分，其权重按比例分配给已有范围。"
+            ),
+        }
+    )
     return {
         "score": score,
         "grade": _grade(score),
+        "score_scope": "composite",
         "scoring": scoring,
+        "scope_scores": scope_scores,
         "total_findings": len(findings),
         "severity_counts": {
             "error": severity_counts["error"],
@@ -250,20 +338,17 @@ def build_quality_report(
     offset: int = 0,
     severity: str | None = None,
     rule_id: str | None = None,
+    scope: str | None = None,
 ) -> dict[str, object]:
     started = time.perf_counter()
-    snapshot = get_or_create_project_analysis(
-        database,
-        project_id,
-        QUALITY_CACHE_NAMESPACE,
-        lambda: _build_quality_report_snapshot(database, project_id),
-    )
+    snapshot = load_quality_snapshot(database, project_id)
     findings = cast(tuple[dict[str, object], ...], snapshot["findings"])
     filtered_findings = [
         finding
         for finding in findings
         if (severity is None or finding["severity"] == severity)
         and (rule_id is None or finding["rule_id"] == rule_id)
+        and (scope is None or finding["scope"] == scope)
     ]
     page = filtered_findings[offset:offset + limit]
     return {
@@ -276,6 +361,21 @@ def build_quality_report(
         "truncated": offset + len(page) < len(filtered_findings),
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
     }
+
+
+def load_quality_snapshot(database: Session, project_id: int) -> dict[str, object]:
+    """Return the complete cached quality result for non-paginated consumers."""
+    return get_or_create_project_analysis(
+        database,
+        project_id,
+        QUALITY_CACHE_NAMESPACE,
+        lambda: build_quality_snapshot(database, project_id),
+    )
+
+
+def build_quality_snapshot(database: Session, project_id: int) -> dict[str, object]:
+    """Build the full quality result without reading or populating the runtime cache."""
+    return _build_quality_report_snapshot(database, project_id)
 
 
 def _finding(
@@ -294,6 +394,7 @@ def _finding(
         "id": f"{rule_id}:{project_file.id}:{start_line or 0}",
         "rule_id": rule_id,
         "severity": severity,
+        "scope": classify_code_scope(project_file.relative_path),
         "title": rule["title"],
         "description": description,
         "suggestion": suggestion,

@@ -1,6 +1,9 @@
+import json
 import posixpath
+import re
 from collections.abc import Callable
-from pathlib import PurePosixPath
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 
 from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -13,12 +16,22 @@ from app.services.repository_path_service import resolve_project_storage_path
 
 
 MAX_PARSE_FILE_BYTES = 2 * 1024 * 1024
+JAVASCRIPT_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
+SOURCE_ROOT_DIRECTORIES = {"src", "backend", "server", "python"}
+
+
+@dataclass(frozen=True)
+class JavascriptImportConfig:
+    directory: str
+    base_url: str
+    paths: dict[str, tuple[str, ...]]
 
 
 def analyze_project_structure(
     database: Session,
     project: Project,
     progress_callback: Callable[[str, int, str], None] | None = None,
+    search_index_root: Path | None = None,
 ) -> None:
     invalidate_project_analysis(database, project.id)
     database.execute(delete(SearchChunk).where(SearchChunk.project_id == project.id))
@@ -33,12 +46,12 @@ def analyze_project_structure(
 
     if progress_callback is not None:
         database.commit()
-        progress_callback("indexing", 86, "正在建立 BM25 代码搜索索引")
+        progress_callback("indexing", 86, "正在建立并持久化 BM25 代码搜索索引")
 
     # Rebuild search chunks from the freshly persisted symbol line ranges.
     from app.services.search_service import build_project_search_index
 
-    build_project_search_index(database, project)
+    build_project_search_index(database, project, search_index_root)
 
 
 def analyze_project_file_subset(
@@ -59,7 +72,7 @@ def analyze_project_file_subset(
         )
     )
     _parse_project_files(database, project, project_files, all_files)
-    _refresh_import_resolutions(database, project.id, all_files)
+    _refresh_import_resolutions(database, project, all_files)
     database.flush()
 
 
@@ -72,6 +85,7 @@ def _parse_project_files(
     repository_root = resolve_project_storage_path(project.storage_path)
     file_by_path = {item.relative_path: item for item in all_files}
     module_index = _build_python_module_index(all_files)
+    javascript_configs = _load_javascript_import_configs(repository_root, all_files)
 
     for project_file in files_to_parse:
         if not supports_extension(project_file.extension):
@@ -110,6 +124,7 @@ def _parse_project_files(
                 imported.target_module,
                 file_by_path,
                 module_index,
+                javascript_configs,
             )
             database.add(
                 ImportRelation(
@@ -127,20 +142,26 @@ def _parse_project_files(
 
 
 def _refresh_import_resolutions(
-    database: Session, project_id: int, all_files: list[ProjectFile]
+    database: Session, project: Project, all_files: list[ProjectFile]
 ) -> None:
     file_by_path = {item.relative_path: item for item in all_files}
     file_by_id = {item.id: item for item in all_files}
     module_index = _build_python_module_index(all_files)
+    repository_root = resolve_project_storage_path(project.storage_path)
+    javascript_configs = _load_javascript_import_configs(repository_root, all_files)
     relations = database.scalars(
-        select(ImportRelation).where(ImportRelation.project_id == project_id)
+        select(ImportRelation).where(ImportRelation.project_id == project.id)
     )
     for relation in relations:
         source_file = file_by_id.get(relation.file_id)
         if source_file is None:
             continue
         resolved = _resolve_import(
-            source_file, relation.target_module, file_by_path, module_index
+            source_file,
+            relation.target_module,
+            file_by_path,
+            module_index,
+            javascript_configs,
         )
         relation.resolved_file_id = resolved.id if resolved else None
 
@@ -159,15 +180,24 @@ def _add_issue(
 
 
 def _build_python_module_index(files: list[ProjectFile]) -> dict[str, ProjectFile]:
-    index: dict[str, ProjectFile] = {}
+    candidates: dict[str, list[ProjectFile]] = {}
     for item in files:
         if item.extension != ".py":
             continue
         module = item.relative_path[:-3].replace("/", ".")
         if module.endswith(".__init__"):
             module = module.removesuffix(".__init__")
-        index[module] = item
-    return index
+        aliases = {module}
+        parts = module.split(".")
+        if len(parts) > 1 and parts[0] in SOURCE_ROOT_DIRECTORIES:
+            aliases.add(".".join(parts[1:]))
+        for alias in aliases:
+            candidates.setdefault(alias, []).append(item)
+    return {
+        module: matches[0]
+        for module, matches in candidates.items()
+        if len(matches) == 1
+    }
 
 
 def _resolve_import(
@@ -175,6 +205,7 @@ def _resolve_import(
     target: str,
     file_by_path: dict[str, ProjectFile],
     module_index: dict[str, ProjectFile],
+    javascript_configs: tuple[JavascriptImportConfig, ...] = (),
 ) -> ProjectFile | None:
     if source_file.extension == ".py":
         module = target
@@ -186,16 +217,107 @@ def _resolve_import(
             module = ".".join([*source_parts[:keep], *([suffix] if suffix else [])])
         return module_index.get(module)
 
-    if not target.startswith("."):
-        return None
     source_directory = PurePosixPath(source_file.relative_path).parent.as_posix()
-    normalized = posixpath.normpath(posixpath.join(source_directory, target))
+    if target.startswith("."):
+        return _resolve_javascript_path(
+            posixpath.join(source_directory, target), file_by_path
+        )
+
+    for config in _applicable_javascript_configs(source_file.relative_path, javascript_configs):
+        for pattern, replacements in config.paths.items():
+            wildcard = _match_path_alias(pattern, target)
+            if wildcard is None:
+                continue
+            for replacement in replacements:
+                substituted = replacement.replace("*", wildcard)
+                resolved = _resolve_javascript_path(
+                    posixpath.join(config.base_url, substituted), file_by_path
+                )
+                if resolved is not None:
+                    return resolved
+        resolved = _resolve_javascript_path(
+            posixpath.join(config.base_url, target), file_by_path
+        )
+        if resolved is not None:
+            return resolved
+
+    return _resolve_javascript_path(target.lstrip("/"), file_by_path)
+
+
+def _resolve_javascript_path(
+    candidate_path: str, file_by_path: dict[str, ProjectFile]
+) -> ProjectFile | None:
+    normalized = posixpath.normpath(candidate_path).removeprefix("./")
+    if normalized == ".." or normalized.startswith("../"):
+        return None
     candidates = [
         normalized,
-        *(f"{normalized}{extension}" for extension in (".ts", ".tsx", ".js", ".jsx")),
-        *(f"{normalized}/index{extension}" for extension in (".ts", ".tsx", ".js", ".jsx")),
+        *(f"{normalized}{extension}" for extension in JAVASCRIPT_EXTENSIONS),
+        f"{normalized}.d.ts",
+        *(f"{normalized}/index{extension}" for extension in JAVASCRIPT_EXTENSIONS),
+        f"{normalized}/index.d.ts",
     ]
-    return next((file_by_path[candidate] for candidate in candidates if candidate in file_by_path), None)
+    return next((file_by_path[path] for path in candidates if path in file_by_path), None)
+
+
+def _load_javascript_import_configs(
+    repository_root: Path, files: list[ProjectFile]
+) -> tuple[JavascriptImportConfig, ...]:
+    configs: list[JavascriptImportConfig] = []
+    for item in files:
+        if PurePosixPath(item.relative_path).name not in {"tsconfig.json", "jsconfig.json"}:
+            continue
+        config_path = repository_root / item.relative_path
+        try:
+            raw = config_path.read_text(encoding="utf-8-sig")
+            data = json.loads(_strip_json_comments_and_trailing_commas(raw))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+        compiler_options = data.get("compilerOptions", {})
+        if not isinstance(compiler_options, dict):
+            continue
+        directory = PurePosixPath(item.relative_path).parent.as_posix()
+        directory = "" if directory == "." else directory
+        base_url_value = compiler_options.get("baseUrl", ".")
+        base_url = posixpath.normpath(
+            posixpath.join(directory, str(base_url_value))
+        ).removeprefix("./")
+        raw_paths = compiler_options.get("paths", {})
+        paths = {
+            str(pattern): tuple(str(value) for value in values)
+            for pattern, values in raw_paths.items()
+            if isinstance(values, list)
+        } if isinstance(raw_paths, dict) else {}
+        configs.append(JavascriptImportConfig(directory, base_url, paths))
+    return tuple(sorted(configs, key=lambda config: len(config.directory), reverse=True))
+
+
+def _applicable_javascript_configs(
+    source_path: str, configs: tuple[JavascriptImportConfig, ...]
+) -> list[JavascriptImportConfig]:
+    return [
+        config
+        for config in configs
+        if not config.directory
+        or source_path == config.directory
+        or source_path.startswith(f"{config.directory}/")
+    ]
+
+
+def _match_path_alias(pattern: str, target: str) -> str | None:
+    if "*" not in pattern:
+        return "" if pattern == target else None
+    prefix, suffix = pattern.split("*", 1)
+    if not target.startswith(prefix) or not target.endswith(suffix):
+        return None
+    end = len(target) - len(suffix) if suffix else len(target)
+    return target[len(prefix):end]
+
+
+def _strip_json_comments_and_trailing_commas(raw: str) -> str:
+    without_block_comments = re.sub(r"/\*.*?\*/", "", raw, flags=re.DOTALL)
+    without_line_comments = re.sub(r"(^|\s)//.*?$", r"\1", without_block_comments, flags=re.MULTILINE)
+    return re.sub(r",\s*([}\]])", r"\1", without_line_comments)
 
 
 def load_project_structure(database: Session, project_id: int) -> dict[str, object]:

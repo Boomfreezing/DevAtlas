@@ -83,7 +83,6 @@ def _walk(
         ParsedImport(target_module=target, line_number=node.start_point.row + 1)
         for target in imported_targets
     )
-
     for child in node.named_children:
         _walk(child, source, extension, next_parents, symbols, imports)
 

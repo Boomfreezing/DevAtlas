@@ -10,6 +10,7 @@ from app.models.project import Project, ProjectFile
 from app.services.repository_scanner import scan_repository
 from app.services.repository_path_service import resolve_project_storage_path
 from app.services.structure_analyzer import analyze_project_structure
+from app.services.snapshot_service import create_analysis_snapshot
 
 
 def create_scanned_project(
@@ -18,6 +19,7 @@ def create_scanned_project(
     source_filename: str,
     project_name: str,
     progress_callback: Callable[[str, int, str], None] | None = None,
+    search_index_root: Path | None = None,
 ) -> Project:
     _notify(progress_callback, "scanning", 35, "正在扫描仓库文件")
     result = scan_repository(repository_path)
@@ -47,10 +49,11 @@ def create_scanned_project(
     if progress_callback is not None:
         database.commit()
     _notify(progress_callback, "parsing", 58, "正在解析函数、类和导入关系")
-    analyze_project_structure(database, project, progress_callback)
+    analyze_project_structure(database, project, progress_callback, search_index_root)
     project.status = "ready"
     database.commit()
     database.refresh(project)
+    create_analysis_snapshot(database, project, reason="import", use_runtime_cache=False)
     _notify(progress_callback, "finalizing", 96, "正在整理分析结果")
     return project
 
