@@ -33,8 +33,12 @@ function Invoke-ProjectVerification {
     $posixVenvPython = Join-Path $backendRoot ".venv/bin/python"
     $pythonCommand = if (Test-Path -LiteralPath $venvPython) { $venvPython }
         elseif (Test-Path -LiteralPath $posixVenvPython) { $posixVenvPython }
-        else { "python" }
-    $npmCommand = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" } else { "npm" }
+        elseif (Get-Command python -ErrorAction SilentlyContinue) { "python" }
+        elseif (Get-Command python3 -ErrorAction SilentlyContinue) { "python3" }
+        else { throw "Python was not found. Create backend/.venv or install Python 3.11+." }
+    $npmCommand = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" }
+        elseif (Get-Command npm -ErrorAction SilentlyContinue) { "npm" }
+        else { throw "npm was not found. Install a supported Node.js release before verification." }
 
     # Keep verification away from daily data, provider settings and the system temp
     # directory. Restore the caller's environment on success AND on failure.

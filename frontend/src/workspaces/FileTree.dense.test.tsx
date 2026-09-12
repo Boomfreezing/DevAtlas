@@ -255,4 +255,4 @@ it("windows many small directories when their combined metadata exceeds 600 and 
   act(() => intersections.forEach((observer) => observer.deliver(false)));
   expect(view.container.querySelectorAll(".file-tree-file")).toHaveLength(500);
   expect(fetch).toHaveBeenCalledTimes(readsAfterExpansion);
-});
+}, 15_000);

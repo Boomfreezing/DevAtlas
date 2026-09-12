@@ -117,21 +117,29 @@ git clone https://github.com/Boomfreezing/DevAtlas.git
 cd DevAtlas
 ```
 
-2. 启动后端：
+2. 启动后端。Windows PowerShell：
 
 ```powershell
 cd backend
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-python -m uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-3. 在另一个终端启动前端：
+Linux / macOS：
 
-```powershell
+```bash
+cd backend
+python3 -m venv .venv
+./.venv/bin/python -m pip install -e ".[dev]"
+./.venv/bin/python -m uvicorn app.main:app --reload
+```
+
+3. 在另一个终端启动前端，各平台命令相同：
+
+```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -247,6 +255,14 @@ docker compose up --build
 ```powershell
 .\scripts\verify_project.ps1
 ```
+
+Linux 或 macOS 已安装 PowerShell 7 时执行：
+
+```bash
+pwsh -File ./scripts/verify_project.ps1
+```
+
+脚本识别 Windows 的 `.venv/Scripts/python.exe` 和 POSIX 的 `.venv/bin/python`；没有虚拟环境时依次查找 `python`、`python3`。未安装 PowerShell 7 时可使用下方分项命令，本项目暂不宣称提供已验证的 Bash 一键脚本。跨平台验收范围见[兼容性记录](./docs/PORTABILITY.md)。
 
 脚本串联文档链接、Ruff、严格资源警告与覆盖率检查、36 道合成检索题、前端单测/构建及浏览器回归。运行环境隔离在项目内 `data/tmp/verification/run-*`：使用独立数据库、仓库目录、索引和空模型配置，关闭语义模型联网；成功或失败后均恢复当前进程原有环境变量。不会下载真实语料或调用生成模型，依赖须预先安装。
 
