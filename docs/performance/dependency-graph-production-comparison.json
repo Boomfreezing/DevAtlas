@@ -1,0 +1,1166 @@
+{
+  "schema_version": 1,
+  "baseline": "dependency-graph-production-baseline.json",
+  "after": "dependency-graph-production-after.json",
+  "method": "Three-sample medians per fixture and action. Negative change_percent means a lower measured duration. Paired raw samples have identical fixture hashes, node/edge/cycle/label/element counts for every action. Timing includes automation and two animation frames; timings are descriptive, not a statistical significance test. Forced-GC JS heap is not browser RSS. Script source hashes refer to measurement time; after baseline, only the unused import and graphDOM formatting changed in the timed harness, not fixtures, action order, metrics or timing intervals.",
+  "results": [
+    {
+      "focus_size": 240,
+      "actions": [
+        {
+          "action": "initial_graph_open",
+          "automation_and_two_frames_ms": {
+            "baseline": 107.46,
+            "after": 101.91,
+            "change_percent": -5.16
+          },
+          "browser_script_ms": {
+            "baseline": 11.73,
+            "after": 9.42,
+            "change_percent": -19.69
+          },
+          "browser_task_ms": {
+            "baseline": 53.84,
+            "after": 48.97,
+            "change_percent": -9.05
+          },
+          "browser_layout_ms": {
+            "baseline": 25.66,
+            "after": 22.08,
+            "change_percent": -13.95
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 4.41,
+            "after": 3.83,
+            "change_percent": -13.15
+          }
+        },
+        {
+          "action": "default_40_node_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 28.16,
+            "after": 33.84,
+            "change_percent": 20.17
+          },
+          "browser_script_ms": {
+            "baseline": 2.37,
+            "after": 1.9,
+            "change_percent": -19.83
+          },
+          "browser_task_ms": {
+            "baseline": 14.26,
+            "after": 14.24,
+            "change_percent": -0.14
+          },
+          "browser_layout_ms": {
+            "baseline": 0.71,
+            "after": 0.78,
+            "change_percent": 9.86
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.44,
+            "after": 0.48,
+            "change_percent": 9.09
+          }
+        },
+        {
+          "action": "default_40_edge_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 30.38,
+            "after": 36.47,
+            "change_percent": 20.05
+          },
+          "browser_script_ms": {
+            "baseline": 1.72,
+            "after": 1.29,
+            "change_percent": -25
+          },
+          "browser_task_ms": {
+            "baseline": 13.97,
+            "after": 14.34,
+            "change_percent": 2.65
+          },
+          "browser_layout_ms": {
+            "baseline": 3.46,
+            "after": 3.28,
+            "change_percent": -5.2
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.58,
+            "after": 0.63,
+            "change_percent": 8.62
+          }
+        },
+        {
+          "action": "default_40_edge_back",
+          "automation_and_two_frames_ms": {
+            "baseline": 46.32,
+            "after": 46.64,
+            "change_percent": 0.69
+          },
+          "browser_script_ms": {
+            "baseline": 1.82,
+            "after": 1.43,
+            "change_percent": -21.43
+          },
+          "browser_task_ms": {
+            "baseline": 14.68,
+            "after": 14.71,
+            "change_percent": 0.2
+          },
+          "browser_layout_ms": {
+            "baseline": 0.68,
+            "after": 0.63,
+            "change_percent": -7.35
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.62,
+            "after": 0.72,
+            "change_percent": 16.13
+          }
+        },
+        {
+          "action": "default_40_zoom_in",
+          "automation_and_two_frames_ms": {
+            "baseline": 41.26,
+            "after": 42.97,
+            "change_percent": 4.14
+          },
+          "browser_script_ms": {
+            "baseline": 0.45,
+            "after": 0.48,
+            "change_percent": 6.67
+          },
+          "browser_task_ms": {
+            "baseline": 12.23,
+            "after": 11.39,
+            "change_percent": -6.87
+          },
+          "browser_layout_ms": {
+            "baseline": 2.02,
+            "after": 1.78,
+            "change_percent": -11.88
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.31,
+            "after": 0.29,
+            "change_percent": -6.45
+          }
+        },
+        {
+          "action": "default_40_zoom_out",
+          "automation_and_two_frames_ms": {
+            "baseline": 38.52,
+            "after": 33.07,
+            "change_percent": -14.15
+          },
+          "browser_script_ms": {
+            "baseline": 0.53,
+            "after": 0.47,
+            "change_percent": -11.32
+          },
+          "browser_task_ms": {
+            "baseline": 7.55,
+            "after": 6.35,
+            "change_percent": -15.89
+          },
+          "browser_layout_ms": {
+            "baseline": 1.11,
+            "after": 0.87,
+            "change_percent": -21.62
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.3,
+            "after": 0.16,
+            "change_percent": -46.67
+          }
+        },
+        {
+          "action": "default_40_filter_hit",
+          "automation_and_two_frames_ms": {
+            "baseline": 29.58,
+            "after": 30.58,
+            "change_percent": 3.38
+          },
+          "browser_script_ms": {
+            "baseline": 2.25,
+            "after": 2,
+            "change_percent": -11.11
+          },
+          "browser_task_ms": {
+            "baseline": 9.81,
+            "after": 10.29,
+            "change_percent": 4.89
+          },
+          "browser_layout_ms": {
+            "baseline": 0.81,
+            "after": 0.76,
+            "change_percent": -6.17
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.76,
+            "after": 0.83,
+            "change_percent": 9.21
+          }
+        },
+        {
+          "action": "default_40_filter_nohit",
+          "automation_and_two_frames_ms": {
+            "baseline": 22.08,
+            "after": 30.19,
+            "change_percent": 36.73
+          },
+          "browser_script_ms": {
+            "baseline": 0.59,
+            "after": 0.75,
+            "change_percent": 27.12
+          },
+          "browser_task_ms": {
+            "baseline": 6.6,
+            "after": 8.5,
+            "change_percent": 28.79
+          },
+          "browser_layout_ms": {
+            "baseline": 2.73,
+            "after": 3.34,
+            "change_percent": 22.34
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.14,
+            "after": 0.24,
+            "change_percent": 71.43
+          }
+        },
+        {
+          "action": "default_40_filter_clear",
+          "automation_and_two_frames_ms": {
+            "baseline": 39.5,
+            "after": 31.28,
+            "change_percent": -20.81
+          },
+          "browser_script_ms": {
+            "baseline": 3.83,
+            "after": 2.54,
+            "change_percent": -33.68
+          },
+          "browser_task_ms": {
+            "baseline": 21.19,
+            "after": 16.09,
+            "change_percent": -24.07
+          },
+          "browser_layout_ms": {
+            "baseline": 1.44,
+            "after": 1.36,
+            "change_percent": -5.56
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 2.38,
+            "after": 2.16,
+            "change_percent": -9.24
+          }
+        },
+        {
+          "action": "cycle_focus",
+          "automation_and_two_frames_ms": {
+            "baseline": 113.9,
+            "after": 104.74,
+            "change_percent": -8.04
+          },
+          "browser_script_ms": {
+            "baseline": 23.55,
+            "after": 17.05,
+            "change_percent": -27.6
+          },
+          "browser_task_ms": {
+            "baseline": 76.5,
+            "after": 71.77,
+            "change_percent": -6.18
+          },
+          "browser_layout_ms": {
+            "baseline": 9.51,
+            "after": 10.35,
+            "change_percent": 8.83
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 17.57,
+            "after": 18.11,
+            "change_percent": 3.07
+          }
+        },
+        {
+          "action": "focused_240_node_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 40.6,
+            "after": 34.69,
+            "change_percent": -14.56
+          },
+          "browser_script_ms": {
+            "baseline": 3.49,
+            "after": 2.93,
+            "change_percent": -16.05
+          },
+          "browser_task_ms": {
+            "baseline": 31.14,
+            "after": 25.81,
+            "change_percent": -17.12
+          },
+          "browser_layout_ms": {
+            "baseline": 0.74,
+            "after": 0.71,
+            "change_percent": -4.05
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.74,
+            "after": 0.75,
+            "change_percent": 1.35
+          }
+        },
+        {
+          "action": "focused_240_edge_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 58.37,
+            "after": 45.17,
+            "change_percent": -22.61
+          },
+          "browser_script_ms": {
+            "baseline": 1.21,
+            "after": 1.04,
+            "change_percent": -14.05
+          },
+          "browser_task_ms": {
+            "baseline": 27.37,
+            "after": 24.17,
+            "change_percent": -11.69
+          },
+          "browser_layout_ms": {
+            "baseline": 0.66,
+            "after": 0.68,
+            "change_percent": 3.03
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.84,
+            "after": 0.86,
+            "change_percent": 2.38
+          }
+        },
+        {
+          "action": "focused_240_edge_back",
+          "automation_and_two_frames_ms": {
+            "baseline": 135.99,
+            "after": 131.38,
+            "change_percent": -3.39
+          },
+          "browser_script_ms": {
+            "baseline": 1.49,
+            "after": 1.56,
+            "change_percent": 4.7
+          },
+          "browser_task_ms": {
+            "baseline": 66.21,
+            "after": 38.17,
+            "change_percent": -42.35
+          },
+          "browser_layout_ms": {
+            "baseline": 0.93,
+            "after": 1.15,
+            "change_percent": 23.66
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.99,
+            "after": 1.24,
+            "change_percent": 25.25
+          }
+        },
+        {
+          "action": "focused_240_zoom_in",
+          "automation_and_two_frames_ms": {
+            "baseline": 76.6,
+            "after": 75.36,
+            "change_percent": -1.62
+          },
+          "browser_script_ms": {
+            "baseline": 0.46,
+            "after": 0.43,
+            "change_percent": -6.52
+          },
+          "browser_task_ms": {
+            "baseline": 25.75,
+            "after": 21.17,
+            "change_percent": -17.79
+          },
+          "browser_layout_ms": {
+            "baseline": 5.79,
+            "after": 4.38,
+            "change_percent": -24.35
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.38,
+            "after": 0.28,
+            "change_percent": -26.32
+          }
+        },
+        {
+          "action": "focused_240_zoom_out",
+          "automation_and_two_frames_ms": {
+            "baseline": 69.3,
+            "after": 83.77,
+            "change_percent": 20.88
+          },
+          "browser_script_ms": {
+            "baseline": 0.46,
+            "after": 0.47,
+            "change_percent": 2.17
+          },
+          "browser_task_ms": {
+            "baseline": 22.39,
+            "after": 15.28,
+            "change_percent": -31.76
+          },
+          "browser_layout_ms": {
+            "baseline": 6.49,
+            "after": 4.56,
+            "change_percent": -29.74
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.29,
+            "after": 0.28,
+            "change_percent": -3.45
+          }
+        },
+        {
+          "action": "focused_240_filter_hit",
+          "automation_and_two_frames_ms": {
+            "baseline": 37.51,
+            "after": 34.65,
+            "change_percent": -7.62
+          },
+          "browser_script_ms": {
+            "baseline": 6.14,
+            "after": 5.46,
+            "change_percent": -11.07
+          },
+          "browser_task_ms": {
+            "baseline": 16.86,
+            "after": 15.14,
+            "change_percent": -10.2
+          },
+          "browser_layout_ms": {
+            "baseline": 1.01,
+            "after": 0.92,
+            "change_percent": -8.91
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.87,
+            "after": 0.83,
+            "change_percent": -4.6
+          }
+        },
+        {
+          "action": "focused_240_filter_nohit",
+          "automation_and_two_frames_ms": {
+            "baseline": 21.51,
+            "after": 25.32,
+            "change_percent": 17.71
+          },
+          "browser_script_ms": {
+            "baseline": 0.6,
+            "after": 0.55,
+            "change_percent": -8.33
+          },
+          "browser_task_ms": {
+            "baseline": 7.98,
+            "after": 5.27,
+            "change_percent": -33.96
+          },
+          "browser_layout_ms": {
+            "baseline": 0.33,
+            "after": 0.29,
+            "change_percent": -12.12
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.15,
+            "after": 0.2,
+            "change_percent": 33.33
+          }
+        },
+        {
+          "action": "focused_240_filter_clear",
+          "automation_and_two_frames_ms": {
+            "baseline": 98.78,
+            "after": 89.15,
+            "change_percent": -9.75
+          },
+          "browser_script_ms": {
+            "baseline": 17.15,
+            "after": 13.43,
+            "change_percent": -21.69
+          },
+          "browser_task_ms": {
+            "baseline": 68.21,
+            "after": 56.87,
+            "change_percent": -16.63
+          },
+          "browser_layout_ms": {
+            "baseline": 5.77,
+            "after": 5.84,
+            "change_percent": 1.21
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 14.59,
+            "after": 15.49,
+            "change_percent": 6.17
+          }
+        },
+        {
+          "action": "cycle_exit",
+          "automation_and_two_frames_ms": {
+            "baseline": 80.89,
+            "after": 65.97,
+            "change_percent": -18.44
+          },
+          "browser_script_ms": {
+            "baseline": 6.77,
+            "after": 6.08,
+            "change_percent": -10.19
+          },
+          "browser_task_ms": {
+            "baseline": 37.22,
+            "after": 32.95,
+            "change_percent": -11.47
+          },
+          "browser_layout_ms": {
+            "baseline": 1.13,
+            "after": 0.8,
+            "change_percent": -29.2
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 1.91,
+            "after": 1.78,
+            "change_percent": -6.81
+          }
+        }
+      ],
+      "heap": {
+        "shell_heap": {
+          "baseline_MiB": 2.57,
+          "after_MiB": 2.57
+        },
+        "initial_heap": {
+          "baseline_MiB": 4.12,
+          "after_MiB": 3.85
+        },
+        "focused_heap": {
+          "baseline_MiB": 8.85,
+          "after_MiB": 7.12
+        },
+        "exited_heap": {
+          "baseline_MiB": 6.2,
+          "after_MiB": 5.81
+        }
+      },
+      "focused_dom_before": {
+        "live_graph_elements": 6950,
+        "live_nodes": 240,
+        "live_edges": 1200,
+        "live_cycle_rows": 20,
+        "live_node_labels": 16,
+        "live_edge_labels": 1200,
+        "live_document_elements": 7038,
+        "live_graph_text_nodes": 14651,
+        "live_graph_title_text_nodes": 12000,
+        "live_graph_svg_label_text_nodes": 2416
+      },
+      "focused_dom_after": {
+        "live_graph_elements": 6950,
+        "live_nodes": 240,
+        "live_edges": 1200,
+        "live_cycle_rows": 20,
+        "live_node_labels": 16,
+        "live_edge_labels": 1200,
+        "live_document_elements": 7038,
+        "live_graph_text_nodes": 2851,
+        "live_graph_title_text_nodes": 1440,
+        "live_graph_svg_label_text_nodes": 1216
+      }
+    },
+    {
+      "focus_size": 400,
+      "actions": [
+        {
+          "action": "initial_graph_open",
+          "automation_and_two_frames_ms": {
+            "baseline": 92.66,
+            "after": 94.53,
+            "change_percent": 2.02
+          },
+          "browser_script_ms": {
+            "baseline": 10.23,
+            "after": 9.03,
+            "change_percent": -11.73
+          },
+          "browser_task_ms": {
+            "baseline": 52.43,
+            "after": 43.59,
+            "change_percent": -16.86
+          },
+          "browser_layout_ms": {
+            "baseline": 22.1,
+            "after": 19.53,
+            "change_percent": -11.63
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 4.53,
+            "after": 3.96,
+            "change_percent": -12.58
+          }
+        },
+        {
+          "action": "default_40_node_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 38.64,
+            "after": 40.48,
+            "change_percent": 4.76
+          },
+          "browser_script_ms": {
+            "baseline": 2.96,
+            "after": 2.09,
+            "change_percent": -29.39
+          },
+          "browser_task_ms": {
+            "baseline": 16.45,
+            "after": 15.35,
+            "change_percent": -6.69
+          },
+          "browser_layout_ms": {
+            "baseline": 0.95,
+            "after": 0.95,
+            "change_percent": 0
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.53,
+            "after": 0.52,
+            "change_percent": -1.89
+          }
+        },
+        {
+          "action": "default_40_edge_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 43.44,
+            "after": 38.93,
+            "change_percent": -10.38
+          },
+          "browser_script_ms": {
+            "baseline": 1.29,
+            "after": 1.2,
+            "change_percent": -6.98
+          },
+          "browser_task_ms": {
+            "baseline": 13.64,
+            "after": 13.64,
+            "change_percent": 0
+          },
+          "browser_layout_ms": {
+            "baseline": 3.03,
+            "after": 2.87,
+            "change_percent": -5.28
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.58,
+            "after": 0.62,
+            "change_percent": 6.9
+          }
+        },
+        {
+          "action": "default_40_edge_back",
+          "automation_and_two_frames_ms": {
+            "baseline": 53.93,
+            "after": 60.11,
+            "change_percent": 11.46
+          },
+          "browser_script_ms": {
+            "baseline": 1.65,
+            "after": 1.38,
+            "change_percent": -16.36
+          },
+          "browser_task_ms": {
+            "baseline": 15.2,
+            "after": 14.14,
+            "change_percent": -6.97
+          },
+          "browser_layout_ms": {
+            "baseline": 0.69,
+            "after": 0.61,
+            "change_percent": -11.59
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.75,
+            "after": 0.69,
+            "change_percent": -8
+          }
+        },
+        {
+          "action": "default_40_zoom_in",
+          "automation_and_two_frames_ms": {
+            "baseline": 60.24,
+            "after": 63.12,
+            "change_percent": 4.78
+          },
+          "browser_script_ms": {
+            "baseline": 0.49,
+            "after": 0.5,
+            "change_percent": 2.04
+          },
+          "browser_task_ms": {
+            "baseline": 11.44,
+            "after": 9.88,
+            "change_percent": -13.64
+          },
+          "browser_layout_ms": {
+            "baseline": 1.99,
+            "after": 1.75,
+            "change_percent": -12.06
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.3,
+            "after": 0.29,
+            "change_percent": -3.33
+          }
+        },
+        {
+          "action": "default_40_zoom_out",
+          "automation_and_two_frames_ms": {
+            "baseline": 45.33,
+            "after": 35,
+            "change_percent": -22.79
+          },
+          "browser_script_ms": {
+            "baseline": 0.47,
+            "after": 0.52,
+            "change_percent": 10.64
+          },
+          "browser_task_ms": {
+            "baseline": 6.12,
+            "after": 6.16,
+            "change_percent": 0.65
+          },
+          "browser_layout_ms": {
+            "baseline": 0.95,
+            "after": 0.88,
+            "change_percent": -7.37
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.18,
+            "after": 0.17,
+            "change_percent": -5.56
+          }
+        },
+        {
+          "action": "default_40_filter_hit",
+          "automation_and_two_frames_ms": {
+            "baseline": 26.22,
+            "after": 22.28,
+            "change_percent": -15.03
+          },
+          "browser_script_ms": {
+            "baseline": 2.17,
+            "after": 2.02,
+            "change_percent": -6.91
+          },
+          "browser_task_ms": {
+            "baseline": 8.89,
+            "after": 8.88,
+            "change_percent": -0.11
+          },
+          "browser_layout_ms": {
+            "baseline": 0.75,
+            "after": 0.7,
+            "change_percent": -6.67
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.7,
+            "after": 0.68,
+            "change_percent": -2.86
+          }
+        },
+        {
+          "action": "default_40_filter_nohit",
+          "automation_and_two_frames_ms": {
+            "baseline": 28.66,
+            "after": 22.17,
+            "change_percent": -22.64
+          },
+          "browser_script_ms": {
+            "baseline": 0.6,
+            "after": 0.58,
+            "change_percent": -3.33
+          },
+          "browser_task_ms": {
+            "baseline": 7.47,
+            "after": 6.96,
+            "change_percent": -6.83
+          },
+          "browser_layout_ms": {
+            "baseline": 2.83,
+            "after": 2.88,
+            "change_percent": 1.77
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.19,
+            "after": 0.16,
+            "change_percent": -15.79
+          }
+        },
+        {
+          "action": "default_40_filter_clear",
+          "automation_and_two_frames_ms": {
+            "baseline": 37.22,
+            "after": 32.7,
+            "change_percent": -12.14
+          },
+          "browser_script_ms": {
+            "baseline": 3.59,
+            "after": 2.61,
+            "change_percent": -27.3
+          },
+          "browser_task_ms": {
+            "baseline": 17.43,
+            "after": 15.21,
+            "change_percent": -12.74
+          },
+          "browser_layout_ms": {
+            "baseline": 1.56,
+            "after": 1.34,
+            "change_percent": -14.1
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 2.12,
+            "after": 2.1,
+            "change_percent": -0.94
+          }
+        },
+        {
+          "action": "cycle_focus",
+          "automation_and_two_frames_ms": {
+            "baseline": 172.51,
+            "after": 154.97,
+            "change_percent": -10.17
+          },
+          "browser_script_ms": {
+            "baseline": 41.51,
+            "after": 31.25,
+            "change_percent": -24.72
+          },
+          "browser_task_ms": {
+            "baseline": 134.33,
+            "after": 115.29,
+            "change_percent": -14.17
+          },
+          "browser_layout_ms": {
+            "baseline": 13.64,
+            "after": 13.06,
+            "change_percent": -4.25
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 30.36,
+            "after": 26.59,
+            "change_percent": -12.42
+          }
+        },
+        {
+          "action": "focused_400_node_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 39.36,
+            "after": 33.61,
+            "change_percent": -14.61
+          },
+          "browser_script_ms": {
+            "baseline": 3.77,
+            "after": 2.52,
+            "change_percent": -33.16
+          },
+          "browser_task_ms": {
+            "baseline": 40.1,
+            "after": 30.93,
+            "change_percent": -22.87
+          },
+          "browser_layout_ms": {
+            "baseline": 0.94,
+            "after": 0.76,
+            "change_percent": -19.15
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.97,
+            "after": 0.76,
+            "change_percent": -21.65
+          }
+        },
+        {
+          "action": "focused_400_edge_select",
+          "automation_and_two_frames_ms": {
+            "baseline": 249.4,
+            "after": 222.04,
+            "change_percent": -10.97
+          },
+          "browser_script_ms": {
+            "baseline": 1.52,
+            "after": 1.13,
+            "change_percent": -25.66
+          },
+          "browser_task_ms": {
+            "baseline": 214.46,
+            "after": 159.71,
+            "change_percent": -25.53
+          },
+          "browser_layout_ms": {
+            "baseline": 1.08,
+            "after": 0.91,
+            "change_percent": -15.74
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 1.31,
+            "after": 1.09,
+            "change_percent": -16.79
+          }
+        },
+        {
+          "action": "focused_400_edge_back",
+          "automation_and_two_frames_ms": {
+            "baseline": 95.32,
+            "after": 110.66,
+            "change_percent": 16.09
+          },
+          "browser_script_ms": {
+            "baseline": 1.56,
+            "after": 1.31,
+            "change_percent": -16.03
+          },
+          "browser_task_ms": {
+            "baseline": 48.71,
+            "after": 40.35,
+            "change_percent": -17.16
+          },
+          "browser_layout_ms": {
+            "baseline": 0.87,
+            "after": 0.83,
+            "change_percent": -4.6
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.89,
+            "after": 0.85,
+            "change_percent": -4.49
+          }
+        },
+        {
+          "action": "focused_400_zoom_in",
+          "automation_and_two_frames_ms": {
+            "baseline": 152.45,
+            "after": 121.09,
+            "change_percent": -20.57
+          },
+          "browser_script_ms": {
+            "baseline": 0.42,
+            "after": 0.41,
+            "change_percent": -2.38
+          },
+          "browser_task_ms": {
+            "baseline": 42.07,
+            "after": 30.69,
+            "change_percent": -27.05
+          },
+          "browser_layout_ms": {
+            "baseline": 10.53,
+            "after": 7.31,
+            "change_percent": -30.58
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.29,
+            "after": 0.23,
+            "change_percent": -20.69
+          }
+        },
+        {
+          "action": "focused_400_zoom_out",
+          "automation_and_two_frames_ms": {
+            "baseline": 60.79,
+            "after": 128.76,
+            "change_percent": 111.81
+          },
+          "browser_script_ms": {
+            "baseline": 0.44,
+            "after": 0.45,
+            "change_percent": 2.27
+          },
+          "browser_task_ms": {
+            "baseline": 28.12,
+            "after": 23.31,
+            "change_percent": -17.11
+          },
+          "browser_layout_ms": {
+            "baseline": 10.03,
+            "after": 7.57,
+            "change_percent": -24.53
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.28,
+            "after": 0.27,
+            "change_percent": -3.57
+          }
+        },
+        {
+          "action": "focused_400_filter_hit",
+          "automation_and_two_frames_ms": {
+            "baseline": 75.47,
+            "after": 37.24,
+            "change_percent": -50.66
+          },
+          "browser_script_ms": {
+            "baseline": 10.67,
+            "after": 8.15,
+            "change_percent": -23.62
+          },
+          "browser_task_ms": {
+            "baseline": 20.91,
+            "after": 18.85,
+            "change_percent": -9.85
+          },
+          "browser_layout_ms": {
+            "baseline": 1.09,
+            "after": 1.02,
+            "change_percent": -6.42
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.93,
+            "after": 0.9,
+            "change_percent": -3.23
+          }
+        },
+        {
+          "action": "focused_400_filter_nohit",
+          "automation_and_two_frames_ms": {
+            "baseline": 26.81,
+            "after": 28.97,
+            "change_percent": 8.06
+          },
+          "browser_script_ms": {
+            "baseline": 0.62,
+            "after": 0.57,
+            "change_percent": -8.06
+          },
+          "browser_task_ms": {
+            "baseline": 5.23,
+            "after": 6,
+            "change_percent": 14.72
+          },
+          "browser_layout_ms": {
+            "baseline": 0.31,
+            "after": 0.34,
+            "change_percent": 9.68
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 0.2,
+            "after": 0.25,
+            "change_percent": 25
+          }
+        },
+        {
+          "action": "focused_400_filter_clear",
+          "automation_and_two_frames_ms": {
+            "baseline": 204.03,
+            "after": 201.61,
+            "change_percent": -1.19
+          },
+          "browser_script_ms": {
+            "baseline": 35.21,
+            "after": 26.08,
+            "change_percent": -25.93
+          },
+          "browser_task_ms": {
+            "baseline": 114.23,
+            "after": 91.76,
+            "change_percent": -19.67
+          },
+          "browser_layout_ms": {
+            "baseline": 12.11,
+            "after": 10.39,
+            "change_percent": -14.2
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 27.15,
+            "after": 29.12,
+            "change_percent": 7.26
+          }
+        },
+        {
+          "action": "cycle_exit",
+          "automation_and_two_frames_ms": {
+            "baseline": 91.9,
+            "after": 94.21,
+            "change_percent": 2.51
+          },
+          "browser_script_ms": {
+            "baseline": 10.84,
+            "after": 8.41,
+            "change_percent": -22.42
+          },
+          "browser_task_ms": {
+            "baseline": 50.17,
+            "after": 47.22,
+            "change_percent": -5.88
+          },
+          "browser_layout_ms": {
+            "baseline": 1.22,
+            "after": 1.08,
+            "change_percent": -11.48
+          },
+          "browser_recalc_style_ms": {
+            "baseline": 2.11,
+            "after": 2.32,
+            "change_percent": 9.95
+          }
+        }
+      ],
+      "heap": {
+        "shell_heap": {
+          "baseline_MiB": 2.57,
+          "after_MiB": 2.57
+        },
+        "initial_heap": {
+          "baseline_MiB": 4.15,
+          "after_MiB": 3.88
+        },
+        "focused_heap": {
+          "baseline_MiB": 11.7,
+          "after_MiB": 8.94
+        },
+        "exited_heap": {
+          "baseline_MiB": 6.58,
+          "after_MiB": 6.26
+        }
+      },
+      "focused_dom_before": {
+        "live_graph_elements": 11430,
+        "live_nodes": 400,
+        "live_edges": 2000,
+        "live_cycle_rows": 20,
+        "live_node_labels": 16,
+        "live_edge_labels": 2000,
+        "live_document_elements": 11518,
+        "live_graph_text_nodes": 24251,
+        "live_graph_title_text_nodes": 20000,
+        "live_graph_svg_label_text_nodes": 4016
+      },
+      "focused_dom_after": {
+        "live_graph_elements": 11430,
+        "live_nodes": 400,
+        "live_edges": 2000,
+        "live_cycle_rows": 20,
+        "live_node_labels": 16,
+        "live_edge_labels": 2000,
+        "live_document_elements": 11518,
+        "live_graph_text_nodes": 4611,
+        "live_graph_title_text_nodes": 2400,
+        "live_graph_svg_label_text_nodes": 2016
+      }
+    }
+  ]
+}

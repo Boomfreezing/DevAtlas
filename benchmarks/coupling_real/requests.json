@@ -1,0 +1,138 @@
+[
+  {
+    "id": "requests-01",
+    "repository": "requests",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/requests/api.py",
+      "qualified_name": "request",
+      "anchor": "def request(method, url, **kwargs):"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/requests/api.py",
+      "qualified_name": "get",
+      "anchor": "return request(\"get\", url, params=params, **kwargs)"
+    },
+    "reason": "api.get 的函数体直接调用同一模块定义的 request；get 的形参只有 url、params 和 kwargs，没有 request 同名遮蔽。探针只要求该调用行与 api.request 的静态绑定，不声称请求已执行成功。"
+  },
+  {
+    "id": "requests-02",
+    "repository": "requests",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/requests/utils.py",
+      "qualified_name": "select_proxy",
+      "anchor": "def select_proxy(url, proxies):"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/requests/adapters.py",
+      "qualified_name": "HTTPAdapter.request_url",
+      "after": "def request_url(self, request, proxies):",
+      "anchor": "proxy = select_proxy(request.url, proxies)"
+    },
+    "reason": "adapters.py 从 .utils 导入 select_proxy，HTTPAdapter.request_url 在该唯一作用域内直接调用它；request 是传入对象，但这里只读取 request.url 作为参数，调用目标仍是已导入的模块函数 select_proxy。after 用于区别同文件其他方法中的同文调用行。"
+  },
+  {
+    "id": "requests-03",
+    "repository": "requests",
+    "direction": "outgoing",
+    "target": {
+      "file_path": "src/requests/sessions.py",
+      "qualified_name": "Session.merge_environment_settings",
+      "anchor": "def merge_environment_settings(self, url, proxies, stream, verify, cert):"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/requests/utils.py",
+      "qualified_name": "get_environ_proxies",
+      "anchor": "def get_environ_proxies(url, no_proxy=None):"
+    },
+    "reason": "sessions.py 明确从 .utils 导入 get_environ_proxies；Session.merge_environment_settings 中 env_proxies = get_environ_proxies(url, no_proxy=no_proxy) 是该导入函数的直接调用。出向证据采用被调用函数在 utils.py 的定义行，而不是把 sessions.py 的调用行配给 utils.py。"
+  },
+  {
+    "id": "requests-04",
+    "repository": "requests",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/requests/exceptions.py",
+      "qualified_name": "SSLError",
+      "anchor": "class SSLError(ConnectionError):"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/requests/models.py",
+      "qualified_name": "Response.iter_content.generate",
+      "anchor": "raise RequestsSSLError(e)"
+    },
+    "reason": "models.py 使用 from .exceptions import SSLError as RequestsSSLError；Response.iter_content 内嵌 generate 的 raise RequestsSSLError(e) 构造该项目内异常类。此处必须沿别名绑定，不应与同文件 except SSLError 捕获的 urllib3 异常混淆。qualified_name 按现有解析器的类、方法和嵌套函数逐级命名。"
+  },
+  {
+    "id": "requests-05",
+    "repository": "requests",
+    "direction": "outgoing",
+    "target": {
+      "file_path": "src/requests/utils.py",
+      "qualified_name": "resolve_proxies",
+      "anchor": "def resolve_proxies(request, proxies, trust_env=True):"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/requests/utils.py",
+      "qualified_name": "should_bypass_proxies",
+      "anchor": "def should_bypass_proxies(url, no_proxy):"
+    },
+    "reason": "resolve_proxies 的条件 if trust_env and not should_bypass_proxies(url, no_proxy=no_proxy) 直接调用同模块 should_bypass_proxies；形参 request、proxies、trust_env 均不遮蔽该函数名。它是条件分支中的静态调用证据，不表示每次运行都会到达该分支。"
+  },
+  {
+    "id": "requests-06",
+    "repository": "requests",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/requests/api.py",
+      "qualified_name": "request",
+      "anchor": "def request(method, url, **kwargs):"
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "src/requests/api.py",
+      "qualified_name": "request",
+      "anchor": "return session.request(method=method, url=url, **kwargs)"
+    },
+    "reason": "该行调用 with sessions.Session() as session 得到的对象上的 request 方法，并非裸名 api.request 的递归调用。同名 request 不能证明绑定到所选模块函数；本负例只禁止把接收者方法当成 api.request 的高置信直接调用，不否认存在实际的方法调用。"
+  },
+  {
+    "id": "requests-07",
+    "repository": "requests",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/requests/hooks.py",
+      "qualified_name": "dispatch_hook",
+      "anchor": "def dispatch_hook(key, hooks, hook_data, **kwargs):"
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "src/requests/hooks.py",
+      "qualified_name": "dispatch_hook",
+      "anchor": "_hook_data = hook(hook_data, **kwargs)"
+    },
+    "reason": "hook 是从形参 hooks 所提供集合迭代得到的回调变量，源码并未将它静态绑定到 dispatch_hook 的定义。这里只要求不能输出指向 dispatch_hook 的高置信绑定；回调在某次实际运行可能指向其他可调用对象，探针不把未支持的动态解析等同于运行时不存在调用。"
+  },
+  {
+    "id": "requests-08",
+    "repository": "requests",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/requests/sessions.py",
+      "qualified_name": "session",
+      "anchor": "def session():"
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "src/requests/api.py",
+      "anchor": "from . import sessions"
+    },
+    "reason": "api.py 这里只导入 sessions 模块，其 request 函数随后使用 sessions.Session() 类构造器；并未调用 sessions.py 中为兼容保留的小写 session() 工厂。模块导入行不能作为该工厂函数的直接调用证据。"
+  }
+]

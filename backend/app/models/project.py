@@ -23,6 +23,7 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(120), index=True)
     source_filename: Mapped[str] = mapped_column(String(255))
     storage_path: Mapped[str] = mapped_column(Text)
+    source_commit: Mapped[str | None] = mapped_column(String(40), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="ready", index=True)
     primary_language: Mapped[str | None] = mapped_column(String(64), nullable=True)
     file_count: Mapped[int] = mapped_column(Integer, default=0)

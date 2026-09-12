@@ -11,6 +11,7 @@ from app.models.project import Project, ProjectGitMetadata
 from app.services import job_service
 from app.services.git_metadata_service import save_git_metadata
 from app.services.github_service import GitHubMetadata, parse_github_repository
+from app.services.incremental_analyzer import incrementally_analyze_project
 from app.services.job_service import (
     fail_interrupted_jobs,
     run_github_job,
@@ -57,7 +58,10 @@ def test_runs_github_job_to_completion(
     settings.ensure_directories()
     add_job(factory, "github-job")
 
-    async def fake_download(repository: object, current_settings: Settings) -> Path:
+    async def fake_download(
+        repository: object, current_settings: Settings, *, commit_sha: str | None = None
+    ) -> Path:
+        assert commit_sha == "b" * 40
         target = current_settings.repository_root / "download" / "repo-main"
         target.mkdir(parents=True)
         (target / "main.py").write_text("def downloaded():\n    return True\n", encoding="utf-8")
@@ -98,11 +102,15 @@ def test_runs_github_job_to_completion(
         metadata = database.query(ProjectGitMetadata).filter_by(project_id=job.project_id).one()
         assert metadata.default_branch == "main"
         assert metadata.head_commit == "b" * 40
+        assert database.get(Project, job.project_id).source_commit == "b" * 40
     factory.kw["bind"].dispose()
 
 
+@pytest.mark.parametrize("source_commit", [None, "a" * 40])
+@pytest.mark.parametrize("analysis_fails", [False, True])
 def test_synchronizes_github_source_after_staged_analysis_without_changing_project_id(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source_commit: str | None,
+    analysis_fails: bool,
 ) -> None:
     factory = make_session_factory(tmp_path)
     settings = Settings(
@@ -122,6 +130,7 @@ def test_synchronizes_github_source_after_staged_analysis_without_changing_proje
             source_filename="github.com/openai/example",
             project_name="example",
             search_index_root=settings.search_index_root,
+            source_commit=source_commit,
         )
         project_id = project.id
         save_git_metadata(
@@ -158,14 +167,31 @@ def test_synchronizes_github_source_after_staged_analysis_without_changing_proje
 
     new_path = settings.repository_root / "new-copy" / "example-main"
 
-    async def fake_download(repository: object, current_settings: Settings) -> Path:
+    async def fake_download(
+        repository: object, current_settings: Settings, *, commit_sha: str | None = None
+    ) -> Path:
+        assert commit_sha == "b" * 40
         new_path.mkdir(parents=True)
         (new_path / "main.py").write_text("def version():\n    return 'new'\n", encoding="utf-8")
         (new_path / "feature.py").write_text("FEATURE = True\n", encoding="utf-8")
         return new_path
 
+    # Refreshing remote history must not claim that the old source was updated.
+    with factory() as database:
+        project = database.get(Project, project_id)
+        save_git_metadata(database, project, GitHubMetadata(
+            repository_url="https://github.com/openai/example",
+            default_branch="main",
+            head_commit="b" * 40,
+            recent_commits=[],
+        ))
+
     monkeypatch.setattr(job_service, "fetch_github_metadata", fake_metadata)
     monkeypatch.setattr(job_service, "download_github_repository", fake_download)
+    if analysis_fails:
+        def fail_analysis(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("synthetic staging failure")
+        monkeypatch.setattr(job_service, "create_scanned_project", fail_analysis)
 
     run_github_sync_job(
         "sync-job",
@@ -178,6 +204,19 @@ def test_synchronizes_github_source_after_staged_analysis_without_changing_proje
     with factory() as database:
         job = database.get(AnalysisJob, "sync-job")
         project = database.get(Project, project_id)
+        if analysis_fails:
+            assert job is not None and job.status == "failed"
+            assert "synthetic staging failure" in job.error
+            assert project.storage_path == str(old_path.resolve())
+            assert project.source_commit == source_commit
+            assert {item.relative_path for item in project.files} == {"main.py"}
+            assert {item.reason for item in project.snapshots} == {"import"}
+            assert (old_path / "main.py").read_text(encoding="utf-8").endswith("'old'\n")
+            assert not new_path.exists()
+            assert database.query(Project).count() == 1
+            database.close()
+            factory.kw["bind"].dispose()
+            return
         assert job is not None and job.status == "completed"
         assert job.project_id == project_id
         assert project is not None
@@ -185,6 +224,7 @@ def test_synchronizes_github_source_after_staged_analysis_without_changing_proje
         assert {item.relative_path for item in project.files} == {"feature.py", "main.py"}
         assert project.git_metadata is not None
         assert project.git_metadata.head_commit == "b" * 40
+        assert project.source_commit == "b" * 40
         assert {item.reason for item in project.snapshots} >= {"import", "sync"}
         assert database.query(Project).count() == 1
     assert not (settings.repository_root / "old-copy").exists()
@@ -213,6 +253,7 @@ def test_skips_remote_download_when_github_head_is_unchanged(
             status="ready",
             file_count=1,
             code_line_count=1,
+            source_commit="a" * 40,
         )
         database.add(project)
         database.commit()
@@ -284,6 +325,28 @@ def test_marks_interrupted_jobs_failed(tmp_path: Path) -> None:
         assert database.get(AnalysisJob, "queued-job").stage == "interrupted"
         assert database.get(AnalysisJob, "running-job").status == "failed"
     factory.kw["bind"].dispose()
+
+
+def test_local_source_edits_clear_the_commit_binding(tmp_path: Path) -> None:
+    factory = make_session_factory(tmp_path)
+    source_path = tmp_path / "source"
+    source_path.mkdir()
+    source_file = source_path / "main.py"
+    source_file.write_text("pass\n", encoding="utf-8")
+    try:
+        with factory() as database:
+            project = create_scanned_project(
+                database, source_path, "github.com/example/demo", "demo",
+                search_index_root=tmp_path / "indexes", source_commit="a" * 40,
+            )
+            incrementally_analyze_project(database, project, tmp_path / "indexes")
+            assert project.source_commit == "a" * 40
+            source_file.write_text("def changed():\n    return 42\n", encoding="utf-8")
+            incrementally_analyze_project(database, project, tmp_path / "indexes")
+            database.expire_all()
+            assert project.source_commit is None
+    finally:
+        factory.kw["bind"].dispose()
 
 
 def test_failed_job_cleans_repository(

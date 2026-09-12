@@ -49,6 +49,11 @@ export interface ProjectFileTreeResponse {
   path: string;
   total_files: number;
   items: ProjectFileTreeNode[];
+  /** Absent together only when connected to an older, unpaged server. */
+  total_items?: number;
+  limit?: number;
+  offset?: number;
+  has_more?: boolean;
 }
 
 export interface CodeSymbol {
@@ -113,6 +118,8 @@ export interface CodeSearchResult {
   snippet_end_line: number;
   snippet: string;
   score: number;
+  /** An existing QA citation to verify against source before displaying it. */
+  expected_evidence?: { start_line: number; end_line: number; snippet: string };
 }
 
 export interface CodeSearchResponse {
@@ -263,12 +270,14 @@ export interface AnalysisSnapshotSummary {
   created_at: string;
   score: number;
   grade: string;
+  score_available?: boolean | null;
   file_count: number;
   symbol_count: number;
   import_count: number;
   finding_count: number;
   cycle_count: number;
   parse_issue_count: number;
+  analysis_context?: Record<string, unknown> | null;
 }
 
 export interface SnapshotMetricChange {
@@ -276,7 +285,7 @@ export interface SnapshotMetricChange {
   label: string;
   base: number;
   target: number;
-  delta: number;
+  delta: number | null;
 }
 
 export interface SnapshotComparisonGroup {
@@ -296,6 +305,8 @@ export interface AnalysisSnapshotComparison {
   quality: SnapshotComparisonGroup;
   parse_issues: SnapshotComparisonGroup;
   cycles: SnapshotComparisonGroup;
+  comparable?: boolean;
+  comparison_warnings?: string[];
 }
 
 export interface ProjectGitSummary {
@@ -375,6 +386,9 @@ export interface QualityScoring {
   excluded_scopes: Array<"production" | "test" | "generated">;
   source_file_count: number;
   parser_supported_file_count: number;
+  coverage_model?: string;
+  parser_analyzed_file_count?: number;
+  parser_issue_file_count?: number;
   applicable_rule_count: number;
   total_rule_count: number;
   parser_coverage: number;
@@ -397,6 +411,8 @@ export interface QualityReport {
     configured_weight: number;
     effective_weight: number;
     exclusion_reason: string | null;
+    coverage_level?: "none" | "limited" | "partial" | "high";
+    coverage_message?: string;
     finding_count: number;
     severity_counts: Record<"error" | "warning" | "info", number>;
     project_size: { file_count: number; code_line_count: number; symbol_count: number };

@@ -184,7 +184,9 @@ async def import_github_project(
     except GitHubMetadataError:
         pass
     try:
-        repository_path = await download_github_repository(repository, settings)
+        repository_path = await download_github_repository(
+            repository, settings, commit_sha=git_metadata.head_commit if git_metadata else None
+        )
     except GitHubDownloadError as error:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
 
@@ -429,11 +431,13 @@ def get_project(project_id: int, database: Session = Depends(get_db)) -> Project
 def get_project_file_tree(
     project_id: int,
     path: str = Query(default="", max_length=1_000),
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=2_147_483_647),
     database: Session = Depends(get_db),
 ) -> dict[str, object]:
     _ensure_project_exists(database, project_id)
     try:
-        return load_project_file_tree(database, project_id, path)
+        return load_project_file_tree(database, project_id, path, limit=limit, offset=offset)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
     except FileNotFoundError as error:
@@ -736,6 +740,7 @@ def reanalyze_project(
         search_index_root=settings.search_index_root,
     )
     database.commit()
+    invalidate_project_analysis(database, project_id)
     create_analysis_snapshot(database, project, reason="full", use_runtime_cache=False)
     return load_project_structure_summary(database, project_id)
 
@@ -833,10 +838,22 @@ def delete_project(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
 
     storage_path = resolve_project_storage_path(project.storage_path)
+    active_job = database.scalar(
+        select(AnalysisJob.id).where(
+            AnalysisJob.project_id == project_id,
+            AnalysisJob.status.in_(["queued", "running"]),
+        ).limit(1)
+    )
+    if project.status == "analyzing" or active_job is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Project analysis or synchronization is in progress. Try again after it finishes.",
+        )
     invalidate_project_analysis(database, project_id)
     remove_persisted_search_index(settings.search_index_root, project)
     database.delete(project)
     database.commit()
+    invalidate_project_analysis(database, project_id)
     remove_managed_repository(storage_path, settings.repository_root)
 
 
@@ -887,6 +904,7 @@ def _persist_import(
             source_filename=source_filename,
             project_name=project_name,
             search_index_root=settings.search_index_root,
+            source_commit=git_metadata.head_commit if git_metadata else None,
         )
         if git_metadata is not None:
             save_git_metadata(database, project, git_metadata)

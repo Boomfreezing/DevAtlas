@@ -1,9 +1,13 @@
 .env
+.env.*
+!.env.example
 .venv/
+.ruff_cache/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 
 frontend/node_modules/
@@ -12,8 +16,13 @@ frontend/.vite/
 frontend/.env.local
 frontend/playwright-report/
 frontend/test-results/
+frontend/playwright-report-*/
+frontend/test-results-*/
+frontend/performance-results/
 
-data/devatlas.db
+data/*.db
+data/*.db-*
+data/*.sqlite*
 data/report-providers.json
 data/*.log
 data/repositories/*

@@ -18,6 +18,9 @@ test("安全拖入文件夹、搜索代码并执行无变化增量分析", async
   let projectId: number | undefined;
 
   try {
+    const initialProjects = await request.get("/api/projects");
+    expect(initialProjects.ok()).toBe(true);
+    expect(await initialProjects.json()).toEqual([]);
     await page.addInitScript(() => {
       Object.defineProperty(window, "showSaveFilePicker", { configurable: true, value: undefined });
     });

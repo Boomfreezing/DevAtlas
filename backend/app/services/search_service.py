@@ -249,6 +249,8 @@ def search_project(
             document_count,
             index.document_frequency,
         )
+        if score <= 0:
+            continue
         scope = classify_code_scope(document.file_path)
         if scope == "generated":
             score *= 0.15

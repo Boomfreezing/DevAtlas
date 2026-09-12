@@ -1,0 +1,9 @@
+{
+  "version": "real-v1",
+  "description": "Public release archives locked by commit and SHA256; source is fetched only on explicit request, never executed.",
+  "repositories": [
+    {"name": "flask", "github": "pallets/flask", "tag": "3.1.0", "commit": "ab8149664182b662453a563161aa89013c806dc9", "archive_sha256": "9cef17604c5b8d99a69fb9e001788ddc43307b35cc38827974191f037b396205", "split": "development", "license": "BSD-3-Clause"},
+    {"name": "requests", "github": "psf/requests", "tag": "v2.32.3", "commit": "0e322af87745eff34caffe4df68456ebc20d9068", "archive_sha256": "ce709c9c71109afc6d0308b3975dab231c03fb414ac572bcbd55e40909f0a2b3", "split": "validation", "license": "Apache-2.0"},
+    {"name": "express", "github": "expressjs/express", "tag": "4.21.2", "commit": "1faf228935aa0a13111f92c28ee795be64ce3f0f", "archive_sha256": "b7845dec67b00abb868585e669cb4253748c814af1ed7a4a419def26071635dc", "split": "holdout", "license": "MIT"}
+  ]
+}

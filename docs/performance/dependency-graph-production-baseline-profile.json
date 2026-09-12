@@ -1,0 +1,1109 @@
+{
+  "schema_version": 1,
+  "label": "baseline",
+  "build_mode": "production",
+  "captured_at": "2026-09-12T11:03:51.966Z",
+  "bundle_sha256": {
+    "dist/assets/index-D8gdHfw0.js": "b830cddb4660c13d210e22b74801bcb2d8eb439c0cdd6ca76b7e2f881fe68a6f",
+    "dist/assets/index-D8gdHfw0.js.map": "623d052da58af896b8298609284c7ba37424a05ae7a02ad398b4eab5f14c3604",
+    "dist/assets/index-DdXAennb.css": "f3f1280d9cd218fd3f12524c27b26dfdca71095fb775e591b0d54f9170c4ea5e"
+  },
+  "fixture_sha256": "b9ac361e4a6f088772492d04ad9adc7b25c693aa856bb66e9d686dbe05112670",
+  "browser_version": "152.0.7977.83",
+  "method": "Independent diagnostic pass, NOT one of the 3 timed samples. CDP CPU sampling interval 500 microseconds; sourcemaps resolve locally built bundle positions. Inclusive samples overlap and must not be summed. Browser native work can be attributed to the active JavaScript frame; style/layout counters are independent cumulative metrics. One profile per action is diagnostic, not a statistical performance claim. All API requests mocked; raw profiles stay in ignored D: workspace temporary storage. App source can change after the frozen benchmark build: bundle hashes, not current working tree hashes, identify this profile.",
+  "requests": [
+    "/api/projects/1/dependency-graph?limit=40",
+    "/api/projects/1/dependency-graph?limit=40&cycle=1"
+  ],
+  "errors": [],
+  "profiles": [
+    {
+      "action": "cycle_focus_400",
+      "samples": 156,
+      "sampled_duration_ms": 208.56,
+      "profiler_duration_ms": 208.78,
+      "self_by_source": [
+        {
+          "source": "(program)",
+          "sampled_ms": 115.9
+        },
+        {
+          "source": "(idle)",
+          "sampled_ms": 28.31
+        },
+        {
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "sampled_ms": 20.22
+        },
+        {
+          "source": "(garbage collector)",
+          "sampled_ms": 16.96
+        },
+        {
+          "source": "setAttribute",
+          "sampled_ms": 5.17
+        },
+        {
+          "source": "createTextNode",
+          "sampled_ms": 4.52
+        },
+        {
+          "source": "appendChild",
+          "sampled_ms": 4.25
+        },
+        {
+          "source": "query",
+          "sampled_ms": 3.33
+        },
+        {
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "sampled_ms": 2.51
+        },
+        {
+          "source": "querySelectorAll",
+          "sampled_ms": 2.25
+        },
+        {
+          "source": "createElementNS",
+          "sampled_ms": 1.92
+        },
+        {
+          "source": "dispatchEvent",
+          "sampled_ms": 1.15
+        },
+        {
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "sampled_ms": 1.04
+        },
+        {
+          "source": "previewNode",
+          "sampled_ms": 1.01
+        }
+      ],
+      "top_self": [
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 115.9
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 28.31
+        },
+        {
+          "function": "(garbage collector)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(garbage collector)",
+          "sampled_ms": 16.96
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 5.19
+        },
+        {
+          "function": "createTextNode",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "createTextNode",
+          "sampled_ms": 4.52
+        },
+        {
+          "function": "completeWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7955,
+          "column": 9,
+          "generated_function": "$m",
+          "sampled_ms": 4.19
+        },
+        {
+          "function": "setAttribute",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "setAttribute",
+          "sampled_ms": 4.17
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 3.33
+        },
+        {
+          "function": "appendChild",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "appendChild",
+          "sampled_ms": 3.11
+        },
+        {
+          "function": "querySelectorAll",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "querySelectorAll",
+          "sampled_ms": 2.25
+        },
+        {
+          "function": "FiberNode",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 2421,
+          "column": 9,
+          "generated_function": "Mm",
+          "sampled_ms": 2.13
+        },
+        {
+          "function": "createElementNS",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "createElementNS",
+          "sampled_ms": 1.92
+        },
+        {
+          "function": "commitMutationEffectsOnFiber",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 9427,
+          "column": 9,
+          "generated_function": "ed",
+          "sampled_ms": 1.47
+        },
+        {
+          "function": "edge",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 114,
+          "column": 44,
+          "generated_function": "",
+          "sampled_ms": 1.31
+        },
+        {
+          "function": "prepareDependencyGraph",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 80,
+          "column": 16,
+          "generated_function": "gp",
+          "sampled_ms": 1.21
+        },
+        {
+          "function": "dispatchEvent",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "dispatchEvent",
+          "sampled_ms": 1.15
+        },
+        {
+          "function": "appendChild",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "appendChild",
+          "sampled_ms": 1.14
+        },
+        {
+          "function": "setTextContent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1254,
+          "column": 9,
+          "generated_function": "cn",
+          "sampled_ms": 1.09
+        },
+        {
+          "function": "workLoopSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11181,
+          "column": 9,
+          "generated_function": "ev",
+          "sampled_ms": 1.09
+        },
+        {
+          "function": "setInitialProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13346,
+          "column": 9,
+          "generated_function": "St",
+          "sampled_ms": 1.08
+        },
+        {
+          "function": "getOwnerDocumentFromRootContainer",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13968,
+          "column": 9,
+          "generated_function": "ac",
+          "sampled_ms": 1.04
+        },
+        {
+          "function": "setValueForKnownAttribute",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 970,
+          "column": 9,
+          "generated_function": "Hl",
+          "sampled_ms": 1.04
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12455,
+          "column": 19,
+          "generated_function": "",
+          "sampled_ms": 1.02
+        },
+        {
+          "function": "previewNode",
+          "source": "(browser)",
+          "line": 7703,
+          "column": 13,
+          "generated_function": "previewNode",
+          "sampled_ms": 1.01
+        },
+        {
+          "function": "setAttribute",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "setAttribute",
+          "sampled_ms": 1
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 184,
+          "column": 25,
+          "generated_function": "",
+          "sampled_ms": 0.91
+        },
+        {
+          "function": "completeUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11405,
+          "column": 9,
+          "generated_function": "Is",
+          "sampled_ms": 0.8
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 210,
+          "column": 28,
+          "generated_function": "",
+          "sampled_ms": 0.13
+        },
+        {
+          "function": "setDefaultValue",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1190,
+          "column": 9,
+          "generated_function": "ui",
+          "sampled_ms": 0.07
+        }
+      ],
+      "top_inclusive": [
+        {
+          "function": "(root)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(root)",
+          "sampled_ms": 208.56
+        },
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 115.9
+        },
+        {
+          "function": "performWorkOnRoot",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 10681,
+          "column": 9,
+          "generated_function": "od",
+          "sampled_ms": 36.06
+        },
+        {
+          "function": "performWorkOnRootViaSchedulerTask",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12065,
+          "column": 9,
+          "generated_function": "zd",
+          "sampled_ms": 36.06
+        },
+        {
+          "function": "performWorkUntilDeadline",
+          "source": "../../node_modules/scheduler/cjs/scheduler.production.js",
+          "line": 121,
+          "column": 9,
+          "generated_function": "We",
+          "sampled_ms": 36.06
+        },
+        {
+          "function": "workLoopSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11181,
+          "column": 9,
+          "generated_function": "ev",
+          "sampled_ms": 33.81
+        },
+        {
+          "function": "renderRootSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11120,
+          "column": 9,
+          "generated_function": "Iu",
+          "sampled_ms": 33.81
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 28.31
+        },
+        {
+          "function": "completeUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11405,
+          "column": 9,
+          "generated_function": "Is",
+          "sampled_ms": 27.04
+        },
+        {
+          "function": "completeWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7955,
+          "column": 9,
+          "generated_function": "$m",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "(garbage collector)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(garbage collector)",
+          "sampled_ms": 16.96
+        },
+        {
+          "function": "setInitialProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13346,
+          "column": 9,
+          "generated_function": "St",
+          "sampled_ms": 11.45
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 10.37
+        },
+        {
+          "function": "evaluate",
+          "source": "(browser)",
+          "line": 305,
+          "column": 10,
+          "generated_function": "evaluate",
+          "sampled_ms": 7.75
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 1,
+          "column": 1,
+          "generated_function": "",
+          "sampled_ms": 7.75
+        },
+        {
+          "function": "callMatchedElements",
+          "source": "(browser)",
+          "line": 1,
+          "column": 29,
+          "generated_function": "callMatchedElements",
+          "sampled_ms": 6.73
+        },
+        {
+          "function": "beginWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7392,
+          "column": 9,
+          "generated_function": "Lf",
+          "sampled_ms": 5.68
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5605,
+          "column": 112,
+          "generated_function": "",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "_queryCSS",
+          "source": "(browser)",
+          "line": 5604,
+          "column": 11,
+          "generated_function": "_queryCSS",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "_querySimple",
+          "source": "(browser)",
+          "line": 5483,
+          "column": 14,
+          "generated_function": "_querySimple",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5426,
+          "column": 116,
+          "generated_function": "",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5422,
+          "column": 7,
+          "generated_function": "query",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5635,
+          "column": 7,
+          "generated_function": "query",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5597,
+          "column": 125,
+          "generated_function": "",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "_callQuery",
+          "source": "(browser)",
+          "line": 5596,
+          "column": 12,
+          "generated_function": "_callQuery",
+          "sampled_ms": 5.59
+        },
+        {
+          "function": "_queryEngine",
+          "source": "(browser)",
+          "line": 5584,
+          "column": 14,
+          "generated_function": "_queryEngine",
+          "sampled_ms": 5.59
+        }
+      ],
+      "live_graph_elements": 11430,
+      "live_nodes": 400,
+      "live_edges": 2000,
+      "live_cycle_rows": 20,
+      "live_node_labels": 16,
+      "live_edge_labels": 2000,
+      "live_document_elements": 11518,
+      "live_graph_text_nodes": 24251,
+      "live_graph_title_text_nodes": 20000,
+      "live_graph_svg_label_text_nodes": 4016,
+      "browser_script_ms": 41.29,
+      "browser_task_ms": 181.38,
+      "browser_layout_ms": 16.72,
+      "browser_recalc_style_ms": 32.37,
+      "raw_profile": "data/tmp/graph-profiles/production-baseline/cycle_focus_400.cpuprofile",
+      "raw_profile_sha256": "1e59a1c7e3a30712325f6d7097c767ecbd009ff1fd2cd95c4386d28401cfe2f9"
+    },
+    {
+      "action": "filter_clear_400",
+      "samples": 168,
+      "sampled_duration_ms": 190.62,
+      "profiler_duration_ms": 190.77,
+      "self_by_source": [
+        {
+          "source": "(program)",
+          "sampled_ms": 89.95
+        },
+        {
+          "source": "(idle)",
+          "sampled_ms": 52.14
+        },
+        {
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "sampled_ms": 17.95
+        },
+        {
+          "source": "appendChild",
+          "sampled_ms": 7.69
+        },
+        {
+          "source": "query",
+          "sampled_ms": 5.94
+        },
+        {
+          "source": "setAttribute",
+          "sampled_ms": 4.44
+        },
+        {
+          "source": "createElementNS",
+          "sampled_ms": 3.27
+        },
+        {
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "sampled_ms": 3.12
+        },
+        {
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "sampled_ms": 2.09
+        },
+        {
+          "source": "dispatchEvent",
+          "sampled_ms": 2.03
+        },
+        {
+          "source": "createTextNode",
+          "sampled_ms": 1
+        },
+        {
+          "source": "_queryEngineAll",
+          "sampled_ms": 0.99
+        }
+      ],
+      "top_self": [
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 89.95
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 52.14
+        },
+        {
+          "function": "appendChild",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "appendChild",
+          "sampled_ms": 6.69
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 5.94
+        },
+        {
+          "function": "setAttribute",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "setAttribute",
+          "sampled_ms": 3.39
+        },
+        {
+          "function": "createElementNS",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "createElementNS",
+          "sampled_ms": 3.27
+        },
+        {
+          "function": "setInitialProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13346,
+          "column": 9,
+          "generated_function": "St",
+          "sampled_ms": 2.71
+        },
+        {
+          "function": "bubbleProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7931,
+          "column": 9,
+          "generated_function": "Je",
+          "sampled_ms": 2.06
+        },
+        {
+          "function": "dispatchEvent",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "dispatchEvent",
+          "sampled_ms": 2.03
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 2
+        },
+        {
+          "function": "getOwnerDocumentFromRootContainer",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13968,
+          "column": 9,
+          "generated_function": "ac",
+          "sampled_ms": 1.96
+        },
+        {
+          "function": "setValueForAttribute",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 950,
+          "column": 9,
+          "generated_function": "an",
+          "sampled_ms": 1.91
+        },
+        {
+          "function": "FiberNode",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 2421,
+          "column": 9,
+          "generated_function": "Mm",
+          "sampled_ms": 1.82
+        },
+        {
+          "function": "recursivelyTraverseLayoutEffects",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 9901,
+          "column": 9,
+          "generated_function": "kl",
+          "sampled_ms": 1.47
+        },
+        {
+          "function": "dependencyEdgeGeometry",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 136,
+          "column": 16,
+          "generated_function": "xp",
+          "sampled_ms": 1.1
+        },
+        {
+          "function": "completeWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7955,
+          "column": 9,
+          "generated_function": "$m",
+          "sampled_ms": 1.09
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 206,
+          "column": 28,
+          "generated_function": "",
+          "sampled_ms": 1.05
+        },
+        {
+          "function": "setAttribute",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "setAttribute",
+          "sampled_ms": 1.05
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 210,
+          "column": 28,
+          "generated_function": "",
+          "sampled_ms": 1.04
+        },
+        {
+          "function": "edge",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 84,
+          "column": 46,
+          "generated_function": "",
+          "sampled_ms": 1.03
+        },
+        {
+          "function": "reconcileChildrenArray",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 3622,
+          "column": 11,
+          "generated_function": "ee",
+          "sampled_ms": 1.02
+        },
+        {
+          "function": "createTextNode",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "createTextNode",
+          "sampled_ms": 1
+        },
+        {
+          "function": "appendChild",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "appendChild",
+          "sampled_ms": 1
+        },
+        {
+          "function": "_queryEngineAll",
+          "source": "(browser)",
+          "line": 6968,
+          "column": 17,
+          "generated_function": "_queryEngineAll",
+          "sampled_ms": 0.99
+        },
+        {
+          "function": "edge",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 114,
+          "column": 44,
+          "generated_function": "",
+          "sampled_ms": 0.99
+        },
+        {
+          "function": "workLoopSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11181,
+          "column": 9,
+          "generated_function": "ev",
+          "sampled_ms": 0.98
+        },
+        {
+          "function": "performUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11304,
+          "column": 9,
+          "generated_function": "yd",
+          "sampled_ms": 0.94
+        }
+      ],
+      "top_inclusive": [
+        {
+          "function": "(root)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(root)",
+          "sampled_ms": 190.62
+        },
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 89.95
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 52.14
+        },
+        {
+          "function": "performWorkOnRoot",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 10681,
+          "column": 9,
+          "generated_function": "od",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "performSyncWorkOnRoot",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12084,
+          "column": 9,
+          "generated_function": "Md",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "flushSyncWorkAcrossRoots_impl",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11918,
+          "column": 9,
+          "generated_function": "Xi",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "flushSyncWork$1",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 10987,
+          "column": 9,
+          "generated_function": "Fs",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "batchedUpdates$1",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1494,
+          "column": 9,
+          "generated_function": "mi",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "dispatchEventForPluginEventSystem",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12408,
+          "column": 9,
+          "generated_function": "cr",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "dispatchEvent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 15297,
+          "column": 9,
+          "generated_function": "br",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "dispatchDiscreteEvent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 15263,
+          "column": 9,
+          "generated_function": "Lv",
+          "sampled_ms": 39.57
+        },
+        {
+          "function": "workLoopSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11181,
+          "column": 9,
+          "generated_function": "ev",
+          "sampled_ms": 37.1
+        },
+        {
+          "function": "renderRootSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11120,
+          "column": 9,
+          "generated_function": "Iu",
+          "sampled_ms": 37.1
+        },
+        {
+          "function": "performUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11304,
+          "column": 9,
+          "generated_function": "yd",
+          "sampled_ms": 36.12
+        },
+        {
+          "function": "completeWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7955,
+          "column": 9,
+          "generated_function": "$m",
+          "sampled_ms": 27.13
+        },
+        {
+          "function": "completeUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11405,
+          "column": 9,
+          "generated_function": "Is",
+          "sampled_ms": 27.13
+        },
+        {
+          "function": "setInitialProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13346,
+          "column": 9,
+          "generated_function": "St",
+          "sampled_ms": 11.05
+        },
+        {
+          "function": "callMatchedElements",
+          "source": "(browser)",
+          "line": 1,
+          "column": 29,
+          "generated_function": "callMatchedElements",
+          "sampled_ms": 8.96
+        },
+        {
+          "function": "evaluate",
+          "source": "(browser)",
+          "line": 305,
+          "column": 10,
+          "generated_function": "evaluate",
+          "sampled_ms": 8.96
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 1,
+          "column": 1,
+          "generated_function": "",
+          "sampled_ms": 8.96
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 8.35
+        },
+        {
+          "function": "beginWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7392,
+          "column": 9,
+          "generated_function": "Lf",
+          "sampled_ms": 8.06
+        },
+        {
+          "function": "_queryEngineAll",
+          "source": "(browser)",
+          "line": 6968,
+          "column": 17,
+          "generated_function": "_queryEngineAll",
+          "sampled_ms": 6.93
+        },
+        {
+          "function": "querySelectorAll",
+          "source": "(browser)",
+          "line": 6920,
+          "column": 18,
+          "generated_function": "querySelectorAll",
+          "sampled_ms": 6.93
+        },
+        {
+          "function": "appendChild",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "appendChild",
+          "sampled_ms": 6.69
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 5.94
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5605,
+          "column": 112,
+          "generated_function": "",
+          "sampled_ms": 5.94
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 5.94
+        },
+        {
+          "function": "_queryCSS",
+          "source": "(browser)",
+          "line": 5604,
+          "column": 11,
+          "generated_function": "_queryCSS",
+          "sampled_ms": 5.94
+        },
+        {
+          "function": "_querySimple",
+          "source": "(browser)",
+          "line": 5483,
+          "column": 14,
+          "generated_function": "_querySimple",
+          "sampled_ms": 5.94
+        }
+      ],
+      "live_graph_elements": 11430,
+      "live_nodes": 400,
+      "live_edges": 2000,
+      "live_cycle_rows": 20,
+      "live_node_labels": 16,
+      "live_edge_labels": 2000,
+      "live_document_elements": 11518,
+      "live_graph_text_nodes": 24251,
+      "live_graph_title_text_nodes": 20000,
+      "live_graph_svg_label_text_nodes": 4016,
+      "browser_script_ms": 39.03,
+      "browser_task_ms": 139.79,
+      "browser_layout_ms": 14.52,
+      "browser_recalc_style_ms": 34.08,
+      "raw_profile": "data/tmp/graph-profiles/production-baseline/filter_clear_400.cpuprofile",
+      "raw_profile_sha256": "8189bea565b23b2229c5dd19670ec1a4c9f45338d911922550ed4302dcc48950"
+    }
+  ]
+}

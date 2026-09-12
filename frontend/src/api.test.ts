@@ -1,11 +1,47 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiRequestError, askRepository, compareAnalysisSnapshots, compareProjectGitCommits, createAnalysisSnapshot, deleteAnalysisSnapshot, formatOperationError, generateProjectReport, getChangeImpact, getDependencyGraph, getProjectFileContent, getProjectFileTree, getProjectGitSummary, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, getQualityReport, listAnalysisSnapshots, listProjects, prepareFolderUpload, refreshProjectGitSummary, searchImpactTargets, synchronizeGitHubProject, uploadFolder } from "./api";
+import { ApiRequestError, askRepository, compareAnalysisSnapshots, compareProjectGitCommits, createAnalysisSnapshot, deleteAnalysisSnapshot, formatOperationError, generateProjectReport, getChangeImpact, getDependencyGraph, getProjectFileContent, getProjectFileTree, getProjectGitSummary, getProjectImports, getProjectIssues, getProjectStructureSummary, getProjectSymbols, getQualityReport, listAnalysisSnapshots, listProjects, prepareFolderUpload, refreshProjectGitSummary, searchImpactTargets, searchProject, synchronizeGitHubProject, uploadFolder } from "./api";
 
 
 describe("API error guidance", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("passes read cancellation through without claiming the backend is offline", async () => {
+    const controller = new AbortController();
+    const aborted = new DOMException("Navigation changed", "AbortError");
+    const fetchMock = vi.fn().mockImplementation(async () => { controller.abort(); throw aborted; });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(listAnalysisSnapshots(3, controller.signal)).rejects.toBe(aborted);
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/3/snapshots", { signal: controller.signal });
+  });
+
+  it("passes cancellation for initial and cycle graph reads without changing their query", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json({ nodes: [], edges: [], cycles: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await getDependencyGraph(3, 40, undefined, controller.signal);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/projects/3/dependency-graph?limit=40", { signal: controller.signal });
+    await getDependencyGraph(3, 40, 2, controller.signal);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/projects/3/dependency-graph?limit=40&cycle=2", { signal: controller.signal });
+  });
+
+  it("passes cancellation through filtered quality pages and retains the old optional signature", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json({ findings: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await getQualityReport(3, 100, 200, "warning", "LONG_FUNCTION", "test", controller.signal);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/projects/3/quality?limit=100&offset=200&severity=warning&rule=LONG_FUNCTION&scope=test", { signal: controller.signal });
+    await getQualityReport(3);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/projects/3/quality?limit=100&offset=0", undefined);
+  });
+
+  it("preserves cancellation while reading an error response body", async () => {
+    const controller = new AbortController();
+    const aborted = new DOMException("Navigation changed", "AbortError");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => { controller.abort(); throw aborted; } }));
+    await expect(getProjectGitSummary(3, controller.signal)).rejects.toBe(aborted);
   });
 
   it("translates a missing source file into a clear recovery action", async () => {
@@ -57,6 +93,39 @@ describe("API error guidance", () => {
       "/api/projects/6/impact-targets?q=login+handler&limit=12",
       "/api/projects/6/impact?target_type=symbol&target_id=42",
     ]);
+  });
+
+  it("passes cancellation to source and coupling reads", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    await getProjectFileContent(3, 12, controller.signal);
+    await searchImpactTargets(3, "helper", 20, controller.signal);
+    await getChangeImpact(3, "symbol", 42, controller.signal);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const [, options] of fetchMock.mock.calls) expect(options.signal).toBe(controller.signal);
+  });
+
+  it("passes cancellation and encoded paths to tree and search reads", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    await getProjectFileTree(3, "src/my_dir%/components", controller.signal);
+    await searchProject(3, "helper name", 10, 20, controller.signal);
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/3/files/tree?path=src%2Fmy_dir%25%2Fcomponents", { signal: controller.signal });
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/3/search?q=helper+name&limit=10&offset=20", { signal: controller.signal });
+  });
+
+  it("adds explicit tree pagination after the existing optional cancellation argument", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json({ items: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+
+    await getProjectFileTree(3, "", controller.signal, { limit: 200, offset: 0 });
+    await getProjectFileTree(3, "src/组件 %_", controller.signal, { limit: 200, offset: 400 });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/projects/3/files/tree?limit=200&offset=0", { signal: controller.signal });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/projects/3/files/tree?path=src%2F%E7%BB%84%E4%BB%B6+%25_&limit=200&offset=400", { signal: controller.signal });
   });
 
   it("creates, lists, compares and deletes analysis snapshots", async () => {
@@ -208,5 +277,15 @@ describe("API error guidance", () => {
     expect(payload.provider).toBe("ollama");
     expect(payload.history).toHaveLength(10);
     expect(payload.history[0].content).toBe("message-2");
+  });
+
+  it("bounds long QA history content and forwards an optional cancellation signal", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ answer: "ok", citations: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    await askRepository(6, "如何启动？", "ollama", [{ role: "assistant", content: "长".repeat(4500) }], controller.signal);
+    const options = fetchMock.mock.calls[0][1];
+    expect(options.signal).toBe(controller.signal);
+    expect(JSON.parse(options.body).history[0].content).toHaveLength(4000);
   });
 });

@@ -40,6 +40,10 @@ class ProjectFileTreeNodeResponse(BaseModel):
 class ProjectFileTreeResponse(BaseModel):
     path: str
     total_files: int
+    total_items: int
+    limit: int
+    offset: int
+    has_more: bool
     items: list[ProjectFileTreeNodeResponse]
 
 
@@ -365,8 +369,11 @@ class QualityScoringResponse(BaseModel):
     scope_weights: dict[str, float]
     effective_scope_weights: dict[str, float]
     excluded_scopes: list[str]
+    coverage_model: str
     source_file_count: int
     parser_supported_file_count: int
+    parser_analyzed_file_count: int
+    parser_issue_file_count: int
     applicable_rule_count: int
     total_rule_count: int
     parser_coverage: float
@@ -384,6 +391,8 @@ class QualityScopeSummaryResponse(BaseModel):
     configured_weight: float
     effective_weight: float
     exclusion_reason: str | None
+    coverage_level: str
+    coverage_message: str
     finding_count: int
     severity_counts: dict[str, int]
     project_size: QualityProjectSizeResponse
@@ -450,12 +459,14 @@ class AnalysisSnapshotSummaryResponse(BaseModel):
     created_at: datetime
     score: int
     grade: str
+    score_available: bool | None = None
     file_count: int
     symbol_count: int
     import_count: int
     finding_count: int
     cycle_count: int
     parse_issue_count: int
+    analysis_context: dict[str, Any] | None = None
 
 
 class SnapshotMetricChangeResponse(BaseModel):
@@ -463,7 +474,7 @@ class SnapshotMetricChangeResponse(BaseModel):
     label: str
     base: int
     target: int
-    delta: int
+    delta: int | None
 
 
 class SnapshotItemComparisonResponse(BaseModel):
@@ -483,6 +494,8 @@ class AnalysisSnapshotComparisonResponse(BaseModel):
     quality: SnapshotItemComparisonResponse
     parse_issues: SnapshotItemComparisonResponse
     cycles: SnapshotItemComparisonResponse
+    comparable: bool = False
+    comparison_warnings: list[str] = Field(default_factory=list)
 
 
 class ReportProviderConfigurationRequest(BaseModel):

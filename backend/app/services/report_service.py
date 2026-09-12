@@ -71,10 +71,11 @@ def build_markdown_report(
         f"| 代码行数 | {project.code_line_count} |",
         f"| 分析状态 | {_cell(project.status)} |",
         f"| 最近分析时间 | {_cell(analyzed_at)} |",
+        f"| 源码 Commit | {_cell(project.source_commit or '未绑定可验证的 Git Commit')} |",
         *(
             [
                 f"| Git 默认分支 | `{_code(git_metadata.default_branch)}` |",
-                f"| 源码 Commit | `{_code(git_metadata.head_commit)}` |",
+                f"| 最近获取的远端 Commit | `{_code(git_metadata.head_commit)}` |",
                 f"| Git 元数据时间 | {_cell(_format_report_datetime(git_metadata.fetched_at))} |",
             ]
             if git_metadata is not None
@@ -165,7 +166,7 @@ def build_markdown_report(
             f"> 规则覆盖：可执行 {quality['scoring']['applicable_rule_count']} / {quality['scoring']['total_rule_count']} 类规则。",
             f"> 检测覆盖：{_text(quality['scoring']['coverage_message'])}",
             "",
-            "> 综合分默认按生产代码 70%、测试代码 20%、生成/外部代码 10% 加权；不存在的范围不计 100 分，权重会按比例分配给已有范围。",
+            "> 综合分默认按生产代码 70%、测试代码 20%、生成/外部代码 10% 加权；不存在或没有可用结构解析依据的范围不计 100 分，权重会按比例分配给具备评分依据的范围。",
             "> 各范围评分采用项目规模归一化，项目规模增大后单项风险的扣分权重会相应降低。",
             "",
             "| 代码范围 | 范围评分 | 默认权重 | 实际权重 | 说明 |",
@@ -517,11 +518,10 @@ def _recommendations(
 
 
 def _analysis_baseline(project: Project) -> str:
-    git_metadata = project.git_metadata
-    if git_metadata is not None:
+    if project.source_commit is not None:
         return (
-            f"> 分析基线：本报告对应 `{_code(git_metadata.default_branch)}` 分支的 "
-            f"`{_code(git_metadata.head_commit)}` Commit；远端产生新提交后需要重新同步和分析。"
+            f"> 分析基线：本地源码下载自 `{_code(project.source_commit)}` Commit；"
+            "远端提交记录的刷新不会改变此基线，远端产生新提交后需要重新同步和分析。"
         )
     return (
         "> 分析基线：本报告对应最近一次导入或分析时保存在 DevAtlas 中的源码；"

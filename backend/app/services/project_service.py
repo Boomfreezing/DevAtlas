@@ -2,7 +2,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
-from sqlalchemy import select
+from sqlalchemy import func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from app.models.project import Project, ProjectFile
@@ -19,6 +19,7 @@ def create_scanned_project(
     project_name: str,
     progress_callback: Callable[[str, int, str], None] | None = None,
     search_index_root: Path | None = None,
+    source_commit: str | None = None,
 ) -> Project:
     _notify(progress_callback, "scanning", 35, "正在扫描仓库文件")
     result = scan_repository(repository_path)
@@ -26,6 +27,7 @@ def create_scanned_project(
         name=project_name,
         source_filename=source_filename,
         storage_path=str(repository_path.resolve()),
+        source_commit=source_commit,
         status="analyzing" if progress_callback is not None else "ready",
         primary_language=result.primary_language,
         file_count=len(result.files),
@@ -80,60 +82,101 @@ def remove_managed_repository(repository_path: Path, repository_root: Path) -> N
 
 
 def load_project_file_tree(
-    database: Session, project_id: int, directory: str = ""
+    database: Session,
+    project_id: int,
+    directory: str = "",
+    *,
+    limit: int = 200,
+    offset: int = 0,
 ) -> dict[str, object]:
-    """Return only the immediate children of a repository directory."""
+    """Aggregate immediate children in SQLite; materialize only the requested page."""
+    if not 1 <= limit <= 500 or not 0 <= offset <= 2_147_483_647:
+        raise ValueError("File tree limit must be 1–500 and offset must be 0–2147483647.")
     normalized = _normalize_tree_directory(directory)
-    statement = select(ProjectFile).where(ProjectFile.project_id == project_id)
     prefix = f"{normalized}/" if normalized else ""
+    relative = func.substr(ProjectFile.relative_path, len(prefix) + 1)
+    statement = select(
+        relative.label("relative"),
+        ProjectFile.id,
+        ProjectFile.extension,
+        ProjectFile.language,
+        ProjectFile.size_bytes,
+        ProjectFile.line_count,
+    ).where(ProjectFile.project_id == project_id)
     if prefix:
+        # LIKE is case-insensitive in SQLite and treats '_'/'%' as wildcards.
         statement = statement.where(
-            ProjectFile.relative_path.startswith(prefix, autoescape=True)
+            func.substr(ProjectFile.relative_path, 1, len(prefix)) == prefix
         )
-    files = list(database.scalars(statement.order_by(ProjectFile.relative_path)))
-
-    directories: dict[str, dict[str, object]] = {}
-    direct_files: list[dict[str, object]] = []
-    for project_file in files:
-        relative = project_file.relative_path[len(prefix):] if prefix else project_file.relative_path
-        child_name, separator, _ = relative.partition("/")
-        child_path = f"{prefix}{child_name}" if prefix else child_name
-        if separator:
-            node = directories.setdefault(
-                child_name,
-                {
-                    "kind": "directory",
-                    "name": child_name,
-                    "path": child_path,
-                    "file_count": 0,
-                    "id": None,
-                    "extension": None,
-                    "language": None,
-                    "size_bytes": None,
-                    "line_count": None,
-                },
-            )
-            node["file_count"] = int(node["file_count"]) + 1
-        else:
-            direct_files.append(
-                {
-                    "kind": "file",
-                    "name": child_name,
-                    "path": project_file.relative_path,
-                    "file_count": 1,
-                    "id": project_file.id,
-                    "extension": project_file.extension,
-                    "language": project_file.language,
-                    "size_bytes": project_file.size_bytes,
-                    "line_count": project_file.line_count,
-                }
-            )
-
-    if normalized and not files:
+    descendants = statement.cte("tree_descendants")
+    separator = func.instr(descendants.c.relative, "/")
+    child_name = func.substr(descendants.c.relative, 1, separator - 1)
+    # Aggregate directories only: grouping and min() over every direct file would
+    # waste work in wide directories. The CTE is local to this read, not a stored index.
+    directories = select(
+        literal(True).label("is_directory"), child_name.label("name"),
+        literal(None).label("id"), func.count().label("file_count"),
+        *(literal(None).label(key) for key in ("extension", "language", "size_bytes", "line_count")),
+    ).where(separator > 0).group_by(child_name)
+    files = select(
+        literal(False).label("is_directory"), descendants.c.relative.label("name"),
+        descendants.c.id, literal(1).label("file_count"),
+        descendants.c.extension, descendants.c.language,
+        descendants.c.size_bytes, descendants.c.line_count,
+    ).where(separator == 0)
+    # UNION ALL preserves distinct file IDs even with duplicate legacy paths.
+    # Only the requested page, never descendant ORM objects, enters Python.
+    children = union_all(directories, files).subquery()
+    # SQLite's built-in lower() only folds ASCII. Keep the existing Unicode
+    # str.lower ordering without loading every name into Python for sorting.
+    connection = database.connection()
+    if not connection.info.get("devatlas_tree_lower_registered"):
+        connection.connection.dbapi_connection.create_function(
+            "devatlas_tree_lower", 1, str.lower, deterministic=True
+        )
+        connection.info["devatlas_tree_lower_registered"] = True
+    page = select(
+        children,
+        func.count().over().label("total_items"),
+        func.sum(children.c.file_count).over().label("total_files"),
+    ).order_by(
+        children.c.is_directory.desc(),
+        func.devatlas_tree_lower(children.c.name),
+        children.c.name,
+        children.c.id,
+    ).limit(limit).offset(offset)
+    rows = database.execute(page).mappings().all()
+    if rows:
+        total_items, total_files = rows[0]["total_items"], rows[0]["total_files"]
+    else:
+        # An offset past the last page is valid, not a missing-directory error.
+        total_items, total_files = database.execute(select(
+            func.count(), func.coalesce(func.sum(children.c.file_count), 0)
+        ).select_from(children)).one()
+    if normalized and total_files == 0:
         raise FileNotFoundError(f"Repository directory not found: {normalized}")
-    items = sorted(directories.values(), key=lambda item: str(item["name"]).lower())
-    items.extend(sorted(direct_files, key=lambda item: str(item["name"]).lower()))
-    return {"path": normalized, "total_files": len(files), "items": items}
+    items = [
+        {
+            "kind": "directory" if row["is_directory"] else "file",
+            "name": row["name"],
+            "path": f"{prefix}{row['name']}",
+            "file_count": row["file_count"],
+            **{
+                key: None if row["is_directory"] else row[key]
+                for key in ("id", "extension", "language", "size_bytes", "line_count")
+            },
+        }
+        for row in rows
+    ]
+    return {
+        "path": normalized,
+        "total_files": total_files,
+        "total_items": total_items,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total_items,
+        "items": items,
+    }
 
 
 def _normalize_tree_directory(directory: str) -> str:

@@ -6,21 +6,20 @@ import math
 import re
 from collections import defaultdict
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.analysis import CodeSymbol, SearchChunk
+from app.models.analysis import CodeSymbol
 from app.models.project import ProjectFile
 from app.services.code_scope_service import classify_code_scope
 from app.services.dependency_graph_service import (
     DependencyGraphSnapshot,
     load_dependency_snapshot,
 )
+from app.services.impact_reference_resolver import resolve_symbol_relations
 
 MAX_TARGET_RESULTS = 30
 MAX_RELATIONS = 24
-MAX_REFERENCE_CANDIDATES = 240
-IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]{2,}")
 API_PATH_TERMS = ("api", "route", "router", "controller", "endpoint", "rest", "graphql")
 DATABASE_PATH_TERMS = (
     "model", "models", "entity", "entities", "schema", "repository", "dao", "database", "db",
@@ -40,17 +39,30 @@ def search_impact_targets(
     normalized = query.strip()
     if not normalized:
         return []
-    pattern = f"%{normalized}%"
+    lowered = normalized.lower()
     symbols = database.execute(
         select(CodeSymbol, ProjectFile.relative_path)
         .join(ProjectFile, ProjectFile.id == CodeSymbol.file_id)
         .where(
             CodeSymbol.project_id == project_id,
             or_(
-                CodeSymbol.name.ilike(pattern),
-                CodeSymbol.qualified_name.ilike(pattern),
-                ProjectFile.relative_path.ilike(pattern),
+                CodeSymbol.name.icontains(normalized, autoescape=True),
+                CodeSymbol.qualified_name.icontains(normalized, autoescape=True),
+                ProjectFile.relative_path.icontains(normalized, autoescape=True),
             ),
+        )
+        .order_by(
+            or_(
+                func.lower(CodeSymbol.name) == lowered,
+                func.lower(CodeSymbol.qualified_name) == lowered,
+            ).desc(),
+            or_(
+                func.lower(CodeSymbol.name).startswith(lowered, autoescape=True),
+                func.lower(CodeSymbol.qualified_name).startswith(lowered, autoescape=True),
+            ).desc(),
+            func.length(CodeSymbol.qualified_name),
+            ProjectFile.relative_path,
+            CodeSymbol.id,
         )
         .limit(limit * 2)
     ).all()
@@ -59,12 +71,18 @@ def search_impact_targets(
             select(ProjectFile)
             .where(
                 ProjectFile.project_id == project_id,
-                ProjectFile.relative_path.ilike(pattern),
+                ProjectFile.relative_path.icontains(normalized, autoescape=True),
+            )
+            .order_by(
+                (func.lower(ProjectFile.relative_path) == lowered).desc(),
+                func.lower(ProjectFile.relative_path).startswith(lowered, autoescape=True).desc(),
+                func.length(ProjectFile.relative_path),
+                ProjectFile.relative_path,
+                ProjectFile.id,
             )
             .limit(limit)
         )
     )
-    lowered = normalized.lower()
     results = [
         {
             "target_type": "symbol",
@@ -91,15 +109,21 @@ def search_impact_targets(
         }
         for item in files
     )
-    results.sort(
-        key=lambda item: (
-            0 if str(item["name"]).lower() == lowered else 1,
-            0 if str(item["name"]).lower().startswith(lowered) else 1,
-            0 if item["target_type"] == "symbol" else 1,
+    simple_names = {symbol.id: symbol.name.lower() for symbol, _path in symbols}
+
+    def target_order(item: dict[str, object]) -> tuple[bool, bool, bool, int, str]:
+        names = [str(item["name"]).lower()]
+        if item["target_type"] == "symbol":
+            names.append(simple_names[int(item["target_id"])])
+        return (
+            not any(name == lowered for name in names),
+            not any(name.startswith(lowered) for name in names),
+            item["target_type"] != "symbol",
             len(str(item["name"])),
             str(item["file_path"]),
         )
-    )
+
+    results.sort(key=target_order)
     return results[: min(limit, MAX_TARGET_RESULTS)]
 
 
@@ -114,23 +138,29 @@ def analyze_change_impact(
     file_id = int(target["file_id"])
 
     direct_callers = _incoming_relations(snapshot, file_id)
-    symbol_references: list[dict[str, object]] = []
     called_symbols: list[dict[str, object]] = []
     if symbol is not None:
-        symbol_references = _symbol_references(database, symbol)
-        direct_callers = _deduplicate_relations_by_file(
-            [*symbol_references, *direct_callers]
-        )
-        called_symbols = _called_symbol_candidates(database, symbol)
+        symbol_references, called_symbols = resolve_symbol_relations(database, symbol)
+        # A file importing this module need not call the selected symbol.
+        direct_callers = _deduplicate_relations_by_file([
+            item for item in symbol_references if _is_bound_call(item)
+        ])
 
     dependencies = _outgoing_relations(snapshot, file_id)
-    indirect_impacts = _indirect_callers(snapshot, file_id)
+    indirect_impacts = _indirect_callers(
+        snapshot, file_id,
+        direct_file_ids={int(item["file_id"]) for item in direct_callers}
+        if symbol is not None else None,
+    )
     related_pool = _deduplicate_relations(
         [*direct_callers, *indirect_impacts, *dependencies, *called_symbols]
     )
-    related_tests = [
-        item for item in related_pool if classify_code_scope(str(item["file_path"])) == "test"
-    ][:MAX_RELATIONS]
+    related_tests = (
+        _verified_test_relations(direct_callers) if symbol is not None else [
+            item for item in related_pool
+            if classify_code_scope(str(item["file_path"])) == "test"
+        ]
+    )[:MAX_RELATIONS]
     related_apis = [
         item for item in related_pool if _path_contains(str(item["file_path"]), API_PATH_TERMS)
     ][:MAX_RELATIONS]
@@ -156,7 +186,7 @@ def analyze_change_impact(
         related_apis=related_apis,
         database_entities=database_entities,
         cycles=cycles,
-        has_symbol_references=bool(symbol_references),
+        has_symbol_references=bool(direct_callers) if symbol is not None else False,
     )
     recommendations = _build_recommendations(
         target=target,
@@ -173,7 +203,9 @@ def analyze_change_impact(
         "definition": _definition_relation(target),
         "risk": risk,
         "direct_callers": direct_callers[:MAX_RELATIONS],
-        "called_objects": _deduplicate_relations([*called_symbols, *dependencies])[:MAX_RELATIONS],
+        "called_objects": _deduplicate_relations(
+            called_symbols if symbol is not None else dependencies
+        )[:MAX_RELATIONS],
         "dependencies": dependencies[:MAX_RELATIONS],
         "indirect_impacts": indirect_impacts[:MAX_RELATIONS],
         "related_tests": related_tests,
@@ -182,8 +214,10 @@ def analyze_change_impact(
         "cycles": cycles[:10],
         "recommendations": recommendations,
         "limitations": (
-            "文件依赖来自解析后的项目内导入关系；函数、方法和类的调用关系来自有界源码引用推断，"
-            "不执行代码，也不等同于完整运行时调用链。"
+            "文件依赖来自已索引的项目内导入关系；符号调用只核验有界源码中的静态绑定。"
+            "动态接收者、重新导出、缺失或超出读取预算的源码可能无法解析；未定位不等于不存在。"
+            "模块依赖、二级影响和接口/数据库路径线索不代表目标函数必然触达。"
+            "未执行代码或测试；静态测试关联不代表测试通过或实际测试覆盖率，也不是完整运行时调用链。"
         ),
     }
 
@@ -218,12 +252,21 @@ def _build_recommendations(
             }
         )
 
-    if related_tests:
+    verified_tests = _verified_test_relations(related_tests)
+    if verified_tests:
         add(
             "run_related_tests",
             "high",
             "优先运行已定位的相关测试",
-            "先执行直接覆盖目标和调用方的测试；修改完成后再次运行同一组测试。",
+            "源码中存在与目标静态绑定的调用；先实际运行并核对断言，修改后再次验证。",
+            [str(item["file_path"]) for item in verified_tests],
+        )
+    elif related_tests:
+        add(
+            "run_related_tests",
+            "high",
+            "核对测试候选与目标的关系",
+            "这些文件只存在模块级关联，尚未证实目标级调用或测试覆盖；请检查断言并实际运行。",
             [str(item["file_path"]) for item in related_tests],
         )
     else:
@@ -231,14 +274,14 @@ def _build_recommendations(
             "add_regression_test",
             "high",
             "补充目标级回归测试",
-            "当前没有定位到直接相关测试，修改前先记录现有行为，修改后补充成功与失败路径验证。",
+            "当前有界分析未定位到可核验的目标级测试调用，不等于没有测试；请核对并补充成功与失败路径验证。",
             [str(target["file_path"])],
         )
     if direct_callers:
         add(
             "review_direct_callers",
             "high" if len(direct_callers) >= 5 else "medium",
-            "逐一检查直接调用者",
+            "逐一检查静态调用者" if target["target_type"] == "symbol" else "检查直接依赖方",
             "确认参数、返回值、异常和副作用契约没有被修改破坏。",
             [str(item["file_path"]) for item in direct_callers],
         )
@@ -366,11 +409,13 @@ def _outgoing_relations(snapshot: DependencyGraphSnapshot, file_id: int) -> list
     ]
 
 
-def _indirect_callers(snapshot: DependencyGraphSnapshot, file_id: int) -> list[dict[str, object]]:
+def _indirect_callers(
+    snapshot: DependencyGraphSnapshot, file_id: int, *, direct_file_ids: set[int] | None = None,
+) -> list[dict[str, object]]:
     incoming: dict[int, set[int]] = defaultdict(set)
     for source_id, target_id in snapshot.edge_lines:
         incoming[target_id].add(source_id)
-    direct = incoming.get(file_id, set())
+    direct = incoming.get(file_id, set()) if direct_file_ids is None else direct_file_ids
     indirect: set[int] = set()
     for caller_id in direct:
         indirect.update(incoming.get(caller_id, set()))
@@ -380,93 +425,6 @@ def _indirect_callers(snapshot: DependencyGraphSnapshot, file_id: int) -> list[d
         _file_relation(snapshot, item, "transitive_caller", "medium", (), depth=2)
         for item in sorted(indirect, key=lambda value: snapshot.files[value].path)
     ]
-
-
-def _symbol_references(database: Session, symbol: CodeSymbol) -> list[dict[str, object]]:
-    rows = database.execute(
-        select(SearchChunk, ProjectFile.relative_path)
-        .join(ProjectFile, ProjectFile.id == SearchChunk.file_id)
-        .where(
-            SearchChunk.project_id == symbol.project_id,
-            SearchChunk.content.contains(symbol.name, autoescape=True),
-        )
-        .limit(MAX_REFERENCE_CANDIDATES)
-    ).all()
-    boundary = re.compile(rf"(?<![A-Za-z0-9_$]){re.escape(symbol.name)}(?![A-Za-z0-9_$])")
-    results: list[dict[str, object]] = []
-    for chunk, file_path in rows:
-        if chunk.file_id == symbol.file_id and chunk.start_line <= symbol.start_line <= chunk.end_line:
-            continue
-        match = boundary.search(chunk.content)
-        if match is None:
-            continue
-        line_number = chunk.start_line + chunk.content[: match.start()].count("\n")
-        results.append(
-            {
-                "file_id": chunk.file_id,
-                "file_path": str(file_path),
-                "relation": "symbol_reference",
-                "confidence": "medium",
-                "depth": 1,
-                "line_numbers": [line_number],
-                "symbol_id": None,
-                "symbol_name": chunk.symbol_name,
-                "symbol_kind": chunk.kind,
-                "start_line": chunk.start_line,
-                "end_line": chunk.end_line,
-            }
-        )
-        if len(results) >= MAX_RELATIONS:
-            break
-    return _deduplicate_relations(results)
-
-
-def _called_symbol_candidates(database: Session, symbol: CodeSymbol) -> list[dict[str, object]]:
-    chunk = database.scalar(
-        select(SearchChunk)
-        .where(
-            SearchChunk.project_id == symbol.project_id,
-            SearchChunk.file_id == symbol.file_id,
-            SearchChunk.start_line <= symbol.start_line,
-            SearchChunk.end_line >= symbol.end_line,
-        )
-        .order_by((SearchChunk.end_line - SearchChunk.start_line), SearchChunk.id)
-        .limit(1)
-    )
-    if chunk is None:
-        return []
-    identifiers = sorted(set(IDENTIFIER_PATTERN.findall(chunk.content)))
-    identifiers = [item for item in identifiers if item != symbol.name][:80]
-    if not identifiers:
-        return []
-    rows = database.execute(
-        select(CodeSymbol, ProjectFile.relative_path)
-        .join(ProjectFile, ProjectFile.id == CodeSymbol.file_id)
-        .where(
-            CodeSymbol.project_id == symbol.project_id,
-            CodeSymbol.name.in_(identifiers),
-            CodeSymbol.id != symbol.id,
-        )
-        .limit(MAX_RELATIONS * 2)
-    ).all()
-    return _deduplicate_relations(
-        [
-            {
-                "file_id": candidate.file_id,
-                "file_path": str(path),
-                "relation": "calls_or_references_symbol",
-                "confidence": "low",
-                "depth": 1,
-                "line_numbers": [],
-                "symbol_id": candidate.id,
-                "symbol_name": candidate.qualified_name,
-                "symbol_kind": candidate.kind,
-                "start_line": candidate.start_line,
-                "end_line": candidate.end_line,
-            }
-            for candidate, path in rows
-        ]
-    )[:MAX_RELATIONS]
 
 
 def _file_relation(
@@ -526,14 +484,30 @@ def _deduplicate_relations_by_file(
     items: list[dict[str, object]],
 ) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
-    seen: set[int] = set()
+    seen: dict[int, dict[str, object]] = {}
     for item in items:
         file_id = int(item["file_id"])
         if file_id in seen:
+            previous = seen[file_id]
+            previous["line_numbers"] = sorted(set([
+                *previous.get("line_numbers", []), *item.get("line_numbers", []),
+            ]))
             continue
-        seen.add(file_id)
-        results.append(item)
+        copied = dict(item)
+        seen[file_id] = copied
+        results.append(copied)
     return results
+
+
+def _is_bound_call(item: dict[str, object]) -> bool:
+    return item.get("relation") == "bound_symbol_call" and item.get("confidence") == "high"
+
+
+def _verified_test_relations(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    return _deduplicate_relations_by_file([
+        item for item in items
+        if _is_bound_call(item) and classify_code_scope(str(item["file_path"])) == "test"
+    ])
 
 
 def _path_contains(path: str, terms: tuple[str, ...]) -> bool:
@@ -629,26 +603,27 @@ def _risk_summary(
         score += database_points
         reasons.append("影响范围触及数据库实体或访问层")
 
-    test_denominator = max(1, len(direct_callers) + len(indirect_impacts))
-    test_coverage = round(min(1.0, len(related_tests) / test_denominator) * 100, 1)
-    if related_tests:
-        test_points = -round(10 * min(1.0, test_coverage / 50))
+    test_count = len(_verified_test_relations(related_tests))
+    if test_count:
+        # Static calls identify places to verify; they do not measure executed
+        # tests, assertions, branches, or coverage. Keep this weak credit small.
+        test_points = -3 * min(test_count, 2)
         score += test_points
-        reasons.append(f"定位到 {len(related_tests)} 个相关测试，可用于回归验证")
+        reasons.append(f"定位到 {test_count} 个存在目标静态调用的测试文件，仍需运行验证")
     else:
         test_points = 8
         score += test_points
-        reasons.append("未定位到直接相关测试，修改后需要补充验证")
+        reasons.append("未定位到可核验的目标级测试调用，仍需补充验证")
     factors.append(_risk_factor(
-        "test_coverage", "相关测试覆盖", test_coverage, 50, "%", test_points,
-        "达到 50% 参考覆盖率时最多降低 10 分；未定位到测试则增加 8 分。",
+        "test_evidence", "静态测试关联", test_count, 2, "个", test_points,
+        "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。",
     ))
 
     score = max(0, min(100, score))
     level = "high" if score >= 65 else "medium" if score >= 35 else "low"
     confidence = "high" if target_type == "file" else "medium" if has_symbol_references else "low"
     return {
-        "model": "reference_v2",
+        "model": "evidence_v3",
         "base_score": 8,
         "level": level,
         "score": score,

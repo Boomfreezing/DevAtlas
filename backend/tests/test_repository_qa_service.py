@@ -24,6 +24,31 @@ def test_local_provider_is_rejected_with_a_clear_configuration_error() -> None:
         answer_repository_question(None, None, None, "如何启动？", "local")  # type: ignore[arg-type]
 
 
+def test_shell_prompt_is_not_part_of_a_startup_command() -> None:
+    from app.services.repository_qa_service import _direct_match_index, _startup_commands_from_line
+
+    assert _startup_commands_from_line("$ flask run") == ["flask run"]
+    assert _startup_commands_from_line("$ flask --app example run --debug") == ["flask --app example run --debug"]
+    assert _startup_commands_from_line("$API_SECRET") == []
+    lines = ["Getting started", "Example", "$ flask run"]
+    assert _direct_match_index(lines, "README.md", "startup", []) == 2
+
+
+def test_literal_identifier_precedes_expanded_test_topics() -> None:
+    assert _meaningful_identifiers("register 的相关测试在哪里？")[0] == "register"
+
+
+def test_long_symbol_window_can_find_late_error_code_with_a_fixed_budget() -> None:
+    from app.services.repository_qa_service import _focused_symbol_window
+
+    lines = ["def check_access():", *["    value += 1" for _ in range(70)],
+             "    if not permitted:", "        abort(403)", "    return value"]
+    start, end = _focused_symbol_window(lines, 1, len(lines), "check_access 为何返回 403？", ["error"])
+    assert start > 24
+    assert end - start + 1 <= 24
+    assert "abort(403)" in "\n".join(lines[start - 1:end])
+
+
 def test_follow_up_question_reuses_the_previous_user_target() -> None:
     contextual = _contextual_question(
         "修改它会影响什么？",

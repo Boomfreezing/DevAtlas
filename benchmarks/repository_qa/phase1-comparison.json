@@ -1,0 +1,963 @@
+{
+  "dataset_version": "1.0.0",
+  "cases_sha256": "441769e5384aaa15647cec1bc37c98e26df02a8fbe249078d4d2f1059ca25284",
+  "scope": "合成源码样例的离线检索与路由评测；不是模型问答准确率。标注尚待独立人工复核。",
+  "baseline_qa_reference": "915da89 的检索逻辑，仅提取为共享函数后运行，未改变检索行为。",
+  "source_hashes": {
+    "accounts/public/sdk.min.js": "4ff5c10c8b1152c0daa4e13caad63d3ac6d7b5a4da428e3351ed53f31b807cf4",
+    "accounts/README.md": "465bd9e58c55d7697ac7a2950fb10476c3117603979f867f0e98211ccd38249b",
+    "accounts/src/api.py": "496c4de605daf52235f83970408a32a2db0e0e9b9445938d678c1bd0951c025d",
+    "accounts/src/auth.py": "935d3d14cc88c02ab69f982f6ecc0ddcd65119cdcf531da9cbbf2903c870768e",
+    "accounts/src/models.py": "9467ce1ff0d8c1664450de3cfbb409cbd4d7cb144682e90f870baa229467806a",
+    "accounts/src/settings.py": "270b6d8fe36fe5d2c39fcc9bc40d824e5597d899c4f79980aee4bc62ff55e68c",
+    "accounts/tests/check_auth.py": "ad15ee27f2105997d0b6a8550cba9426d9b496a75d77621dfcdc2c5e1ec7d07e",
+    "orders/package.json": "85bb25df4d40051631b794f951122359a29b2ce60893a141e90b9f1d0f0f2512",
+    "orders/public/client.min.js": "0769670f87992d437284e1cb676a8aca37c69ed962a2eaebf15ee1556f7c62e9",
+    "orders/README.md": "01b36338b8ce74f8ebf0932d516755d82f9962561b5b2c5f75717bc4154e6576",
+    "orders/src/config.ts": "3de94fb279c3203477b4fbb60217d2307b696e3363e1eff4109300539b124418",
+    "orders/src/orders.ts": "28e28b61e40d19ca0b56d31c2e6e06572385bad730be0da61b996eafaffe4ba7",
+    "orders/src/repository.ts": "8be904dc23ade5b183f042e7de98dc9b891c48a5ee978333bebe198495a4e590",
+    "orders/src/routes.ts": "0a1348aa97b6a46958461f94cba4dd9564b044c6274a13d58e00a9196355e35e",
+    "orders/src/server.ts": "eccd3af08a6479197c96d089a3e0f0bb5360aa3a2057f080170bd8e26271c6e9",
+    "orders/tests/orders.spec.ts": "4dca39acc6c7d235cba776be20ebad50e8645805cfc0d0103dd1d0f88f481db8",
+    "worker/gateway/routes.py": "f7745c622b9727fb37252100db9810b2406008b3b2f283cafb7c98c9e7917cad",
+    "worker/public/worker.min.js": "4fd3266dc22cabf730327bb6af2f357e15e677d87663cd3f8cd3952a256c813c",
+    "worker/README.md": "c389c0800578986d98eeb8402b1765bc5074e49b43aacd78ae4fb234cd7ab060",
+    "worker/tests/check_jobs.py": "7fe2a92e600f2d6a172f3b3b211e14e54c04e5ff27018a55ce624fc8adb64a5e",
+    "worker/worker/jobs.py": "b39d73b7088e8a30a713c015290bbc986c1a30d6e05f45fee40342394b810929",
+    "worker/worker/main.py": "3dcf1249f0c21f920b1f8b7cb516b1fc07266ce68f7a6d49d014d928cf8608ee",
+    "worker/worker/runner.py": "9bc4119f2743b0c3a056d03c761201acfbbdba0da530c8da91a30c9afb0a1472",
+    "worker/worker/settings.py": "e0bc661eb56b71ff064679443452de759eeb147b056c15ea5648224221a92c6e",
+    "worker/worker/storage.py": "51e03a38aab52256cc1dc73dd6da4ec28b0f36de563f20fb7ce9799a4a021296"
+  },
+  "after_implementation_hashes": {
+    "backend/app/services/repository_qa_service.py": "db5b8c2f648679670ad23305e5e73f5132bcb8e6db4278c2ed4fd6688f3abf8e",
+    "backend/app/services/search_service.py": "a9fc3264ae6daf89ad9b61c1df3074f4a985ae501179d07afa768a29b8870f7d",
+    "backend/app/services/code_parser.py": "f64fd6ad188e34e269f8fe7dd060419e8ef2ca268fb776ecb11b061937111925",
+    "backend/app/services/report_provider_service.py": "874b4893ec0ca5d446fa042efe8b30f142b05ce863aba02e4ade3fc24af3842f",
+    "backend/evaluations/repository_qa.py": "3ab6d7addfa84f32fa33b00cad54eb3484d009d6ca747c5decff14ce660ffe39"
+  },
+  "before": {
+    "measured_at": "2026-09-12T04:31:39.270817+00:00",
+    "python": "3.13.5",
+    "mode": "retrieval_only",
+    "semantic_search_enabled": false,
+    "summary": {
+      "cases": 36,
+      "retrieval_passed": 27,
+      "failed_ids": [
+        "accounts-05",
+        "accounts-07",
+        "accounts-11",
+        "orders-05",
+        "orders-08",
+        "orders-11",
+        "worker-05",
+        "worker-07",
+        "worker-11"
+      ],
+      "answerable_cases": 27,
+      "mean_evidence_recall_at_5": 0.7778,
+      "mean_reciprocal_rank": 0.6698,
+      "insufficient_correct": 3,
+      "insufficient_cases": 6,
+      "citations": 147,
+      "invalid_citations": 0,
+      "elapsed_p50_ms": 7.24,
+      "elapsed_p95_ms": 11.86,
+      "model_errors": 0,
+      "answer_quality": "not_measured"
+    },
+    "cases": [
+      {
+        "id": "accounts-01",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-02",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-03",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-04",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-05",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": 0,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [
+          {
+            "file_path": "src/api.py",
+            "start_line": 11,
+            "end_line": 11,
+            "contains": [
+              "return login_user"
+            ]
+          },
+          {
+            "file_path": "tests/check_auth.py",
+            "start_line": 6,
+            "end_line": 6,
+            "contains": [
+              "login_user(database"
+            ]
+          }
+        ],
+        "retrieved": [
+          {
+            "file_path": "src/auth.py",
+            "start_line": 4,
+            "end_line": 9,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "tests/check_auth.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "dependency_relation"
+          },
+          {
+            "file_path": "src/auth.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "src/api.py",
+            "start_line": 2,
+            "end_line": 5,
+            "source": "dependency_relation"
+          },
+          {
+            "file_path": "src/models.py",
+            "start_line": 1,
+            "end_line": 6,
+            "source": "symbol_fuzzy"
+          },
+          {
+            "file_path": "src/api.py",
+            "start_line": 7,
+            "end_line": 11,
+            "source": "code_search"
+          },
+          {
+            "file_path": "public/sdk.min.js",
+            "start_line": 2,
+            "end_line": 2,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "public/sdk.min.js",
+            "start_line": 1,
+            "end_line": 2,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "accounts-06",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-07",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": 0,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [
+          {
+            "file_path": "tests/check_auth.py",
+            "start_line": 4,
+            "end_line": 4,
+            "contains": [
+              "def check_login_rejects_missing_user"
+            ]
+          }
+        ],
+        "retrieved": [
+          {
+            "file_path": "src/auth.py",
+            "start_line": 4,
+            "end_line": 9,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "tests/check_auth.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "src/auth.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "src/models.py",
+            "start_line": 1,
+            "end_line": 6,
+            "source": "symbol_fuzzy"
+          },
+          {
+            "file_path": "src/api.py",
+            "start_line": 7,
+            "end_line": 11,
+            "source": "code_search"
+          },
+          {
+            "file_path": "src/api.py",
+            "start_line": 1,
+            "end_line": 5,
+            "source": "code_search"
+          },
+          {
+            "file_path": "public/sdk.min.js",
+            "start_line": 2,
+            "end_line": 2,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "public/sdk.min.js",
+            "start_line": 1,
+            "end_line": 2,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "accounts-08",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-09",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-10",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-11",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [],
+        "retrieved": [
+          {
+            "file_path": "tests/check_auth.py",
+            "start_line": 8,
+            "end_line": 10,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "accounts-12",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "project_context",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-01",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-02",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-03",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-04",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-05",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": 0,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [
+          {
+            "file_path": "src/routes.ts",
+            "start_line": 6,
+            "end_line": 6,
+            "contains": [
+              "await createOrder"
+            ]
+          },
+          {
+            "file_path": "tests/orders.spec.ts",
+            "start_line": 5,
+            "end_line": 5,
+            "contains": [
+              "createOrder(db, [])"
+            ]
+          }
+        ],
+        "retrieved": [
+          {
+            "file_path": "src/orders.ts",
+            "start_line": 3,
+            "end_line": 7,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "tests/orders.spec.ts",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "dependency_relation"
+          },
+          {
+            "file_path": "src/orders.ts",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "src/routes.ts",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "dependency_relation"
+          },
+          {
+            "file_path": "public/client.min.js",
+            "start_line": 2,
+            "end_line": 2,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "public/client.min.js",
+            "start_line": 1,
+            "end_line": 2,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "orders-06",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-07",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-08",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": 0,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [
+          {
+            "file_path": "src/routes.ts",
+            "start_line": 9,
+            "end_line": 9,
+            "contains": [
+              "response.status(400)"
+            ]
+          }
+        ],
+        "retrieved": [
+          {
+            "file_path": "src/orders.ts",
+            "start_line": 3,
+            "end_line": 7,
+            "source": "symbol_match"
+          },
+          {
+            "file_path": "src/repository.ts",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "symbol_match"
+          },
+          {
+            "file_path": "src/orders.ts",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "src/routes.ts",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "tests/orders.spec.ts",
+            "start_line": 3,
+            "end_line": 10,
+            "source": "symbol_match"
+          },
+          {
+            "file_path": "tests/orders.spec.ts",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "public/client.min.js",
+            "start_line": 2,
+            "end_line": 2,
+            "source": "symbol_match"
+          },
+          {
+            "file_path": "public/client.min.js",
+            "start_line": 1,
+            "end_line": 2,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "orders-09",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-10",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-11",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [],
+        "retrieved": [
+          {
+            "file_path": "tests/orders.spec.ts",
+            "start_line": 1,
+            "end_line": 5,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "orders-12",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "project_context",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-01",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-02",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-03",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-04",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-05",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": 0,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [
+          {
+            "file_path": "worker/runner.py",
+            "start_line": 8,
+            "end_line": 8,
+            "contains": [
+              "return process_export"
+            ]
+          },
+          {
+            "file_path": "tests/check_jobs.py",
+            "start_line": 5,
+            "end_line": 5,
+            "contains": [
+              "process_export(database, ["
+            ]
+          }
+        ],
+        "retrieved": [
+          {
+            "file_path": "worker/jobs.py",
+            "start_line": 4,
+            "end_line": 8,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "tests/check_jobs.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "dependency_relation"
+          },
+          {
+            "file_path": "worker/jobs.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "worker/runner.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "dependency_relation"
+          },
+          {
+            "file_path": "public/worker.min.js",
+            "start_line": 2,
+            "end_line": 2,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "public/worker.min.js",
+            "start_line": 1,
+            "end_line": 2,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "worker-06",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-07",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": 0,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [
+          {
+            "file_path": "tests/check_jobs.py",
+            "start_line": 4,
+            "end_line": 4,
+            "contains": [
+              "def check_export_count"
+            ]
+          }
+        ],
+        "retrieved": [
+          {
+            "file_path": "worker/jobs.py",
+            "start_line": 4,
+            "end_line": 8,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "tests/check_jobs.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "worker/jobs.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          },
+          {
+            "file_path": "public/worker.min.js",
+            "start_line": 2,
+            "end_line": 2,
+            "source": "symbol_exact"
+          },
+          {
+            "file_path": "public/worker.min.js",
+            "start_line": 1,
+            "end_line": 2,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "worker-08",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-09",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-10",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-11",
+        "retrieval_pass": false,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": [],
+        "retrieved": [
+          {
+            "file_path": "tests/check_jobs.py",
+            "start_line": 1,
+            "end_line": 3,
+            "source": "code_search"
+          }
+        ]
+      },
+      {
+        "id": "worker-12",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "project_context",
+        "missing_evidence_at_5": []
+      }
+    ]
+  },
+  "after": {
+    "measured_at": "2026-09-12T12:42:18.822285+08:00",
+    "python": "3.13.5",
+    "mode": "retrieval_only",
+    "semantic_search_enabled": false,
+    "summary": {
+      "cases": 36,
+      "retrieval_passed": 36,
+      "failed_ids": [],
+      "answerable_cases": 27,
+      "mean_evidence_recall_at_5": 1,
+      "mean_reciprocal_rank": 0.8395,
+      "insufficient_correct": 6,
+      "insufficient_cases": 6,
+      "citations": 141,
+      "invalid_citations": 0,
+      "elapsed_p50_ms": 7.05,
+      "elapsed_p95_ms": 11.74,
+      "model_errors": 0,
+      "reference_failed_cases": 0,
+      "answer_quality": "not_measured"
+    },
+    "cases": [
+      {
+        "id": "accounts-01",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-02",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-03",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-04",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-05",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-06",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-07",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-08",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-09",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-10",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-11",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "accounts-12",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "project_context",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-01",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-02",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-03",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-04",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-05",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-06",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-07",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-08",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-09",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-10",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-11",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "orders-12",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "project_context",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-01",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-02",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-03",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-04",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-05",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-06",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-07",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-08",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-09",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": 1,
+        "actual_behavior": "evidence",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-10",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-11",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "insufficient",
+        "missing_evidence_at_5": []
+      },
+      {
+        "id": "worker-12",
+        "retrieval_pass": true,
+        "evidence_recall_at_5": null,
+        "actual_behavior": "project_context",
+        "missing_evidence_at_5": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "atlas-orders-fixture",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "check": "tsc --noEmit"
+  }
+}

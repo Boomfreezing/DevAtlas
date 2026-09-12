@@ -1,0 +1,1074 @@
+{
+  "version": "real-v1.0",
+  "corpus_kind": "public_release_sources",
+  "annotation_status": "Maintainer-authored from pinned upstream source; independent human review pending. Holdout is unseen by tuning, not unseen by annotation authors.",
+  "cases": [
+    {
+      "id": "flask-01",
+      "repository": "flask",
+      "category": "startup",
+      "question": "README 最小示例保存成 app.py 后，用什么命令启动？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "README.md",
+          "anchor": "$ flask run"
+        }
+      ],
+      "expected_facts": [
+        "使用 flask run；这是示例应用的开发启动命令。"
+      ]
+    },
+    {
+      "id": "flask-02",
+      "repository": "flask",
+      "category": "location",
+      "question": "教程中的登录实现在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/auth.py",
+          "anchor": "def login():"
+        }
+      ],
+      "expected_facts": [
+        "位于教程 auth.py 的 login，不是框架会话类。"
+      ]
+    },
+    {
+      "id": "flask-03",
+      "repository": "flask",
+      "category": "database",
+      "question": "教程 login 根据用户名查询哪张表？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/auth.py",
+          "anchor": "\"SELECT * FROM user WHERE username = ?\", (username,)"
+        }
+      ],
+      "expected_facts": [
+        "查询 user 表并使用参数化占位符。"
+      ]
+    },
+    {
+      "id": "flask-04",
+      "repository": "flask",
+      "category": "api",
+      "question": "教程登录路由的完整路径和允许方法是什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/auth.py",
+          "anchor": "bp = Blueprint(\"auth\", __name__, url_prefix=\"/auth\")"
+        },
+        {
+          "file_path": "examples/tutorial/flaskr/auth.py",
+          "anchor": "@bp.route(\"/login\", methods=(\"GET\", \"POST\"))"
+        }
+      ],
+      "expected_facts": [
+        "蓝图前缀 /auth 与 /login 合并，支持 GET 和 POST。"
+      ]
+    },
+    {
+      "id": "flask-05",
+      "repository": "flask",
+      "category": "config",
+      "question": "教程 create_app 把 SQLite 数据库文件放在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/__init__.py",
+          "anchor": "DATABASE=os.path.join(app.instance_path, \"flaskr.sqlite\"),"
+        }
+      ],
+      "expected_facts": [
+        "位于 app.instance_path 下的 flaskr.sqlite。"
+      ]
+    },
+    {
+      "id": "flask-06",
+      "repository": "flask",
+      "category": "config",
+      "question": "from_prefixed_env 的默认环境变量前缀和默认解析方式是什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/flask/config.py",
+          "anchor": "self, prefix: str = \"FLASK\", *, loads: t.Callable[[str], t.Any] = json.loads"
+        }
+      ],
+      "expected_facts": [
+        "默认读取 FLASK_ 前缀，值默认尝试用 JSON 解析。"
+      ]
+    },
+    {
+      "id": "flask-07",
+      "repository": "flask",
+      "category": "cross_file",
+      "question": "教程 create_app 如何注册数据库连接清理回调？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/__init__.py",
+          "anchor": "db.init_app(app)"
+        },
+        {
+          "file_path": "examples/tutorial/flaskr/db.py",
+          "anchor": "app.teardown_appcontext(close_db)"
+        }
+      ],
+      "expected_facts": [
+        "工厂调用 db.init_app，后者注册 close_db 至应用上下文清理。"
+      ]
+    },
+    {
+      "id": "flask-08",
+      "repository": "flask",
+      "category": "test",
+      "question": "教程登录成功后写入 session 的测试在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/tests/test_auth.py",
+          "anchor": "assert session[\"user_id\"] == 1"
+        }
+      ],
+      "expected_facts": [
+        "test_login 检查 user_id 和加载后的用户对象；这里只定位测试，并未执行。"
+      ]
+    },
+    {
+      "id": "flask-09",
+      "repository": "flask",
+      "category": "error",
+      "question": "教程 register 如何处理用户名重复？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/auth.py",
+          "anchor": "except db.IntegrityError:",
+          "end_anchor": "error = f\"User {username} is already registered.\""
+        }
+      ],
+      "expected_facts": [
+        "捕获数据库 IntegrityError，构造用户名已注册的错误提示。"
+      ]
+    },
+    {
+      "id": "flask-10",
+      "repository": "flask",
+      "category": "error",
+      "question": "教程 get_post 为什么可能返回 403？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/blog.py",
+          "anchor": "if check_author and post[\"author_id\"] != g.user[\"id\"]:",
+          "end_anchor": "abort(403)"
+        }
+      ],
+      "expected_facts": [
+        "启用作者检查且当前用户不是作者时返回 403。"
+      ]
+    },
+    {
+      "id": "flask-11",
+      "repository": "flask",
+      "category": "impact",
+      "question": "修改教程 get_db 时，连接创建和注册用户写入分别在哪？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/db.py",
+          "anchor": "g.db = sqlite3.connect(",
+          "end_anchor": "current_app.config[\"DATABASE\"], detect_types=sqlite3.PARSE_DECLTYPES"
+        },
+        {
+          "file_path": "examples/tutorial/flaskr/auth.py",
+          "anchor": "\"INSERT INTO user (username, password) VALUES (?, ?)\","
+        }
+      ],
+      "expected_facts": [
+        "数据库连接由 get_db 创建，注册流程通过该连接向 user 表写入；不能视为完整调用者清单。"
+      ]
+    },
+    {
+      "id": "flask-12",
+      "repository": "flask",
+      "category": "flow",
+      "question": "full_dispatch_request 在预处理之后如何调用视图并处理异常？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/flask/app.py",
+          "anchor": "rv = self.preprocess_request()",
+          "end_anchor": "return self.finalize_request(rv)"
+        }
+      ],
+      "expected_facts": [
+        "预处理无返回值时调用 dispatch_request；异常交给 handle_user_exception，最终 finalize_request。"
+      ]
+    },
+    {
+      "id": "flask-13",
+      "repository": "flask",
+      "category": "location",
+      "question": "dispatch_request 实际通过哪个对象找到视图函数？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/flask/app.py",
+          "anchor": "return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)"
+        }
+      ],
+      "expected_facts": [
+        "使用 rule.endpoint 索引 view_functions，并经 ensure_sync 后传入 view_args。"
+      ]
+    },
+    {
+      "id": "flask-14",
+      "repository": "flask",
+      "category": "auth",
+      "question": "默认 SecureCookieSessionInterface 遇到无效签名 cookie 时怎么办？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/flask/sessions.py",
+          "anchor": "except BadSignature:",
+          "end_anchor": "return self.session_class()"
+        }
+      ],
+      "expected_facts": [
+        "捕获 BadSignature 并返回空会话，不凭空认定用户已经登录。"
+      ]
+    },
+    {
+      "id": "flask-15",
+      "repository": "flask",
+      "category": "database",
+      "question": "教程 init_db 如何读取并执行表结构？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/flaskr/db.py",
+          "anchor": "with current_app.open_resource(\"schema.sql\") as f:",
+          "end_anchor": "db.executescript(f.read().decode(\"utf8\"))"
+        }
+      ],
+      "expected_facts": [
+        "读取 schema.sql，以 UTF-8 解码后用 executescript 执行。"
+      ]
+    },
+    {
+      "id": "flask-16",
+      "repository": "flask",
+      "category": "follow_up",
+      "question": "它的相关测试呢？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "examples/tutorial/tests/test_auth.py",
+          "anchor": "def test_register(client, app):"
+        }
+      ],
+      "expected_facts": [
+        "沿用上一轮教程 register，定位 test_register；不应跳到框架蓝图注册测试。"
+      ],
+      "follow_up_to": "flask-09",
+      "history": [
+        {
+          "role": "user",
+          "content": "教程 register 如何处理用户名重复？"
+        },
+        {
+          "role": "assistant",
+          "content": "见 `examples/tutorial/flaskr/auth.py` 中的 `register`。"
+        }
+      ]
+    },
+    {
+      "id": "flask-17",
+      "repository": "flask",
+      "category": "topic_switch",
+      "question": "README 中的最小应用如何启动？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "README.md",
+          "anchor": "$ flask run"
+        }
+      ],
+      "expected_facts": [
+        "这是新启动问题，不应继承上轮登录或注册目标。"
+      ],
+      "follow_up_to": "flask-16",
+      "history": [
+        {
+          "role": "user",
+          "content": "教程 register 的测试在哪里？"
+        },
+        {
+          "role": "assistant",
+          "content": "见 `examples/tutorial/tests/test_auth.py`。"
+        }
+      ]
+    },
+    {
+      "id": "flask-18",
+      "repository": "flask",
+      "category": "unanswerable",
+      "question": "quantumTeleportPayment 这个函数如何进行支付？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "当前固定版本未找到该目标，应说明证据不足，不能编造支付实现。"
+      ],
+      "absent_target": "quantumTeleportPayment"
+    },
+    {
+      "id": "flask-19",
+      "repository": "flask",
+      "category": "unanswerable",
+      "question": "fluxEnterpriseBillingSync 的测试在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "未找到目标，不应使用普通登录测试替代。"
+      ],
+      "absent_target": "fluxEnterpriseBillingSync"
+    },
+    {
+      "id": "flask-20",
+      "repository": "flask",
+      "category": "project_context",
+      "question": "当前项目叫什么名字？",
+      "expected_behavior": "project_context",
+      "expected_evidence": [],
+      "expected_facts": [
+        "当前导入项目记录名称为 flask。"
+      ]
+    },
+    {
+      "id": "requests-01",
+      "repository": "requests",
+      "category": "location",
+      "question": "requests.get 的公开入口在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/api.py",
+          "anchor": "def get(url, params=None, **kwargs):"
+        }
+      ],
+      "expected_facts": [
+        "公开 get 在 api.py，不能只返回 Session.get。"
+      ]
+    },
+    {
+      "id": "requests-02",
+      "repository": "requests",
+      "category": "cross_file",
+      "question": "requests.get 是如何转交给 Session 的？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/api.py",
+          "anchor": "return request(\"get\", url, params=params, **kwargs)"
+        },
+        {
+          "file_path": "src/requests/api.py",
+          "anchor": "with sessions.Session() as session:",
+          "end_anchor": "return session.request(method=method, url=url, **kwargs)"
+        }
+      ],
+      "expected_facts": [
+        "get 调用模块 request，再通过上下文管理器创建 Session 并调用 session.request。"
+      ]
+    },
+    {
+      "id": "requests-03",
+      "repository": "requests",
+      "category": "flow",
+      "question": "Session.request 如何准备请求并交给发送层？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "prep = self.prepare_request(req)"
+        },
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "resp = self.send(prep, **send_kwargs)"
+        }
+      ],
+      "expected_facts": [
+        "先 prepare_request，再合并发送参数，通过 self.send 发送 PreparedRequest。"
+      ]
+    },
+    {
+      "id": "requests-04",
+      "repository": "requests",
+      "category": "flow",
+      "question": "Session.send 通过哪个对象执行实际发送？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "adapter = self.get_adapter(url=request.url)"
+        },
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "r = adapter.send(request, **kwargs)"
+        }
+      ],
+      "expected_facts": [
+        "先依 URL 选 adapter，然后调用 adapter.send，不是直接调用 socket。"
+      ]
+    },
+    {
+      "id": "requests-05",
+      "repository": "requests",
+      "category": "config",
+      "question": "merge_environment_settings 如何决定证书配置的优先顺序？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "os.environ.get(\"REQUESTS_CA_BUNDLE\")",
+          "end_anchor": "or verify"
+        }
+      ],
+      "expected_facts": [
+        "启用 trust_env 且 verify 为 True 或 None 时，优先 REQUESTS_CA_BUNDLE，再 CURL_CA_BUNDLE，再 verify。"
+      ]
+    },
+    {
+      "id": "requests-06",
+      "repository": "requests",
+      "category": "config",
+      "question": "HTTPAdapter 默认重试次数是多少？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/adapters.py",
+          "anchor": "DEFAULT_RETRIES = 0"
+        },
+        {
+          "file_path": "src/requests/adapters.py",
+          "anchor": "self.max_retries = Retry(0, read=False)"
+        }
+      ],
+      "expected_facts": [
+        "默认 DEFAULT_RETRIES 为 0，并构造 Retry(0, read=False)。"
+      ]
+    },
+    {
+      "id": "requests-07",
+      "repository": "requests",
+      "category": "auth",
+      "question": "rebuild_auth 为什么删除 Authorization 请求头？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "if \"Authorization\" in headers and self.should_strip_auth(",
+          "end_anchor": "del headers[\"Authorization\"]"
+        }
+      ],
+      "expected_facts": [
+        "重定向的 should_strip_auth 检查要求移除时删除，以防泄漏凭据；并非所有跳转都删除。"
+      ]
+    },
+    {
+      "id": "requests-08",
+      "repository": "requests",
+      "category": "error",
+      "question": "raise_for_status 会对哪些 HTTP 状态抛异常？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/models.py",
+          "anchor": "if 400 <= self.status_code < 500:"
+        },
+        {
+          "file_path": "src/requests/models.py",
+          "anchor": "elif 500 <= self.status_code < 600:"
+        },
+        {
+          "file_path": "src/requests/models.py",
+          "anchor": "raise HTTPError(http_error_msg, response=self)"
+        }
+      ],
+      "expected_facts": [
+        "4xx 和 5xx 形成错误消息并抛 HTTPError；不能说所有非 200 都抛错。"
+      ]
+    },
+    {
+      "id": "requests-09",
+      "repository": "requests",
+      "category": "error",
+      "question": "Response.json 无法解析返回内容时会发生什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/models.py",
+          "anchor": "return complexjson.loads(self.text, **kwargs)",
+          "end_anchor": "raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)"
+        }
+      ],
+      "expected_facts": [
+        "捕获 JSONDecodeError，转成 RequestsJSONDecodeError，不返回空字典。"
+      ]
+    },
+    {
+      "id": "requests-10",
+      "repository": "requests",
+      "category": "test",
+      "question": "raise_for_status 对应的状态错误测试在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "tests/test_requests.py",
+          "anchor": "def test_status_raising(self, httpbin):"
+        }
+      ],
+      "expected_facts": [
+        "test_status_raising 是相关测试候选；没有执行测试。"
+      ]
+    },
+    {
+      "id": "requests-11",
+      "repository": "requests",
+      "category": "error",
+      "question": "Session.send 能直接接收 Request 对象吗？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "if isinstance(request, Request):",
+          "end_anchor": "raise ValueError(\"You can only send PreparedRequests.\")"
+        }
+      ],
+      "expected_facts": [
+        "不可以；Request 会引发 ValueError，需要 PreparedRequest。"
+      ]
+    },
+    {
+      "id": "requests-12",
+      "repository": "requests",
+      "category": "location",
+      "question": "连接适配器 get_adapter 找不到 URL 前缀时怎么办？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "raise InvalidSchema(f\"No connection adapters were found for {url!r}\")"
+        }
+      ],
+      "expected_facts": [
+        "未匹配任何已注册前缀时抛 InvalidSchema。"
+      ]
+    },
+    {
+      "id": "requests-13",
+      "repository": "requests",
+      "category": "impact",
+      "question": "修改 adapter 选择逻辑时，前缀匹配和相关测试在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "if url.lower().startswith(prefix.lower()):"
+        },
+        {
+          "file_path": "tests/test_requests.py",
+          "anchor": "def test_session_get_adapter_prefix_matching(self):"
+        }
+      ],
+      "expected_facts": [
+        "匹配时忽略大小写，相关测试包含 test_session_get_adapter_prefix_matching；非完整运行时影响分析。"
+      ]
+    },
+    {
+      "id": "requests-14",
+      "repository": "requests",
+      "category": "config",
+      "question": "HTTPAdapter.send 的二元组 timeout 如何区分连接和读取超时？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/adapters.py",
+          "anchor": "connect, read = timeout",
+          "end_anchor": "timeout = TimeoutSauce(connect=connect, read=read)"
+        }
+      ],
+      "expected_facts": [
+        "二元组解包成 connect 和 read，用于构造 TimeoutSauce。"
+      ]
+    },
+    {
+      "id": "requests-15",
+      "repository": "requests",
+      "category": "auth",
+      "question": "Basic 认证的账号密码最终怎样组成请求头内容？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/auth.py",
+          "anchor": "authstr = \"Basic \" + to_native_string(",
+          "end_anchor": "b64encode(b\":\".join((username, password))).strip()"
+        }
+      ],
+      "expected_facts": [
+        "账号密码以冒号连接后 Base64 编码并加 Basic 前缀，不是加密存储。"
+      ]
+    },
+    {
+      "id": "requests-16",
+      "repository": "requests",
+      "category": "follow_up",
+      "question": "它的相关测试呢？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "tests/test_requests.py",
+          "anchor": "def test_status_raising(self, httpbin):"
+        }
+      ],
+      "expected_facts": [
+        "沿用 raise_for_status，定位状态错误测试。"
+      ],
+      "follow_up_to": "requests-08",
+      "history": [
+        {
+          "role": "user",
+          "content": "raise_for_status 会对哪些 HTTP 状态抛异常？"
+        },
+        {
+          "role": "assistant",
+          "content": "见 `src/requests/models.py` 中的 `raise_for_status`。"
+        }
+      ]
+    },
+    {
+      "id": "requests-17",
+      "repository": "requests",
+      "category": "topic_switch",
+      "question": "当前项目名称是什么？",
+      "expected_behavior": "project_context",
+      "expected_evidence": [],
+      "expected_facts": [
+        "切换到项目元数据问题，回答 requests，不继承异常目标。"
+      ],
+      "follow_up_to": "requests-16",
+      "history": [
+        {
+          "role": "user",
+          "content": "raise_for_status 的测试呢？"
+        },
+        {
+          "role": "assistant",
+          "content": "见 `tests/test_requests.py`。"
+        }
+      ]
+    },
+    {
+      "id": "requests-18",
+      "repository": "requests",
+      "category": "unanswerable",
+      "question": "quantumTeleportPayment 在哪里写入账单表？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "未找到该目标，不能用 HTTP 响应代码猜测数据库表。"
+      ],
+      "absent_target": "quantumTeleportPayment"
+    },
+    {
+      "id": "requests-19",
+      "repository": "requests",
+      "category": "unanswerable",
+      "question": "rainbowLedgerSync 的相关测试在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "该固定版本没有此目标，证据不足。"
+      ],
+      "absent_target": "rainbowLedgerSync"
+    },
+    {
+      "id": "requests-20",
+      "repository": "requests",
+      "category": "location",
+      "question": "Session.close 如何释放适配器资源？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/requests/sessions.py",
+          "anchor": "for v in self.adapters.values():",
+          "end_anchor": "v.close()"
+        }
+      ],
+      "expected_facts": [
+        "遍历所有适配器并逐个 close。"
+      ]
+    },
+    {
+      "id": "express-01",
+      "repository": "express",
+      "category": "location",
+      "question": "创建 Express 应用的 createApplication 实现在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/express.js",
+          "anchor": "function createApplication() {"
+        }
+      ],
+      "expected_facts": [
+        "入口实现是 lib/express.js 的 createApplication。"
+      ]
+    },
+    {
+      "id": "express-02",
+      "repository": "express",
+      "category": "cross_file",
+      "question": "createApplication 返回的 app 函数把请求交给哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/express.js",
+          "anchor": "app.handle(req, res, next);"
+        },
+        {
+          "file_path": "lib/application.js",
+          "anchor": "app.handle = function handle(req, res, callback) {"
+        }
+      ],
+      "expected_facts": [
+        "app 包装函数转发给 application.js 的 app.handle。"
+      ]
+    },
+    {
+      "id": "express-03",
+      "repository": "express",
+      "category": "startup",
+      "question": "app.listen 如何创建并启动 HTTP server？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/application.js",
+          "anchor": "var server = http.createServer(this);",
+          "end_anchor": "return server.listen.apply(server, arguments);"
+        }
+      ],
+      "expected_facts": [
+        "创建 HTTP server，以应用为回调，再转发 listen 参数。"
+      ]
+    },
+    {
+      "id": "express-04",
+      "repository": "express",
+      "category": "config",
+      "question": "defaultConfiguration 中 NODE_ENV 未设置时是什么环境？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/application.js",
+          "anchor": "var env = process.env.NODE_ENV || 'development';"
+        }
+      ],
+      "expected_facts": [
+        "默认 development，不能把演示环境说成 production。"
+      ]
+    },
+    {
+      "id": "express-05",
+      "repository": "express",
+      "category": "config",
+      "question": "默认 trust proxy 是否打开？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/application.js",
+          "anchor": "this.set('trust proxy', false);"
+        }
+      ],
+      "expected_facts": [
+        "默认 false；不能假定任意代理请求头均可信。"
+      ]
+    },
+    {
+      "id": "express-06",
+      "repository": "express",
+      "category": "api",
+      "question": "express.json 的实现来自本仓库还是外部依赖？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/express.js",
+          "anchor": "var bodyParser = require('body-parser')"
+        },
+        {
+          "file_path": "lib/express.js",
+          "anchor": "exports.json = bodyParser.json"
+        }
+      ],
+      "expected_facts": [
+        "导出 body-parser 的 json；当前源码不含该依赖完整实现，不能编造内部解析流程。"
+      ]
+    },
+    {
+      "id": "express-07",
+      "repository": "express",
+      "category": "flow",
+      "question": "lazyrouter 初始化时先安装哪些中间件？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/application.js",
+          "anchor": "this._router.use(query(this.get('query parser fn')));",
+          "end_anchor": "this._router.use(middleware.init(this));"
+        }
+      ],
+      "expected_facts": [
+        "先查询字符串解析中间件，再安装初始化中间件。"
+      ]
+    },
+    {
+      "id": "express-08",
+      "repository": "express",
+      "category": "api",
+      "question": "Router.route 如何把路由加入自己的处理栈？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/router/index.js",
+          "anchor": "var route = new Route(path);",
+          "end_anchor": "}, route.dispatch.bind(route));"
+        },
+        {
+          "file_path": "lib/router/index.js",
+          "anchor": "layer.route = route;",
+          "end_anchor": "return route;"
+        }
+      ],
+      "expected_facts": [
+        "建立 Route 和 Layer，Layer 绑定 route.dispatch，再将 layer 推入 stack。"
+      ]
+    },
+    {
+      "id": "express-09",
+      "repository": "express",
+      "category": "error",
+      "question": "handle_error 怎样辨别错误处理中间件？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/router/layer.js",
+          "anchor": "if (fn.length !== 4) {",
+          "end_anchor": "return next(error);"
+        }
+      ],
+      "expected_facts": [
+        "参数个数不是 4 时跳过该错误处理函数；这是静态可见约定。"
+      ]
+    },
+    {
+      "id": "express-10",
+      "repository": "express",
+      "category": "error",
+      "question": "handle_request 如何处理同步抛出的异常？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/router/layer.js",
+          "anchor": "fn(req, res, next);",
+          "end_anchor": "next(err);"
+        }
+      ],
+      "expected_facts": [
+        "同步 try/catch 捕获后 next(err)；不能据此宣称自动处理全部异步 Promise 拒绝。"
+      ]
+    },
+    {
+      "id": "express-11",
+      "repository": "express",
+      "category": "api",
+      "question": "res.json 在没有 Content-Type 时设置什么响应类型？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/response.js",
+          "anchor": "this.set('Content-Type', 'application/json');",
+          "after": "res.json = function json(obj) {"
+        }
+      ],
+      "expected_facts": [
+        "设置 application/json 后发送序列化结果。"
+      ]
+    },
+    {
+      "id": "express-12",
+      "repository": "express",
+      "category": "config",
+      "question": "res.json 序列化时会读取哪些格式设置？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/response.js",
+          "anchor": "var escape = app.get('json escape')",
+          "after": "res.json = function json(obj) {",
+          "end_anchor": "var body = stringify(val, replacer, spaces, escape)"
+        }
+      ],
+      "expected_facts": [
+        "读取 json escape、json replacer、json spaces 并传给 stringify。"
+      ]
+    },
+    {
+      "id": "express-13",
+      "repository": "express",
+      "category": "test",
+      "question": "res.json 保留先前 Content-Type 的测试在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "test/res.json.js",
+          "anchor": "it('should not override previous Content-Types', function(done){"
+        }
+      ],
+      "expected_facts": [
+        "test/res.json.js 中对应测试检查自定义 JSON Content-Type。"
+      ]
+    },
+    {
+      "id": "express-14",
+      "repository": "express",
+      "category": "location",
+      "question": "req.get 读取头部时如何兼容 Referer 和 Referrer？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/request.js",
+          "anchor": "var lc = name.toLowerCase();",
+          "end_anchor": "return this.headers[lc];"
+        }
+      ],
+      "expected_facts": [
+        "先转小写；referer/referrer 分支优先 headers.referrer，随后 headers.referer。"
+      ]
+    },
+    {
+      "id": "express-15",
+      "repository": "express",
+      "category": "config",
+      "question": "npm test 使用哪个测试运行器和路径？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "package.json",
+          "anchor": "\"test\": \"mocha --require test/support/env --reporter spec --bail --check-leaks test/ test/acceptance/\","
+        }
+      ],
+      "expected_facts": [
+        "Mocha，预加载 test/support/env，并运行 test/ 与 test/acceptance/；不执行仓库测试。"
+      ]
+    },
+    {
+      "id": "express-16",
+      "repository": "express",
+      "category": "follow_up",
+      "question": "它的相关测试呢？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "test/res.json.js",
+          "anchor": "it('should not override previous Content-Types', function(done){"
+        }
+      ],
+      "expected_facts": [
+        "沿用 res.json，定位测试而非另一个响应方法。"
+      ],
+      "follow_up_to": "express-11",
+      "history": [
+        {
+          "role": "user",
+          "content": "res.json 在没有 Content-Type 时设置什么响应类型？"
+        },
+        {
+          "role": "assistant",
+          "content": "见 `lib/response.js` 中的 `res.json`。"
+        }
+      ]
+    },
+    {
+      "id": "express-17",
+      "repository": "express",
+      "category": "topic_switch",
+      "question": "当前仓库叫什么名字？",
+      "expected_behavior": "project_context",
+      "expected_evidence": [],
+      "expected_facts": [
+        "这是新的元数据问题，回答 express。"
+      ],
+      "follow_up_to": "express-16",
+      "history": [
+        {
+          "role": "user",
+          "content": "res.json 的测试呢？"
+        },
+        {
+          "role": "assistant",
+          "content": "见 `test/res.json.js`。"
+        }
+      ]
+    },
+    {
+      "id": "express-18",
+      "repository": "express",
+      "category": "unanswerable",
+      "question": "quantumTeleportPayment 如何扣除用户余额？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "固定版本没有该函数，不得编造支付或数据库流程。"
+      ],
+      "absent_target": "quantumTeleportPayment"
+    },
+    {
+      "id": "express-19",
+      "repository": "express",
+      "category": "unanswerable",
+      "question": "rainbowLedgerSync 的测试在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "缺少指定目标的源码证据，应拒绝猜测。"
+      ],
+      "absent_target": "rainbowLedgerSync"
+    },
+    {
+      "id": "express-20",
+      "repository": "express",
+      "category": "impact",
+      "question": "修改默认查询参数解析器时，它在哪配置又在哪安装？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "lib/application.js",
+          "anchor": "this.set('query parser', 'extended');"
+        },
+        {
+          "file_path": "lib/application.js",
+          "anchor": "this._router.use(query(this.get('query parser fn')));"
+        }
+      ],
+      "expected_facts": [
+        "默认 extended，在 lazyrouter 中使用配置生成的 query parser fn；并非运行时调用图。"
+      ]
+    }
+  ]
+}

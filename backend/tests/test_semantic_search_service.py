@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -7,6 +9,17 @@ from app.core.database import Base
 from app.models.analysis import SearchChunk
 from app.models.project import Project, ProjectFile
 from app.services import semantic_search_service
+
+
+@contextmanager
+def _database_session(database_path: Path) -> Iterator[Session]:
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    try:
+        Base.metadata.create_all(engine)
+        with Session(engine) as database:
+            yield database
+    finally:
+        engine.dispose()
 
 
 def _chunk(chunk_id: int, file_id: int, kind: str = "function") -> SearchChunk:
@@ -57,8 +70,6 @@ def test_semantic_passage_adds_repository_concepts_without_changing_source() -> 
 def test_builds_persists_and_restores_semantic_repository_index(
     tmp_path: Path, monkeypatch
 ) -> None:
-    engine = create_engine(f"sqlite:///{(tmp_path / 'semantic.db').as_posix()}")
-    Base.metadata.create_all(engine)
     repository = tmp_path / "repository"
     repository.mkdir()
     (repository / "auth.py").write_text(
@@ -80,7 +91,7 @@ def test_builds_persists_and_restores_semantic_repository_index(
         ]
 
     monkeypatch.setattr(semantic_search_service, "_embed_texts", fake_embeddings)
-    with Session(engine) as database:
+    with _database_session(tmp_path / "semantic.db") as database:
         project = Project(
             name="semantic-demo",
             source_filename="semantic-demo/",
@@ -157,11 +168,9 @@ def test_builds_persists_and_restores_semantic_repository_index(
 def test_semantic_search_falls_back_cleanly_when_embeddings_are_unavailable(
     tmp_path: Path, monkeypatch
 ) -> None:
-    engine = create_engine(f"sqlite:///{(tmp_path / 'fallback.db').as_posix()}")
-    Base.metadata.create_all(engine)
     repository = tmp_path / "repository"
     repository.mkdir()
-    with Session(engine) as database:
+    with _database_session(tmp_path / "fallback.db") as database:
         project = Project(
             name="fallback",
             source_filename="fallback/",

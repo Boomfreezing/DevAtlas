@@ -195,13 +195,15 @@ describe("App", () => {
         const items = structure.issues;
         return Response.json({ total: items.length, limit: 150, offset: 0, has_more: false, items });
       }
-      if (url.endsWith("/api/projects/1/files/tree")) {
+      const treeUrl = new URL(url, "http://localhost");
+      const directory = treeUrl.searchParams.get("path") ?? "";
+      if (treeUrl.pathname === "/api/projects/1/files/tree" && directory === "") {
         return Response.json({ path: "", total_files: 1, items: [{ kind: "directory", name: "src", path: "src", file_count: 1, id: null, extension: null, language: null, size_bytes: null, line_count: null }] });
       }
-      if (url.endsWith("/api/projects/1/files/tree?path=src")) {
+      if (treeUrl.pathname === "/api/projects/1/files/tree" && directory === "src") {
         return Response.json({ path: "src", total_files: 1, items: [{ kind: "directory", name: "core", path: "src/core", file_count: 1, id: null, extension: null, language: null, size_bytes: null, line_count: null }] });
       }
-      if (url.endsWith("/api/projects/1/files/tree?path=src%2Fcore")) {
+      if (treeUrl.pathname === "/api/projects/1/files/tree" && directory === "src/core") {
         return Response.json({ path: "src/core", total_files: 1, items: [{ kind: "file", name: "main.py", path: "src/core/main.py", file_count: 1, id: 1, extension: ".py", language: "Python", size_bytes: 80, line_count: 8 }] });
       }
       const project = projects.find((item) => url.endsWith(`/api/projects/${item.id}`));
@@ -226,7 +228,7 @@ describe("App", () => {
     expect((await screen.findByRole("button", { name: /core 目录/ })).getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: /core 目录/ }));
     expect(await screen.findByText("main.py")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith("/api/projects/1/files/tree?path=src%2Fcore", undefined);
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/1/files/tree?path=src%2Fcore&limit=200&offset=0", { signal: expect.any(AbortSignal) });
     fireEvent.click(screen.getByRole("button", { name: /^符号 / }));
     await waitFor(() => expect(document.querySelectorAll(".symbol-row")).toHaveLength(150));
     expect(document.querySelector(".structure-list-summary")?.textContent).toContain("shown150/ total 151 rows");
@@ -256,7 +258,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /依赖图谱/ }).className).toContain("active");
     expect(document.querySelector(".workspace-breadcrumb")?.textContent).toContain("beta/依赖图谱");
     expect(new URLSearchParams(window.location.search).get("project")).toBe("2");
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/projects/2/dependency-graph"), undefined);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/projects/2/dependency-graph"), expect.objectContaining({ signal: expect.any(AbortSignal) }));
 
     fireEvent.click(document.querySelector(".project-trigger") as HTMLButtonElement);
     fireEvent.click(screen.getByText("alpha"));
@@ -335,7 +337,7 @@ describe("App", () => {
     expect(JSON.parse(String(askCalls[1]?.[1]?.body))).toMatchObject({ provider: "openai-chat-compatible" });
     fireEvent.click(screen.getByRole("button", { name: /README\.md:3-3/ }));
     expect(await screen.findByRole("dialog", { name: "README.md" })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith("/api/projects/11/files/1/content", undefined);
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/11/files/1/content", { signal: expect.any(AbortSignal) });
   });
 
   it("shows the displayed search count and loads more results", async () => {
@@ -409,7 +411,7 @@ describe("App", () => {
     await waitFor(() => expect(document.querySelectorAll(".search-result")).toHaveLength(12));
     expect(screen.getByText("显示 12 / 12 条匹配")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /加载更多/ })).toBeNull();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("offset=10"), undefined);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("offset=10"), { signal: expect.any(AbortSignal) });
   });
 
   it("restores the project and feature section from the URL", async () => {
@@ -680,13 +682,13 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /LOAD_NEXT/ }));
     await waitFor(() => expect(document.querySelectorAll(".quality-finding")).toHaveLength(150));
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/quality?limit=100&offset=100"), undefined);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/quality?limit=100&offset=100"), expect.objectContaining({ signal: expect.any(AbortSignal) }));
 
     expect(screen.getAllByText("中风险").length).toBeGreaterThan(0);
     expect(screen.getByText("实际 100 / 建议 ≤ 80 · 超出 25%")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("风险等级"), { target: { value: "warning" } });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("severity=warning"), undefined));
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("offset=0"), undefined);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("severity=warning"), expect.objectContaining({ signal: expect.any(AbortSignal) })));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/quality?limit=100&offset=0"), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it("synchronizes remote GitHub source and exposes commit comparison beside snapshots", async () => {
@@ -800,6 +802,12 @@ describe("App", () => {
     expect(screen.getAllByText("app/api/login.py").length).toBeGreaterThan(0);
     expect(screen.getByText("函数关系来自有界源码引用推断。")).toBeTruthy();
     expect(new URLSearchParams(window.location.search).get("section")).toBe("impact");
+    fireEvent.click(screen.getByRole("button", { name: /代码搜索/ }));
+    expect(screen.queryByRole("heading", { name: "authenticate_user" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /耦合分析/ }));
+    expect(await screen.findByRole("heading", { name: "authenticate_user" })).toBeTruthy();
+    expect(screen.getByLabelText(/选择要修改的文件、类或函数/)).toHaveProperty("value", "authenticate_user");
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/impact?"))).toHaveLength(2);
   });
 
   it("generates a targeted report and saves it from the dedicated report workspace", async () => {

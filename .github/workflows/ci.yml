@@ -7,6 +7,11 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    env:
+      DEVATLAS_DATABASE_URL: 'sqlite:///:memory:'
+      DEVATLAS_SEMANTIC_SEARCH_ENABLED: 'false'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
     defaults:
       run:
         working-directory: backend
@@ -17,8 +22,10 @@ jobs:
           python-version: "3.13"
           cache: pip
       - run: python -m pip install -e ".[dev]"
-      - run: python -m ruff check app tests
-      - run: python -m pytest --cov=app --cov-fail-under=85
+      - run: python -m ruff check app tests evaluations
+      - run: python -W error::ResourceWarning -m pytest --cov=app --cov-fail-under=85 -W error::ResourceWarning -W error::pytest.PytestUnraisableExceptionWarning
+      - name: Repository QA evidence benchmark (offline)
+        run: python -m evaluations.repository_qa
 
   frontend:
     runs-on: ubuntu-latest
@@ -33,7 +40,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npm test
+      - run: npm test -- --maxWorkers=2
       - run: npm run build
 
   e2e:
@@ -56,3 +63,12 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - name: Upload failed browser traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failures
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          retention-days: 7

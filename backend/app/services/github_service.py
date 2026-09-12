@@ -98,8 +98,14 @@ def parse_github_repository(url: str) -> GitHubRepository:
 
 
 async def download_github_repository(
-    repository: GitHubRepository, settings: Settings
+    repository: GitHubRepository, settings: Settings, *, commit_sha: str | None = None
 ) -> Path:
+    if commit_sha is not None and not re.fullmatch(r"[0-9a-fA-F]{40}", commit_sha):
+        raise GitHubValidationError("A full Git commit SHA is required for a pinned download.")
+    archive_url = (
+        f"{repository.repository_url}/archive/{commit_sha.lower()}.zip"
+        if commit_sha is not None else repository.archive_url
+    )
     temporary_path: Path | None = None
     try:
         settings.temporary_root.mkdir(parents=True, exist_ok=True)
@@ -114,7 +120,7 @@ async def download_github_repository(
                 timeout=timeout,
                 headers={"User-Agent": "DevAtlas/0.2"},
             ) as client:
-                async with client.stream("GET", repository.archive_url) as response:
+                async with client.stream("GET", archive_url) as response:
                     if response.status_code == 404:
                         raise GitHubDownloadError("The public GitHub repository was not found.")
                     response.raise_for_status()
@@ -190,7 +196,7 @@ async def fetch_github_metadata(
             _validate_api_response(repository_response)
             payload = repository_response.json()
             default_branch = str(payload.get("default_branch") or "").strip()
-            if not default_branch or not REPOSITORY_PART.fullmatch(default_branch):
+            if not default_branch or any(ord(char) < 32 for char in default_branch):
                 raise GitHubMetadataError("GitHub did not return a valid default branch.")
 
             commits_response = await client.get(
@@ -209,7 +215,8 @@ async def fetch_github_metadata(
                 sha = str(item.get("sha") or "").strip()
                 commit = item.get("commit") if isinstance(item.get("commit"), dict) else {}
                 author = commit.get("author") if isinstance(commit.get("author"), dict) else {}
-                message = str(commit.get("message") or "").splitlines()[0].strip()
+                message_lines = str(commit.get("message") or "").splitlines()
+                message = message_lines[0].strip() if message_lines else ""
                 authored_at = str(author.get("date") or "").strip()
                 author_name = str(author.get("name") or "Unknown").strip()[:160]
                 if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):

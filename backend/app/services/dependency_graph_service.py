@@ -229,7 +229,7 @@ def find_cycles(
     on_stack: set[int] = set()
     components: list[list[int]] = []
 
-    def visit(node_id: int) -> None:
+    def enter(node_id: int) -> None:
         nonlocal next_index
         indexes[node_id] = next_index
         low_links[node_id] = next_index
@@ -237,26 +237,35 @@ def find_cycles(
         stack.append(node_id)
         on_stack.add(node_id)
 
-        for target_id in adjacency[node_id]:
-            if target_id not in indexes:
-                visit(target_id)
-                low_links[node_id] = min(low_links[node_id], low_links[target_id])
-            elif target_id in on_stack:
-                low_links[node_id] = min(low_links[node_id], indexes[target_id])
-
-        if low_links[node_id] != indexes[node_id]:
-            return
-        component: list[int] = []
-        while stack:
-            member = stack.pop()
-            on_stack.remove(member)
-            component.append(member)
-            if member == node_id:
-                break
-        if len(component) > 1 or (node_id, node_id) in edges:
-            components.append(sorted(component))
-
-    for node_id in sorted(node_ids):
-        if node_id not in indexes:
-            visit(node_id)
+    for root_id in sorted(node_ids):
+        if root_id in indexes:
+            continue
+        enter(root_id)
+        # Explicit DFS frames preserve Tarjan's low-link postorder without using
+        # Python's call stack: long import chains must not crash analysis.
+        frames = [(root_id, iter(adjacency[root_id]))]
+        while frames:
+            node_id, targets = frames[-1]
+            target_id = next(targets, None)
+            if target_id is not None:
+                if target_id not in indexes:
+                    enter(target_id)
+                    frames.append((target_id, iter(adjacency[target_id])))
+                elif target_id in on_stack:
+                    low_links[node_id] = min(low_links[node_id], indexes[target_id])
+                continue
+            frames.pop()
+            if frames:
+                parent_id = frames[-1][0]
+                low_links[parent_id] = min(low_links[parent_id], low_links[node_id])
+            if low_links[node_id] == indexes[node_id]:
+                component: list[int] = []
+                while stack:
+                    member = stack.pop()
+                    on_stack.remove(member)
+                    component.append(member)
+                    if member == node_id:
+                        break
+                if len(component) > 1 or (node_id, node_id) in edges:
+                    components.append(sorted(component))
     return sorted(components, key=lambda component: (-len(component), component))

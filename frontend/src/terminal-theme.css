@@ -472,6 +472,8 @@ h1::after {
 .dependency-node.cyclic circle { fill: var(--terminal-bg); stroke: var(--terminal-secondary); }
 .dependency-node.cyclic.selected circle { fill: var(--terminal-secondary); stroke: var(--terminal-secondary); }
 .dependency-node text { fill: var(--terminal-text); stroke: var(--terminal-bg); }
+.dependency-node:focus-visible { outline: 1px dashed var(--terminal-primary); outline-offset: 4px; }
+.dependency-node:focus-visible circle { stroke-width: 3; }
 .node-inspector h3, .neighbor-list strong, .cycle-heading strong { color: var(--terminal-primary); }
 .cycle-row { border-color: var(--terminal-border); color: var(--terminal-text); background: transparent; }
 .cycle-row:hover, .cycle-row.active { background: #171104; }.cycle-row.active { box-shadow: inset 3px 0 var(--terminal-secondary); }
@@ -523,6 +525,45 @@ h1::after {
 .finding-main header small { color: var(--terminal-primary); }
 .finding-suggestion { border-left-color: var(--terminal-primary); color: var(--terminal-muted); background: #0b140b; }
 .finding-suggestion b { color: var(--terminal-primary); }
+
+/* Reflow the quality workspace by its available panel width, including when
+   the existing display scale leaves less room beside the sidebar. */
+.quality-view { min-width: 0; container: quality / inline-size; }
+.quality-toolbar { flex-wrap: wrap; }
+.quality-toolbar > strong { flex-shrink: 0; }
+.quality-toolbar > span { min-width: 0; overflow-wrap: anywhere; }
+.quality-toolbar label { min-width: 0; white-space: nowrap; }
+.quality-toolbar select { min-width: 0; max-width: 100%; }
+.quality-overview, .quality-scope-scores article { min-width: 0; overflow-wrap: anywhere; }
+.quality-rules article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.quality-rules article > div { min-width: 0; flex-wrap: wrap; }
+.quality-rules code { min-width: 0; overflow-wrap: anywhere; }
+.quality-rules article > span { float: none; margin-top: 0; align-self: start; }
+.finding-main { min-width: 0; overflow-wrap: anywhere; }
+.finding-main header { flex-wrap: wrap; }
+.finding-main header > div { min-width: 0; flex: 1 1 240px; }
+.finding-main header small { min-width: 0; flex: 0 1 auto; }
+.finding-suggestion b { flex-shrink: 0; }
+.quality-view .graph-focus-error { min-width: 0; flex-wrap: wrap; }
+.quality-view .graph-focus-error > span { min-width: 0; overflow-wrap: anywhere; }
+
+@container quality (max-width: 760px) {
+  .quality-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .quality-toolbar > span { text-align: right; }
+  .quality-toolbar label { grid-column: 1 / -1; margin-left: 0; display: grid; grid-template-columns: 5em minmax(0, 1fr); gap: 12px; }
+  .quality-toolbar select { width: 100%; }
+  .quality-hero { grid-template-columns: 104px minmax(0, 1fr); }
+  .quality-hero .severity-summary { grid-column: 1 / -1; }
+  .quality-rules { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container quality (max-width: 560px) {
+  .quality-hero, .quality-rules, .quality-scope-scores { grid-template-columns: minmax(0, 1fr); }
+  .quality-finding { grid-template-columns: minmax(0, 1fr); }
+  .finding-level { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border-right: 0; border-bottom: 1px solid var(--terminal-border); }
+  .finding-level code, .finding-level small { min-width: 0; margin-top: 0; }
+  .finding-main { padding: 12px; }
+}
 
 /* Analysis snapshots use the same phosphor terminal language as the rest of DevAtlas. */
 .snapshot-workspace { color: var(--terminal-text); background: var(--terminal-bg); }
@@ -640,6 +681,10 @@ h1::after {
 .snapshot-compare-controls select { border-color: var(--terminal-border); color: var(--terminal-primary); background: var(--terminal-panel); }
 .snapshot-comparison > header { border-left-color: var(--terminal-primary); background: #0b140b; }
 .snapshot-comparison > header i { color: var(--terminal-secondary); }
+.snapshot-comparison-warning { padding: 12px 16px; border: 1px dashed var(--terminal-primary); background: #0b140b; color: var(--terminal-muted); font: inherit; line-height: 1.65; overflow-wrap: anywhere; }
+.snapshot-comparison-warning p { margin: 0; }
+.snapshot-change-neutral h4, .snapshot-change-neutral h4 b { color: var(--terminal-muted); }
+.snapshot-metrics em.not-comparable { display: block; margin: 4px 0; white-space: normal; }
 .snapshot-metrics article { border-top: 2px solid var(--terminal-border); }
 .snapshot-metrics article:hover { border-top-color: var(--terminal-primary); background: #102010; }
 .snapshot-metrics em.good { color: var(--terminal-primary); }

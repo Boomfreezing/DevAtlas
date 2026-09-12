@@ -179,8 +179,9 @@ def test_compares_two_full_commit_shas_without_cloning(monkeypatch: pytest.Monke
     assert comparison.files[0]["path"] == "src/app.py"
 
 
+@pytest.mark.parametrize("commit_sha", [None, "B" * 40])
 def test_downloads_and_extracts_github_archive(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, commit_sha: str | None
 ) -> None:
     settings = Settings(
         repository_root=tmp_path / "repositories",
@@ -201,12 +202,52 @@ def test_downloads_and_extracts_github_archive(
         github_service.tempfile, "NamedTemporaryFile", managed_temporary_file
     )
 
-    extracted = asyncio.run(download_github_repository(repository, settings))
+    captured_urls: list[str] = []
+
+    def capture_stream(self: FakeClient, method: str, url: str) -> FakeResponse:
+        captured_urls.append(url)
+        return self.response
+
+    monkeypatch.setattr(FakeClient, "stream", capture_stream)
+    extracted = asyncio.run(download_github_repository(repository, settings, commit_sha=commit_sha))
+    revision = commit_sha.lower() if commit_sha else "HEAD"
+    assert captured_urls == [f"https://github.com/openai/example/archive/{revision}.zip"]
 
     assert extracted.name == "repository-main"
     assert (extracted / "src" / "main.py").read_text(encoding="utf-8") == "print('downloaded')\n"
     assert Path(captured_directory["dir"]) == settings.temporary_root
     assert list(settings.temporary_root.iterdir()) == []
+
+
+@pytest.mark.parametrize("commit_sha", ["main", "../main", "a" * 39])
+def test_rejects_unpinned_download_revision(tmp_path: Path, commit_sha: str) -> None:
+    settings = Settings(temporary_root=tmp_path / "temporary")
+    with pytest.raises(GitHubValidationError, match="full Git commit SHA"):
+        asyncio.run(download_github_repository(
+            parse_github_repository("https://github.com/example/demo"), settings,
+            commit_sha=commit_sha,
+        ))
+    assert not settings.temporary_root.exists()
+
+
+def test_metadata_supports_slash_branches_and_empty_commit_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class SlashBranchClient(FakeMetadataClient):
+        async def get(self, url: str, **options: object) -> httpx.Response:
+            if url.endswith("/commits"):
+                assert options["params"]["sha"] == "release/1.x"
+                payload = [{"sha": "c" * 40, "commit": {"message": ""}}]
+            else:
+                payload = {"default_branch": "release/1.x"}
+            return httpx.Response(200, request=httpx.Request("GET", url), json=payload)
+
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", SlashBranchClient)
+    metadata = asyncio.run(fetch_github_metadata(
+        parse_github_repository("https://github.com/example/demo")
+    ))
+    assert metadata.default_branch == "release/1.x"
+    assert metadata.recent_commits[0]["message"] == "No commit message"
 
 
 def test_reports_missing_github_repository(

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getProjectFileContent } from "./api";
+import { useReadRequests } from "./readRequests";
 import type { CodeSearchResult, ProjectFileContent } from "./types";
 
 
@@ -9,6 +10,39 @@ interface CodeViewerProps {
   result: CodeSearchResult;
   query: string;
   onClose: () => void;
+}
+
+// Mirrors repository_qa_service.MAX_EVIDENCE_CHARS. Python slices Unicode
+// code points, not UTF-16 units; public snippets have no ellipsis or trimming.
+const MAX_EVIDENCE_CHARS = 1_600;
+
+function sourceEvidence(lines: string[], start: number, end: number): string {
+  const characters: string[] = [];
+  for (let index = start - 1; index < end && characters.length < MAX_EVIDENCE_CHARS; index += 1) {
+    if (index > start - 1) characters.push("\n");
+    for (const character of lines[index]) {
+      if (characters.length === MAX_EVIDENCE_CHARS) break;
+      characters.push(character);
+    }
+  }
+  return characters.join("");
+}
+
+function validateSource(response: ProjectFileContent, result: CodeSearchResult): void {
+  if (!response || response.file_id !== result.file_id || response.file_path !== result.file_path) {
+    throw new Error("引用文件与当前索引不一致，可能已重新分析或同步仓库。请返回原功能重新定位源码。");
+  }
+  if (!Array.isArray(response.lines) || response.lines.some((line) => typeof line !== "string")) {
+    throw new Error("源文件内容格式异常，请重新读取。");
+  }
+  const evidence = result.expected_evidence;
+  if (evidence === undefined) return;
+  if (!evidence || !Number.isSafeInteger(evidence.start_line) || !Number.isSafeInteger(evidence.end_line)
+    || evidence.start_line < 1 || evidence.end_line < evidence.start_line || evidence.end_line > response.lines.length
+    || typeof evidence.snippet !== "string"
+    || sourceEvidence(response.lines, evidence.start_line, evidence.end_line) !== evidence.snippet) {
+    throw new Error("问答引用与当前源码不一致，原行号或证据内容可能已改变。请重新提问以获取当前版本的引用。");
+  }
 }
 
 function queryPattern(query: string): RegExp | null {
@@ -36,59 +70,103 @@ function HighlightedLine({ line, pattern }: { line: string; pattern: RegExp | nu
 }
 
 export default function CodeViewer({ projectId, result, query, onClose }: CodeViewerProps) {
-  const [content, setContent] = useState<ProjectFileContent | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const sourceKey = JSON.stringify([projectId, result.file_id, result.file_path,
+    result.expected_evidence?.start_line ?? null, result.expected_evidence?.end_line ?? null,
+    result.expected_evidence?.snippet ?? null]);
+  const [source, setSource] = useState<{
+    key: string;
+    content: ProjectFileContent | null;
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+  const currentSource = source?.key === sourceKey ? source : null;
+  const content = currentSource?.content ?? null;
+  const loading = currentSource?.loading ?? true;
+  const error = currentSource?.error ?? null;
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [copyStatus, setCopyStatus] = useState<"idle" | "path" | "code" | "error">("idle");
+  const copyAttemptRef = useRef(0);
+  const copyResetTimerRef = useRef<number | null>(null);
   const highlightedLineRef = useRef<HTMLDivElement>(null);
+  const reads = useReadRequests();
   const pattern = useMemo(() => queryPattern(query), [query]);
 
+  const cancelCopyFeedback = useCallback(() => {
+    copyAttemptRef.current += 1;
+    if (copyResetTimerRef.current !== null) {
+      window.clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-    void getProjectFileContent(projectId, result.file_id)
+    const request = reads.begin("source");
+    cancelCopyFeedback();
+    setCopyStatus("idle");
+    setSource({ key: sourceKey, content: null, loading: true, error: null });
+    void getProjectFileContent(projectId, result.file_id, request.signal)
       .then((response) => {
-        if (active) setContent(response);
+        if (request.isCurrent()) {
+          validateSource(response, result);
+          setSource({ key: sourceKey, content: response, loading: false, error: null });
+        }
       })
       .catch((requestError: unknown) => {
-        if (active) setError(requestError instanceof Error ? requestError.message : "无法读取源文件");
+        if (request.isCurrent()) {
+          setSource({
+            key: sourceKey,
+            content: null,
+            loading: false,
+            error: requestError instanceof Error ? requestError.message : "无法读取源文件",
+          });
+        }
       })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+      .finally(request.finish);
     return () => {
-      active = false;
+      reads.cancel("source");
+      cancelCopyFeedback();
     };
-  }, [projectId, result.file_id, loadAttempt]);
+  }, [projectId, result.file_id, sourceKey, loadAttempt, reads, cancelCopyFeedback]);
+
+  const handleClose = useCallback(() => {
+    reads.cancel("source");
+    cancelCopyFeedback();
+    onClose();
+  }, [reads, cancelCopyFeedback, onClose]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") handleClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [handleClose]);
 
   useEffect(() => {
     if (!content || !highlightedLineRef.current) return;
     highlightedLineRef.current.scrollIntoView?.({ block: "center" });
-  }, [content]);
+  }, [content, result.snippet_start_line, result.snippet_end_line]);
 
   async function copyText(value: string, status: "path" | "code") {
+    cancelCopyFeedback();
+    const attempt = copyAttemptRef.current;
+    setCopyStatus("idle");
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
       await navigator.clipboard.writeText(value);
+      if (attempt !== copyAttemptRef.current) return;
       setCopyStatus(status);
-      window.setTimeout(() => setCopyStatus("idle"), 1_500);
+      copyResetTimerRef.current = window.setTimeout(() => {
+        copyResetTimerRef.current = null;
+        if (attempt === copyAttemptRef.current) setCopyStatus("idle");
+      }, 1_500);
     } catch {
-      setCopyStatus("error");
+      if (attempt === copyAttemptRef.current) setCopyStatus("error");
     }
   }
 
   return (
-    <div className="code-viewer-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="code-viewer-backdrop" onMouseDown={(event) => event.target === event.currentTarget && handleClose()}>
       <section className="code-viewer" role="dialog" aria-modal="true" aria-labelledby="code-viewer-title">
         <header className="code-viewer-heading">
           <div>
@@ -102,7 +180,7 @@ export default function CodeViewer({ projectId, result, query, onClose }: CodeVi
           <div className="code-viewer-actions">
             <button type="button" onClick={() => void copyText(result.file_path, "path")}>{copyStatus === "path" ? "已复制路径" : "复制路径"}</button>
             <button type="button" onClick={() => content && void copyText(content.lines.join("\n"), "code")} disabled={!content}>{copyStatus === "code" ? "已复制代码" : "复制代码"}</button>
-            <button type="button" className="code-viewer-close" aria-label="关闭代码查看器" onClick={onClose}>×</button>
+            <button type="button" className="code-viewer-close" aria-label="关闭代码查看器" onClick={handleClose}>×</button>
           </div>
         </header>
 

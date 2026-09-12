@@ -1,0 +1,1045 @@
+{
+  "schema_version": 1,
+  "label": "after",
+  "build_mode": "production",
+  "captured_at": "2026-09-12T11:07:15.432Z",
+  "bundle_sha256": {
+    "dist/assets/index-BlSlEDR-.js": "1b66cee054a5694ee4829ef365c35ffc81671efb1222124eedab28b3014ed8f5",
+    "dist/assets/index-BlSlEDR-.js.map": "9240892c2d52f0fc3d8cb82f729222f4fefd39c6615a9116b2ebea1dcbe267e9",
+    "dist/assets/index-DdXAennb.css": "f3f1280d9cd218fd3f12524c27b26dfdca71095fb775e591b0d54f9170c4ea5e"
+  },
+  "fixture_sha256": "b9ac361e4a6f088772492d04ad9adc7b25c693aa856bb66e9d686dbe05112670",
+  "browser_version": "152.0.7977.83",
+  "method": "Independent diagnostic pass, NOT one of the 3 timed samples. CDP CPU sampling interval 500 microseconds; sourcemaps resolve locally built bundle positions. Inclusive samples overlap and must not be summed. Browser native work can be attributed to the active JavaScript frame; style/layout counters are independent cumulative metrics. One profile per action is diagnostic, not a statistical performance claim. All API requests mocked; raw profiles stay in ignored D: workspace temporary storage. App source can change after the frozen benchmark build: bundle hashes, not current working tree hashes, identify this profile.",
+  "requests": [
+    "/api/projects/1/dependency-graph?limit=40",
+    "/api/projects/1/dependency-graph?limit=40&cycle=1"
+  ],
+  "errors": [],
+  "profiles": [
+    {
+      "action": "cycle_focus_400",
+      "samples": 133,
+      "sampled_duration_ms": 178.63,
+      "profiler_duration_ms": 178.85,
+      "self_by_source": [
+        {
+          "source": "(program)",
+          "sampled_ms": 97.99
+        },
+        {
+          "source": "(idle)",
+          "sampled_ms": 36.8
+        },
+        {
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "sampled_ms": 16.72
+        },
+        {
+          "source": "createElementNS",
+          "sampled_ms": 5.28
+        },
+        {
+          "source": "query",
+          "sampled_ms": 4.43
+        },
+        {
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "sampled_ms": 3.22
+        },
+        {
+          "source": "querySelectorAll",
+          "sampled_ms": 3.11
+        },
+        {
+          "source": "setAttribute",
+          "sampled_ms": 3.05
+        },
+        {
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "sampled_ms": 2.31
+        },
+        {
+          "source": "(garbage collector)",
+          "sampled_ms": 2.1
+        },
+        {
+          "source": "dispatchEvent",
+          "sampled_ms": 1.63
+        },
+        {
+          "source": "(anonymous)",
+          "sampled_ms": 1
+        },
+        {
+          "source": "appendChild",
+          "sampled_ms": 0.99
+        }
+      ],
+      "top_self": [
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 97.99
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 36.8
+        },
+        {
+          "function": "createElementNS",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "createElementNS",
+          "sampled_ms": 5.28
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 4.43
+        },
+        {
+          "function": "setTextContent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1254,
+          "column": 9,
+          "generated_function": "cn",
+          "sampled_ms": 4.03
+        },
+        {
+          "function": "setValueForKnownAttribute",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 970,
+          "column": 9,
+          "generated_function": "Hl",
+          "sampled_ms": 3.19
+        },
+        {
+          "function": "completeWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7955,
+          "column": 9,
+          "generated_function": "$m",
+          "sampled_ms": 3.07
+        },
+        {
+          "function": "querySelectorAll",
+          "source": "(browser)",
+          "line": 6920,
+          "column": 18,
+          "generated_function": "querySelectorAll",
+          "sampled_ms": 2.1
+        },
+        {
+          "function": "(garbage collector)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(garbage collector)",
+          "sampled_ms": 2.1
+        },
+        {
+          "function": "setAttribute",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "setAttribute",
+          "sampled_ms": 2.04
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 1.87
+        },
+        {
+          "function": "dispatchEvent",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "dispatchEvent",
+          "sampled_ms": 1.63
+        },
+        {
+          "function": "dependencyEdgeGeometry",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 136,
+          "column": 16,
+          "generated_function": "xp",
+          "sampled_ms": 1.57
+        },
+        {
+          "function": "getListener",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1517,
+          "column": 9,
+          "generated_function": "rn",
+          "sampled_ms": 1.24
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 232,
+          "column": 28,
+          "generated_function": "",
+          "sampled_ms": 1.15
+        },
+        {
+          "function": "preloadInstanceAndSuspendIfNeeded",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7865,
+          "column": 9,
+          "generated_function": "Gu",
+          "sampled_ms": 1.09
+        },
+        {
+          "function": "GraphSession",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 18,
+          "column": 9,
+          "generated_function": "Sp",
+          "sampled_ms": 1.05
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 3961,
+          "column": 9,
+          "generated_function": "",
+          "sampled_ms": 1.04
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 252,
+          "column": 16,
+          "generated_function": "",
+          "sampled_ms": 1.02
+        },
+        {
+          "function": "querySelectorAll",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "querySelectorAll",
+          "sampled_ms": 1.01
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "",
+          "sampled_ms": 1
+        },
+        {
+          "function": "setAttribute",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "setAttribute",
+          "sampled_ms": 1
+        },
+        {
+          "function": "appendChild",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "appendChild",
+          "sampled_ms": 0.99
+        },
+        {
+          "function": "setTextContent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1254,
+          "column": 9,
+          "generated_function": "cn",
+          "sampled_ms": 0.97
+        },
+        {
+          "function": "edge",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 114,
+          "column": 44,
+          "generated_function": "",
+          "sampled_ms": 0.74
+        },
+        {
+          "function": "insertOrAppendPlacementNode",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 8802,
+          "column": 9,
+          "generated_function": "Zs",
+          "sampled_ms": 0.22
+        }
+      ],
+      "top_inclusive": [
+        {
+          "function": "(root)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(root)",
+          "sampled_ms": 178.63
+        },
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 97.99
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 36.8
+        },
+        {
+          "function": "performWorkOnRoot",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 10681,
+          "column": 9,
+          "generated_function": "od",
+          "sampled_ms": 29.31
+        },
+        {
+          "function": "performWorkOnRootViaSchedulerTask",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12065,
+          "column": 9,
+          "generated_function": "zd",
+          "sampled_ms": 29.31
+        },
+        {
+          "function": "performWorkUntilDeadline",
+          "source": "../../node_modules/scheduler/cjs/scheduler.production.js",
+          "line": 121,
+          "column": 9,
+          "generated_function": "We",
+          "sampled_ms": 29.31
+        },
+        {
+          "function": "workLoopSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11181,
+          "column": 9,
+          "generated_function": "ev",
+          "sampled_ms": 27.13
+        },
+        {
+          "function": "renderRootSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11120,
+          "column": 9,
+          "generated_function": "Iu",
+          "sampled_ms": 27.13
+        },
+        {
+          "function": "completeWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7955,
+          "column": 9,
+          "generated_function": "$m",
+          "sampled_ms": 21.58
+        },
+        {
+          "function": "completeUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11405,
+          "column": 9,
+          "generated_function": "Is",
+          "sampled_ms": 21.58
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 12.14
+        },
+        {
+          "function": "setInitialProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13346,
+          "column": 9,
+          "generated_function": "St",
+          "sampled_ms": 12.14
+        },
+        {
+          "function": "callMatchedElements",
+          "source": "(browser)",
+          "line": 1,
+          "column": 29,
+          "generated_function": "callMatchedElements",
+          "sampled_ms": 9.17
+        },
+        {
+          "function": "evaluate",
+          "source": "(browser)",
+          "line": 305,
+          "column": 10,
+          "generated_function": "evaluate",
+          "sampled_ms": 9.17
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 1,
+          "column": 1,
+          "generated_function": "",
+          "sampled_ms": 9.17
+        },
+        {
+          "function": "querySelectorAll",
+          "source": "(browser)",
+          "line": 6920,
+          "column": 18,
+          "generated_function": "querySelectorAll",
+          "sampled_ms": 7.54
+        },
+        {
+          "function": "beginWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7392,
+          "column": 9,
+          "generated_function": "Lf",
+          "sampled_ms": 5.55
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5605,
+          "column": 112,
+          "generated_function": "",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "_queryCSS",
+          "source": "(browser)",
+          "line": 5604,
+          "column": 11,
+          "generated_function": "_queryCSS",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "_querySimple",
+          "source": "(browser)",
+          "line": 5483,
+          "column": 14,
+          "generated_function": "_querySimple",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5426,
+          "column": 116,
+          "generated_function": "",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5422,
+          "column": 7,
+          "generated_function": "query",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5635,
+          "column": 7,
+          "generated_function": "query",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5597,
+          "column": 125,
+          "generated_function": "",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "_callQuery",
+          "source": "(browser)",
+          "line": 5596,
+          "column": 12,
+          "generated_function": "_callQuery",
+          "sampled_ms": 5.44
+        },
+        {
+          "function": "_queryEngine",
+          "source": "(browser)",
+          "line": 5584,
+          "column": 14,
+          "generated_function": "_queryEngine",
+          "sampled_ms": 5.44
+        }
+      ],
+      "live_graph_elements": 11430,
+      "live_nodes": 400,
+      "live_edges": 2000,
+      "live_cycle_rows": 20,
+      "live_node_labels": 16,
+      "live_edge_labels": 2000,
+      "live_document_elements": 11518,
+      "live_graph_text_nodes": 4611,
+      "live_graph_title_text_nodes": 2400,
+      "live_graph_svg_label_text_nodes": 2016,
+      "browser_script_ms": 33.62,
+      "browser_task_ms": 144.24,
+      "browser_layout_ms": 14.04,
+      "browser_recalc_style_ms": 31.05,
+      "raw_profile": "data/tmp/graph-profiles/production-after/cycle_focus_400.cpuprofile",
+      "raw_profile_sha256": "cb3d140c4faac994ceb780e97299649979dd6fb3636ab2795500b760648d0a9f"
+    },
+    {
+      "action": "filter_clear_400",
+      "samples": 153,
+      "sampled_duration_ms": 167.07,
+      "profiler_duration_ms": 167.29,
+      "self_by_source": [
+        {
+          "source": "(program)",
+          "sampled_ms": 75.77
+        },
+        {
+          "source": "(idle)",
+          "sampled_ms": 52.24
+        },
+        {
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "sampled_ms": 14.27
+        },
+        {
+          "source": "createElementNS",
+          "sampled_ms": 5.65
+        },
+        {
+          "source": "query",
+          "sampled_ms": 4.02
+        },
+        {
+          "source": "querySelectorAll",
+          "sampled_ms": 3.65
+        },
+        {
+          "source": "setAttribute",
+          "sampled_ms": 3.11
+        },
+        {
+          "source": "(garbage collector)",
+          "sampled_ms": 3.08
+        },
+        {
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "sampled_ms": 1.16
+        },
+        {
+          "source": "dispatchEvent",
+          "sampled_ms": 1.06
+        },
+        {
+          "source": "appendChild",
+          "sampled_ms": 1.05
+        },
+        {
+          "source": "(anonymous)",
+          "sampled_ms": 1.03
+        },
+        {
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "sampled_ms": 0.99
+        }
+      ],
+      "top_self": [
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 75.77
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 52.24
+        },
+        {
+          "function": "createElementNS",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "createElementNS",
+          "sampled_ms": 5.65
+        },
+        {
+          "function": "setTextContent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1254,
+          "column": 9,
+          "generated_function": "cn",
+          "sampled_ms": 3.72
+        },
+        {
+          "function": "querySelectorAll",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "querySelectorAll",
+          "sampled_ms": 3.65
+        },
+        {
+          "function": "setAttribute",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "setAttribute",
+          "sampled_ms": 3.11
+        },
+        {
+          "function": "(garbage collector)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(garbage collector)",
+          "sampled_ms": 3.08
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 3.02
+        },
+        {
+          "function": "setInitialProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13346,
+          "column": 9,
+          "generated_function": "St",
+          "sampled_ms": 2.49
+        },
+        {
+          "function": "setValueForKnownAttribute",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 970,
+          "column": 9,
+          "generated_function": "Hl",
+          "sampled_ms": 1.97
+        },
+        {
+          "function": "edge",
+          "source": "../../src/workspaces/dependencyGraphModel.ts",
+          "line": 114,
+          "column": 44,
+          "generated_function": "",
+          "sampled_ms": 1.16
+        },
+        {
+          "function": "setValueForAttribute",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 950,
+          "column": 9,
+          "generated_function": "an",
+          "sampled_ms": 1.06
+        },
+        {
+          "function": "dispatchEvent",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "dispatchEvent",
+          "sampled_ms": 1.06
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 1.05
+        },
+        {
+          "function": "appendChild",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "appendChild",
+          "sampled_ms": 1.05
+        },
+        {
+          "function": "commitReconciliationEffects",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 9843,
+          "column": 9,
+          "generated_function": "Ut",
+          "sampled_ms": 1.03
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5605,
+          "column": 112,
+          "generated_function": "",
+          "sampled_ms": 1.03
+        },
+        {
+          "function": "completeUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11405,
+          "column": 9,
+          "generated_function": "Is",
+          "sampled_ms": 1.02
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5607,
+          "column": 20,
+          "generated_function": "query",
+          "sampled_ms": 1
+        },
+        {
+          "function": "isAttributeNameSafe",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 941,
+          "column": 9,
+          "generated_function": "Tc",
+          "sampled_ms": 1
+        },
+        {
+          "function": "(anonymous)",
+          "source": "../../src/workspaces/DependencyGraphView.tsx",
+          "line": 184,
+          "column": 25,
+          "generated_function": "",
+          "sampled_ms": 0.99
+        },
+        {
+          "function": "insertOrAppendPlacementNode",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 8802,
+          "column": 9,
+          "generated_function": "Zs",
+          "sampled_ms": 0.93
+        }
+      ],
+      "top_inclusive": [
+        {
+          "function": "(root)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(root)",
+          "sampled_ms": 167.07
+        },
+        {
+          "function": "(program)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(program)",
+          "sampled_ms": 75.77
+        },
+        {
+          "function": "(idle)",
+          "source": "(browser)",
+          "line": 0,
+          "column": -1,
+          "generated_function": "(idle)",
+          "sampled_ms": 52.24
+        },
+        {
+          "function": "performWorkOnRoot",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 10681,
+          "column": 9,
+          "generated_function": "od",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "performSyncWorkOnRoot",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12084,
+          "column": 9,
+          "generated_function": "Md",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "flushSyncWorkAcrossRoots_impl",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11918,
+          "column": 9,
+          "generated_function": "Xi",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "flushSyncWork$1",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 10987,
+          "column": 9,
+          "generated_function": "Fs",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "batchedUpdates$1",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 1494,
+          "column": 9,
+          "generated_function": "mi",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "dispatchEventForPluginEventSystem",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12408,
+          "column": 9,
+          "generated_function": "cr",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "dispatchEvent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 15297,
+          "column": 9,
+          "generated_function": "br",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "dispatchDiscreteEvent",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 15263,
+          "column": 9,
+          "generated_function": "Lv",
+          "sampled_ms": 26.23
+        },
+        {
+          "function": "workLoopSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11181,
+          "column": 9,
+          "generated_function": "ev",
+          "sampled_ms": 24.27
+        },
+        {
+          "function": "renderRootSync",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11120,
+          "column": 9,
+          "generated_function": "Iu",
+          "sampled_ms": 24.27
+        },
+        {
+          "function": "completeUnitOfWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 11405,
+          "column": 9,
+          "generated_function": "Is",
+          "sampled_ms": 22.12
+        },
+        {
+          "function": "completeWork",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 7955,
+          "column": 9,
+          "generated_function": "$m",
+          "sampled_ms": 21.09
+        },
+        {
+          "function": "setInitialProperties",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 13346,
+          "column": 9,
+          "generated_function": "St",
+          "sampled_ms": 14.39
+        },
+        {
+          "function": "setProp",
+          "source": "../../node_modules/react-dom/cjs/react-dom-client.production.js",
+          "line": 12957,
+          "column": 9,
+          "generated_function": "Le",
+          "sampled_ms": 11.91
+        },
+        {
+          "function": "callMatchedElements",
+          "source": "(browser)",
+          "line": 1,
+          "column": 29,
+          "generated_function": "callMatchedElements",
+          "sampled_ms": 9.75
+        },
+        {
+          "function": "evaluate",
+          "source": "(browser)",
+          "line": 305,
+          "column": 10,
+          "generated_function": "evaluate",
+          "sampled_ms": 9.75
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 1,
+          "column": 1,
+          "generated_function": "",
+          "sampled_ms": 9.75
+        },
+        {
+          "function": "_queryEngineAll",
+          "source": "(browser)",
+          "line": 6968,
+          "column": 17,
+          "generated_function": "_queryEngineAll",
+          "sampled_ms": 8.69
+        },
+        {
+          "function": "querySelectorAll",
+          "source": "(browser)",
+          "line": 6920,
+          "column": 18,
+          "generated_function": "querySelectorAll",
+          "sampled_ms": 8.69
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5605,
+          "column": 112,
+          "generated_function": "",
+          "sampled_ms": 7.7
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 7.7
+        },
+        {
+          "function": "_queryCSS",
+          "source": "(browser)",
+          "line": 5604,
+          "column": 11,
+          "generated_function": "_queryCSS",
+          "sampled_ms": 7.7
+        },
+        {
+          "function": "_querySimple",
+          "source": "(browser)",
+          "line": 5483,
+          "column": 14,
+          "generated_function": "_querySimple",
+          "sampled_ms": 7.7
+        },
+        {
+          "function": "(anonymous)",
+          "source": "(browser)",
+          "line": 5426,
+          "column": 116,
+          "generated_function": "",
+          "sampled_ms": 7.7
+        },
+        {
+          "function": "_cached",
+          "source": "(browser)",
+          "line": 5388,
+          "column": 9,
+          "generated_function": "_cached",
+          "sampled_ms": 7.7
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5422,
+          "column": 7,
+          "generated_function": "query",
+          "sampled_ms": 7.7
+        },
+        {
+          "function": "query",
+          "source": "(browser)",
+          "line": 5635,
+          "column": 7,
+          "generated_function": "query",
+          "sampled_ms": 7.7
+        }
+      ],
+      "live_graph_elements": 11430,
+      "live_nodes": 400,
+      "live_edges": 2000,
+      "live_cycle_rows": 20,
+      "live_node_labels": 16,
+      "live_edge_labels": 2000,
+      "live_document_elements": 11518,
+      "live_graph_text_nodes": 4611,
+      "live_graph_title_text_nodes": 2400,
+      "live_graph_svg_label_text_nodes": 2016,
+      "browser_script_ms": 26.36,
+      "browser_task_ms": 117.55,
+      "browser_layout_ms": 12.01,
+      "browser_recalc_style_ms": 28.74,
+      "raw_profile": "data/tmp/graph-profiles/production-after/filter_clear_400.cpuprofile",
+      "raw_profile_sha256": "91403f57e846574869296ca8fb4677bb36cb079d223a42ca326839feb48bcb87"
+    }
+  ]
+}

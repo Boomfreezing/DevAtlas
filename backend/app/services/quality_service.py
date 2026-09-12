@@ -6,12 +6,13 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.analysis import CodeSymbol, ImportRelation
+from app.models.analysis import CodeSymbol, ImportRelation, ParseIssue
 from app.models.project import ProjectFile
 from app.services.analysis_cache import get_or_create_project_analysis
 from app.services.code_parser import supports_extension
 from app.services.code_scope_service import CODE_SCOPES, classify_code_scope, code_scope_label
 from app.services.dependency_graph_service import find_cycles
+from app.services.structure_analyzer import MAX_PARSE_FILE_BYTES
 
 LONG_FUNCTION_LINES = 80
 LARGE_CLASS_LINES = 500
@@ -19,12 +20,13 @@ LARGE_FILE_LINES = 1_000
 TOO_MANY_IMPORTS = 25
 HIGH_FAN_OUT = 10
 QUALITY_SCORING_MODEL = "size_normalized_v2"
-COMPOSITE_SCORING_MODEL = "source_scope_weighted_size_normalized_v4"
+COMPOSITE_SCORING_MODEL = "source_scope_weighted_size_normalized_v5"
+COVERAGE_MODEL = "recorded_parse_outcomes_v2"
 SCOPE_SCORE_WEIGHTS = {"production": 0.70, "test": 0.20, "generated": 0.10}
 BASE_SEVERITY_WEIGHTS = {"error": 8.0, "warning": 3.0, "info": 1.0}
 REFERENCE_PROJECT_SIZE = {"files": 50, "code_lines": 10_000, "symbols": 500}
 MAX_RULE_PENALTY = 20.0
-QUALITY_CACHE_NAMESPACE = "quality_report_v3"
+QUALITY_CACHE_NAMESPACE = "quality_report_v4"
 
 QUALITY_RULES = [
     {
@@ -81,6 +83,13 @@ def _build_quality_report_snapshot(
     parser_supported_files = [
         item for item in source_files if supports_extension(item.extension)
     ]
+    # A supported extension is not proof that structure parsing succeeded. Syntax
+    # recovery may also leave symbols behind, so any recorded parse issue excludes
+    # that file from reliable coverage. Do not require symbols/imports: empty or
+    # constants-only source files can parse successfully without either.
+    issue_file_ids = set(database.scalars(
+        select(ParseIssue.file_id).where(ParseIssue.project_id == project_id).distinct()
+    ))
     symbols = list(
         database.scalars(
             select(CodeSymbol)
@@ -248,13 +257,24 @@ def _build_quality_report_snapshot(
         for scope in CODE_SCOPES
     }
     scope_scores: dict[str, dict[str, object]] = {}
+    coverage_by_scope = {
+        scope: _quality_coverage(
+            files_by_scope[scope],
+            [item for item in files_by_scope[scope] if supports_extension(item.extension)],
+            issue_file_ids,
+        )
+        for scope in CODE_SCOPES
+    }
     available_weight = sum(
-        SCOPE_SCORE_WEIGHTS[scope] for scope in CODE_SCOPES if files_by_scope[scope]
+        SCOPE_SCORE_WEIGHTS[scope]
+        for scope in CODE_SCOPES
+        if coverage_by_scope[scope]["parser_analyzed_file_count"]
     )
     for scope in CODE_SCOPES:
         scoped_findings = findings_by_scope[scope]
         scoped_files = files_by_scope[scope]
-        available = bool(scoped_files)
+        scoped_coverage = coverage_by_scope[scope]
+        available = bool(scoped_coverage["parser_analyzed_file_count"])
         if available:
             scoped_score, scoped_scoring = _quality_score(
                 scoped_findings,
@@ -277,7 +297,14 @@ def _build_quality_report_snapshot(
             "available": available,
             "configured_weight": SCOPE_SCORE_WEIGHTS[scope],
             "effective_weight": round(effective_weight, 4),
-            "exclusion_reason": None if available else f"未检测到{code_scope_label(scope)}文件，不参与综合评分。",
+            "exclusion_reason": (
+                None if available
+                else f"未检测到{code_scope_label(scope)}文件，不参与综合评分。"
+                if not scoped_files
+                else "没有可用的结构解析依据，暂不评级且不参与综合评分。"
+            ),
+            "coverage_level": scoped_coverage["coverage_level"],
+            "coverage_message": scoped_coverage["coverage_message"],
             "finding_count": len(scoped_findings),
             "severity_counts": {
                 "error": scoped_severity_counts["error"],
@@ -314,10 +341,11 @@ def _build_quality_report_snapshot(
             "excluded_scopes": [
                 scope for scope in CODE_SCOPES if not scope_scores[scope]["available"]
             ],
-            **_quality_coverage(source_files, parser_supported_files),
+            **_quality_coverage(source_files, parser_supported_files, issue_file_ids),
             "explanation": (
                 "综合分由生产代码、测试代码、生成/外部代码按 70%、20%、10% 加权；"
-                "不存在的代码范围不计 100 分且不参与评分，其权重按比例分配给已有范围。"
+                "不存在或没有可用结构解析依据的范围不计 100 分且不参与评分，"
+                "其权重按比例分配给具备评分依据的范围。"
             ),
         }
     )
@@ -340,28 +368,42 @@ def _build_quality_report_snapshot(
 
 
 def _quality_coverage(
-    source_files: list[ProjectFile], parser_supported_files: list[ProjectFile]
+    source_files: list[ProjectFile], parser_supported_files: list[ProjectFile],
+    issue_file_ids: set[int],
 ) -> dict[str, object]:
     source_count = len(source_files)
     supported_count = len(parser_supported_files)
-    ratio = supported_count / source_count if source_count else 0.0
+    issue_count = sum(item.id in issue_file_ids for item in parser_supported_files)
+    skipped_count = sum(item.size_bytes > MAX_PARSE_FILE_BYTES for item in parser_supported_files)
+    analyzed_count = sum(
+        item.id not in issue_file_ids and item.size_bytes <= MAX_PARSE_FILE_BYTES
+        for item in parser_supported_files
+    )
+    ratio = analyzed_count / source_count if source_count else 0.0
+    details = (
+        f"依据已保存的解析结果与问题记录，可用结构解析 {analyzed_count}/{source_count} 个源码文件"
+        f"（语言支持 {supported_count} 个，记录解析问题 {issue_count} 个，超过解析大小限制 {skipped_count} 个；后两项可能重叠）。"
+    )
     if source_count == 0:
         level = "none"
-        message = "未检测到可参与质量检查的源代码文件，综合质量分不具有参考意义。"
+        message = "未识别到可参与质量检查的源代码文件，未知文件类型未纳入评分，暂不输出综合质量评级。"
     elif ratio >= 0.8:
         level = "high"
-        message = "大部分源码支持结构解析，六类质量规则具备较完整的数据基础。"
+        message = details + "六类静态规则具备较完整的数据基础，但不代表运行正确或不存在其他问题。"
     elif ratio > 0:
         level = "partial"
-        message = "仅部分源码支持结构解析，函数、类与依赖类规则可能不完整。"
+        message = details + "函数、类与依赖类规则可能不完整，分数仅供有限范围参考。"
     else:
         level = "limited"
-        message = "当前源码语言尚未获得结构解析支持，仅文件级规则可执行，综合分不能代表完整代码质量。"
+        message = details + "没有可用的结构解析依据，仅文件级规则具备基础，不能代表完整代码质量，暂不评级。"
     return {
+        "coverage_model": COVERAGE_MODEL,
         "source_file_count": source_count,
         "parser_supported_file_count": supported_count,
+        "parser_analyzed_file_count": analyzed_count,
+        "parser_issue_file_count": issue_count,
         "applicable_rule_count": (
-            len(QUALITY_RULES) if supported_count else 1 if source_count else 0
+            len(QUALITY_RULES) if analyzed_count else 1 if source_count else 0
         ),
         "total_rule_count": len(QUALITY_RULES),
         "parser_coverage": round(ratio, 4),

@@ -1,0 +1,132 @@
+[
+  {
+    "id": "express-01",
+    "repository": "express",
+    "direction": "incoming",
+    "target": {
+      "file_path": "lib/router/route.js",
+      "qualified_name": "Route",
+      "anchor": "function Route(path) {"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "lib/router/index.js",
+      "anchor": "var route = new Route(path);"
+    },
+    "reason": "index.js 通过 var Route = require('./route') 引入相邻模块；route.js 明确 module.exports = Route。new Route(path) 是对该构造函数的显式调用，不是按名称猜测或仅引用模块。"
+  },
+  {
+    "id": "express-02",
+    "repository": "express",
+    "direction": "incoming",
+    "target": {
+      "file_path": "test/support/utils.js",
+      "qualified_name": "shouldHaveHeader",
+      "anchor": "function shouldHaveHeader (header) {"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "test/res.sendFile.js",
+      "anchor": ".expect(utils.shouldHaveHeader('Last-Modified'))"
+    },
+    "reason": "测试文件以 require('./support/utils') 绑定 utils，目标模块以 exports.shouldHaveHeader = shouldHaveHeader 导出函数。传给 expect 的是 utils.shouldHaveHeader(...) 的返回值，因此工厂函数本身在此已被直接调用；不把其返回回调的后续执行算入本探针。"
+  },
+  {
+    "id": "express-03",
+    "repository": "express",
+    "direction": "outgoing",
+    "target": {
+      "file_path": "test/support/utils.js",
+      "qualified_name": "shouldSkipQuery",
+      "anchor": "function shouldSkipQuery(versionString) {"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "test/support/utils.js",
+      "qualified_name": "getMajorVersion",
+      "anchor": "function getMajorVersion(versionString) {"
+    },
+    "reason": "shouldSkipQuery 的 return Number(getMajorVersion(versionString)) === 21 显式调用同模块唯一的 getMajorVersion；参数名为 versionString，没有同名局部遮蔽。出向证据定位被调用函数的定义，而非 shouldSkipQuery 中的调用行。"
+  },
+  {
+    "id": "express-04",
+    "repository": "express",
+    "direction": "incoming",
+    "target": {
+      "file_path": "lib/utils.js",
+      "qualified_name": "createETagGenerator",
+      "anchor": "function createETagGenerator (options) {"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "lib/utils.js",
+      "anchor": "exports.wetag = createETagGenerator({ weak: true })"
+    },
+    "reason": "CommonJS 导出属性的右值显式调用同文件函数 createETagGenerator，导出的是其返回的 generateETag 闭包。这里检查初始化时的工厂调用，不将 exports.wetag 的后续使用等同于再次调用 createETagGenerator。"
+  },
+  {
+    "id": "express-05",
+    "repository": "express",
+    "direction": "incoming",
+    "target": {
+      "file_path": "test/support/tmpl.js",
+      "qualified_name": "generateVariableLookup",
+      "anchor": "function generateVariableLookup(data) {"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "test/support/tmpl.js",
+      "anchor": "str = str.replace(variableRegExp, generateVariableLookup(options));"
+    },
+    "reason": "CommonJS 导出的 renderFile 函数表达式内，onReadFile 闭包直接调用外层模块的 generateVariableLookup(options)，再将其返回的 variableLookup 回调交给 replace。闭包参数没有遮蔽 generateVariableLookup，调用对象由词法作用域可确定。"
+  },
+  {
+    "id": "express-06",
+    "repository": "express",
+    "direction": "incoming",
+    "target": {
+      "file_path": "examples/error/index.js",
+      "qualified_name": "error",
+      "anchor": "function error(err, req, res, next) {"
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "examples/web-service/index.js",
+      "anchor": "if (!key) return next(error(400, 'api key required'));"
+    },
+    "reason": "web-service/index.js 自己定义了 function error(status, msg)，此处 error(...) 由该文件的词法绑定解析，未导入 examples/error/index.js 的同名中间件。不能仅因同名将它高置信绑定到目标函数。"
+  },
+  {
+    "id": "express-07",
+    "repository": "express",
+    "direction": "incoming",
+    "target": {
+      "file_path": "examples/error/index.js",
+      "qualified_name": "error",
+      "anchor": "function error(err, req, res, next) {"
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "examples/error/index.js",
+      "qualified_name": "error",
+      "anchor": "if (!test) console.error(err.stack);"
+    },
+    "reason": "目标函数体中的 console.error(...) 是以 console 为 receiver 的成员调用，不是裸标识符 error(...)。即使属性名与当前函数相同，也没有把 console.error 赋为目标函数的静态证据，不应记为目标的高置信递归调用。"
+  },
+  {
+    "id": "express-08",
+    "repository": "express",
+    "direction": "incoming",
+    "target": {
+      "file_path": "test/Router.js",
+      "qualified_name": "handler",
+      "anchor": "var handler = function(req, res){ res.end(new Error('wrong handler')) };"
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "test/Router.js",
+      "anchor": "router.get('/thing' + i, handler)"
+    },
+    "reason": "handler 是局部变量持有的函数表达式，此行将函数值作为参数注册给 router.get，没有出现 handler(...)。框架后续可能调用回调不等于此行直接调用了 handler；本探针仅要求不要把注册引用标成高置信静态调用。"
+  }
+]

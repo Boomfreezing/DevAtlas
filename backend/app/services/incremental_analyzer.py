@@ -60,6 +60,7 @@ def incrementally_analyze_project(
         )
 
     invalidate_project_analysis(database, project.id)
+    project.source_commit = None
     deleted_files = [stored_by_path[path] for path in deleted_paths]
     deleted_ids = [item.id for item in deleted_files]
     if deleted_ids:
@@ -99,6 +100,7 @@ def incrementally_analyze_project(
     project.updated_at = datetime.now(timezone.utc)
     build_project_search_index(database, project, search_index_root)
     database.commit()
+    invalidate_project_analysis(database, project.id)
 
     parsed_file_count = sum(
         supports_extension(item.extension) for item in files_to_parse

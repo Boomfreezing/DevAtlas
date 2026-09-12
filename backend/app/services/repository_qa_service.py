@@ -1,6 +1,8 @@
+import hashlib
 import re
 import time
 from collections import Counter
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -8,8 +10,9 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models.analysis import CodeSymbol, ImportRelation
+from app.models.analysis import CodeSymbol, ImportRelation, SearchChunk
 from app.models.project import Project, ProjectFile
+from app.services.analysis_cache import get_or_create_project_analysis
 from app.services.code_scope_service import classify_code_scope
 from app.services.report_provider_service import ReportProviderError, answer_with_report_provider
 from app.services.repository_path_service import resolve_project_storage_path
@@ -21,6 +24,9 @@ from app.services.semantic_search_service import (
 
 MAX_CITATIONS = 8
 MAX_EVIDENCE_CHARS = 1_600
+MAX_EVIDENCE_CANDIDATES = 64
+EVIDENCE_VALIDATION_BATCH_SIZE = 8
+MAX_MERGED_EVIDENCE_LINES = 48
 MAX_DIRECT_FILE_BYTES = 512 * 1024
 MIN_SEMANTIC_RELEVANCE = 0.42
 IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_.:/-]{2,}")
@@ -28,6 +34,11 @@ GENERIC_IDENTIFIERS = {
     "the", "this", "that", "where", "what", "which", "project", "function",
     "method", "class", "file", "code", "table", "database", "start", "run",
     "change", "impact", "repository", "repo",
+    "how", "does", "are", "can", "could", "would", "should", "for", "and",
+    "with", "from", "into", "about", "current", "please", "tell", "show",
+    "tests", "test", "cover", "covers", "have", "has", "its",
+    "http", "https", "api", "sql", "json", "yaml", "xml", "html", "css",
+    "rest", "tcp", "udp", "get", "post", "put", "patch", "delete",
 }
 DATABASE_ENTITY_STOPWORDS = {
     "a", "an", "and", "as", "by", "data", "database", "for", "from", "in",
@@ -66,6 +77,7 @@ IDENTIFIER_ALIASES = {
 STARTUP_COMMAND_PATTERN = re.compile(
     r"(?:npm|pnpm|yarn)\s+(?:run\s+)?[\w:-]+(?:\s+\S+)*|"
     r"uvicorn\s+[\w.:-]+(?:\s+\S+)*|docker(?:\s+|-)compose\s+\S+(?:\s+\S+)*|"
+    r"flask\s+(?:--app\s+\S+\s+)?run\b(?:\s+\S+)*|"
     r"python(?:3)?\s+(?:-m\s+)?[\w./-]+(?:\s+\S+)*|make\s+[\w.-]+(?:\s+\S+)*|"
     r"bash\s+[\w./-]+(?:\s+\S+)*|source\s+[\w./-]+|"
     r"uv\s+(?:run|sync)\b(?:\s+\S+)*|pipx?\s+install\s+\S+(?:\s+\S+)*|"
@@ -116,7 +128,7 @@ CONTEXT_TOKEN_PATTERN = re.compile(
 )
 FOLLOW_UP_TERMS = (
     "它", "这个", "该函数", "该类", "该接口", "上述", "继续", "然后", "呢", "调用者",
-    "相关测试", "影响范围", "that", "it", "this one", "continue", "what about",
+    "相关测试", "影响范围", "that", "it", "its", "this one", "continue", "what about",
 )
 
 STRONG_INTENT_TERMS = {
@@ -136,7 +148,7 @@ EXPANSIONS = {
     "database": "__tablename__ table database sqlalchemy prisma repository model select insert update delete query",
     "impact": "function method class import dependency reference usage caller test spec",
     "location": "definition declaration function method class route controller service",
-    "api": "api route router endpoint controller handler request response restful",
+    "api": "api route routes router endpoint endpoints controller handler request response restful",
     "config": "config configuration settings environment env port secret yaml toml json",
     "test": "test tests spec fixture mock assertion coverage integration e2e",
     "error": "error exception raise catch except failure failed retry log handling",
@@ -171,6 +183,103 @@ INTENT_PATH_HINTS = {
 }
 
 
+@dataclass
+class RepositoryEvidence:
+    intents: list[str]
+    citations: list[dict[str, object]]
+
+
+def retrieve_repository_evidence(
+    database: Session,
+    settings: Settings,
+    project: Project,
+    question: str,
+    history: list[dict[str, str]] | None = None,
+    *,
+    retrieval_mode: str = "production",
+) -> RepositoryEvidence:
+    """Shared retrieval path for interactive QA and offline evidence evaluation.
+
+    This function never invokes a generation provider. Semantic retrieval follows
+    the caller's settings; benchmarks disable it by default to remain offline.
+    """
+    if retrieval_mode not in {"production", "bm25", "structured", "hybrid", "hybrid-rerank"}:
+        raise ValueError("Unknown retrieval mode")
+    use_structure = retrieval_mode in {"production", "structured", "hybrid-rerank"}
+    use_semantic = settings.semantic_search_enabled and retrieval_mode != "structured"
+    use_semantic = use_semantic and retrieval_mode != "bm25"
+    if retrieval_mode in {"hybrid", "hybrid-rerank"} and not use_semantic:
+        raise ValueError("Hybrid evaluation requires an enabled and prebuilt semantic index")
+    question = question.strip()
+    contextual_question = _contextual_question(question, history or [])
+    # Assistant-supplied paths are retrieval hints, not user requirements. A
+    # follow-up asking for tests must not require the production path to recur.
+    target_question = question
+    if contextual_question != question:
+        previous_questions = [str(turn.get("content", "")) for turn in history or [] if turn.get("role") == "user"]
+        if previous_questions:
+            target_question = f"{previous_questions[-1]}\n{question}"
+    intents = _detect_intents(contextual_question)
+    if intents[0] in {"greeting", "help", "project_meta"}:
+        return RepositoryEvidence(intents, [])
+    identifiers = list(dict.fromkeys([
+        *_meaningful_identifiers(target_question), *_meaningful_identifiers(contextual_question)
+    ]))[:8]
+    search_query = _build_search_query(contextual_question, intents, identifiers)
+
+    search_response = search_project(
+        database,
+        project,
+        search_query,
+        limit=18,
+        index_root=settings.search_index_root,
+    )
+    candidates = _citations_from_search(search_response["results"], database, project)
+    if use_structure:
+        for detected_intent in intents:
+            candidates.extend(
+                _direct_file_citations(database, project, detected_intent, contextual_question)
+            )
+        candidates.extend(_symbol_citations(database, project, identifiers, question=target_question, intents=intents))
+        if "impact" in intents:
+            candidates.extend(_dependency_citations(database, project, candidates))
+        if "database" in intents:
+            candidates.extend(_database_dependency_citations(database, project, candidates))
+    if use_semantic:
+        semantic_candidates = semantic_search_project(
+                database,
+                project,
+                contextual_question,
+                settings.search_index_root,
+            )
+        if retrieval_mode == "hybrid":
+            candidates = _reciprocal_rank_fusion(candidates, semantic_candidates)
+        else:
+            candidates.extend(semantic_candidates)
+    if use_semantic and use_structure:
+        candidates = semantic_rerank_candidates(
+            contextual_question, candidates, settings.search_index_root,
+        )
+
+    # Expanded topic words such as "test" cannot prove that a named target exists.
+    # Do not pass unrelated evidence to a model just because it has the right category.
+    explicit_targets = _explicit_question_targets(target_question)
+    if explicit_targets and not _has_target_evidence(candidates, explicit_targets):
+        return RepositoryEvidence(intents, [])
+    ranked_citations = _select_relevant_citations(
+        _rank_citations(
+            candidates, intents, identifiers, apply_weights=use_structure,
+            explicit_targets=explicit_targets, defer_selection=True,
+        ),
+        intents,
+        identifiers,
+    )[:MAX_EVIDENCE_CANDIDATES]
+    validated_citations = _select_validated_citations(database, project, ranked_citations)
+    if explicit_targets and not _has_target_evidence(validated_citations, explicit_targets):
+        return RepositoryEvidence(intents, [])
+    return RepositoryEvidence(intents, validated_citations)
+
+
 def answer_repository_question(
     database: Session,
     settings: Settings,
@@ -178,6 +287,8 @@ def answer_repository_question(
     question: str,
     provider_id: str,
     history: list[dict[str, str]] | None = None,
+    *,
+    retrieval_mode: str = "production",
 ) -> dict[str, object]:
     started = time.perf_counter()
     if provider_id == "local":
@@ -185,8 +296,12 @@ def answer_repository_question(
             "智能问答必须选择已配置的生成模型；本地规则引擎不提供问答。"
         )
     normalized_question = question.strip()
-    contextual_question = _contextual_question(normalized_question, history or [])
-    intents = _detect_intents(contextual_question)
+    answer_version = _answer_context_version(database, project.id)
+    evidence_result = retrieve_repository_evidence(
+        database, settings, project, normalized_question, history, retrieval_mode=retrieval_mode
+    )
+    _ensure_answer_context_current(database, project, answer_version)
+    intents, validated_citations = evidence_result.intents, evidence_result.citations
     intent = intents[0]
     if intent in {"greeting", "help", "project_meta"}:
         return {
@@ -201,47 +316,6 @@ def answer_repository_question(
             "grounding_status": "project_context",
             "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
         }
-    identifiers = _meaningful_identifiers(contextual_question)
-    search_query = _build_search_query(contextual_question, intents, identifiers)
-
-    search_response = search_project(
-        database,
-        project,
-        search_query,
-        limit=18,
-        index_root=settings.search_index_root,
-    )
-    candidates = _citations_from_search(search_response["results"])
-    for detected_intent in intents:
-        candidates.extend(
-            _direct_file_citations(database, project, detected_intent, contextual_question)
-        )
-    candidates.extend(_symbol_citations(database, project, identifiers))
-    if "impact" in intents:
-        candidates.extend(_dependency_citations(database, project, candidates))
-    if "database" in intents:
-        candidates.extend(_database_dependency_citations(database, project, candidates))
-    if settings.semantic_search_enabled:
-        candidates.extend(
-            semantic_search_project(
-                database,
-                project,
-                contextual_question,
-                settings.search_index_root,
-            )
-        )
-        candidates = semantic_rerank_candidates(
-            contextual_question,
-            candidates,
-            settings.search_index_root,
-        )
-
-    ranked_citations = _select_relevant_citations(
-        _rank_citations(candidates, intents, identifiers),
-        intents,
-        identifiers,
-    )[:MAX_CITATIONS]
-    validated_citations = _validate_citations(database, project, ranked_citations)
     citations = [_public_citation(item) for item in validated_citations]
 
     if not citations:
@@ -274,6 +348,9 @@ def answer_repository_question(
         evidence=evidence,
         history=(history or [])[-6:],
     )
+    # Generation can outlive a reanalysis, remote sync, deletion or direct disk
+    # edit. Do not label a response grounded in a previous index as current.
+    _ensure_answer_context_current(database, project, answer_version, validated_citations)
     reference_count = len(_valid_model_references(answer, len(citations)))
     confidence = _evidence_confidence(validated_citations, intents)
     grounding_status = "grounded" if reference_count else "reference_failed"
@@ -297,10 +374,12 @@ def answer_repository_question(
 
 
 def _contextual_question(question: str, history: list[dict[str, str]]) -> str:
-    identifiers = _meaningful_identifiers(question)
     lowered = question.lower()
-    refers_to_previous = any(term in lowered for term in FOLLOW_UP_TERMS)
-    if identifiers and not refers_to_previous:
+    refers_to_previous = any(
+        re.search(rf"\b{re.escape(term)}\b", lowered) if term.isascii() else term in lowered
+        for term in FOLLOW_UP_TERMS
+    )
+    if not refers_to_previous:
         return question
     previous_users = [
         str(item.get("content", "")).strip()
@@ -357,18 +436,49 @@ def _detect_intents(question: str) -> list[str]:
     return detected[:3] or ["general"]
 
 
+def _explicit_question_targets(question: str) -> list[str]:
+    """Identify code-shaped targets, without treating English prose as symbol names."""
+    targets: list[str] = []
+    for token in IDENTIFIER_PATTERN.findall(question):
+        token = re.sub(r":\d+(?:-\d+)?$", "", token).strip("./:-")
+        if (
+            "_" in token or "/" in token or "." in token
+            or re.search(r"[a-z][A-Z]", token)
+            or (len(token) >= 3 and token.isupper())
+        ) and token.lower() not in GENERIC_IDENTIFIERS:
+            if token.lower() not in targets:
+                targets.append(token.lower())
+    return targets[:8]
+
+
+def _has_target_evidence(citations: list[dict[str, object]], targets: list[str]) -> bool:
+    for citation in citations:
+        searchable = f"{citation['file_path']}\n{citation.get('symbol_name') or ''}\n{citation['snippet']}".lower()
+        for target in targets:
+            if re.search(rf"(?<![\w]){re.escape(target)}(?![\w])", searchable):
+                return True
+            # Preserve bounded typo tolerance for an actual fuzzy symbol candidate.
+            if citation.get("source") == "symbol_fuzzy" and len(target) >= 5:
+                symbol = str(citation.get("symbol_name") or "").lower().split(".")[-1]
+                if SequenceMatcher(None, target, symbol).ratio() >= 0.82:
+                    return True
+    return False
+
+
 def _meaningful_identifiers(question: str) -> list[str]:
-    identifiers: list[str] = []
+    identifiers = _explicit_question_targets(question)
     lowered_question = question.lower()
-    for term, aliases in IDENTIFIER_ALIASES.items():
-        if term in lowered_question:
-            identifiers.extend(alias for alias in aliases if alias not in identifiers)
+    # Literal user terms outrank inferred topic aliases: "register 的测试" must
+    # not retrieve unrelated functions literally named "test" before register.
     for match in IDENTIFIER_PATTERN.findall(question):
         normalized = match.strip("./:-").lower()
         if normalized in GENERIC_IDENTIFIERS or len(normalized) < 3:
             continue
         if normalized not in identifiers:
             identifiers.append(normalized)
+    for term, aliases in IDENTIFIER_ALIASES.items():
+        if term in lowered_question:
+            identifiers.extend(alias for alias in aliases if alias not in identifiers)
     return identifiers[:8]
 
 
@@ -377,21 +487,42 @@ def _build_search_query(question: str, intents: list[str], identifiers: list[str
     return " ".join([question, *identifiers, *expansions]).strip()
 
 
-def _citations_from_search(results: object) -> list[dict[str, object]]:
+def _citations_from_search(
+    results: object, database: Session, project: Project
+) -> list[dict[str, object]]:
     citations: list[dict[str, object]] = []
     if not isinstance(results, list):
         return citations
+    chunk_ids = [int(item["chunk_id"]) for item in results if isinstance(item, dict)]
+    chunks = {
+        chunk.id: chunk
+        for chunk in database.scalars(
+            select(SearchChunk).where(
+                SearchChunk.project_id == project.id, SearchChunk.id.in_(chunk_ids)
+            )
+        )
+    }
     for item in results:
         if not isinstance(item, dict):
             continue
+        chunk = chunks.get(int(item["chunk_id"]))
+        if chunk is None or chunk.file_id != int(item["file_id"]):
+            continue
+        # Search UI previews are only five lines. QA needs the surrounding indexed
+        # function, including calls, assertions and exception handlers after imports.
+        # Long chunks keep a bounded window around the matching preview.
+        lines = chunk.content.splitlines()
+        anchor = max(0, int(item["snippet_start_line"]) - chunk.start_line)
+        start = 0 if len(lines) <= 24 else max(0, anchor - 3)
+        end = min(len(lines), start + 24)
         citations.append(
             {
                 "file_id": int(item["file_id"]),
                 "file_path": str(item["file_path"]),
-                "start_line": int(item["snippet_start_line"]),
-                "end_line": int(item["snippet_end_line"]),
+                "start_line": chunk.start_line + start,
+                "end_line": chunk.start_line + end - 1,
                 "symbol_name": item.get("symbol_name"),
-                "snippet": str(item["snippet"])[:MAX_EVIDENCE_CHARS],
+                "snippet": "\n".join(lines[start:end])[:MAX_EVIDENCE_CHARS],
                 "source": "code_search",
                 "_score": min(float(item.get("score", 0.0)), 25.0),
             }
@@ -532,7 +663,7 @@ def _direct_match_index(
             commands = _startup_commands_from_line(line)
             if commands:
                 score = 120 if any(
-                    re.search(r"\b(up|start|dev|serve|launch)\b|uvicorn", command, re.IGNORECASE)
+                    re.search(r"\b(up|start|run|dev|serve|launch)\b|uvicorn", command, re.IGNORECASE)
                     for command in commands
                 ) else 90
             if STARTUP_HEADING_PATTERN.search(line):
@@ -553,7 +684,8 @@ def _direct_match_index(
 
 
 def _symbol_citations(
-    database: Session, project: Project, identifiers: list[str]
+    database: Session, project: Project, identifiers: list[str],
+    *, question: str = "", intents: list[str] | None = None,
 ) -> list[dict[str, object]]:
     if not identifiers:
         return []
@@ -633,7 +765,11 @@ def _symbol_citations(
         if not lines:
             continue
         start_line = max(1, symbol.start_line)
-        end_line = min(len(lines), max(start_line, min(symbol.end_line, start_line + 18)))
+        # Python route decorators carry method/path evidence but the parser's
+        # function range starts at `def`. Keep adjacent decorators with it.
+        while start_line > 1 and lines[start_line - 2].lstrip().startswith("@"):
+            start_line -= 1
+        end_line = min(len(lines), max(start_line, min(symbol.end_line, start_line + 23)))
         exact = symbol.name.lower() in identifiers or any(
             symbol.qualified_name.lower() == identifier
             or symbol.qualified_name.lower().endswith(f".{identifier}")
@@ -651,7 +787,46 @@ def _symbol_citations(
                 30.0 if exact else 12.0 + (fuzzy_similarity or 0.6) * 10,
             )
         )
+        citations[-1]["_definition"] = True
+        if exact and symbol.end_line > end_line:
+            focused = _focused_symbol_window(lines, start_line, symbol.end_line, question, intents or [])
+            if focused is not None and focused[1] > end_line:
+                focus_start, focus_end = focused
+                citations.append(_citation(
+                    project_file, focus_start, focus_end, lines[focus_start - 1:focus_end],
+                    symbol.qualified_name, "symbol_exact", 28.0 if intents and intents[0] == "location" else 32.0,
+                ))
     return citations
+
+
+def _focused_symbol_window(
+    lines: list[str], start_line: int, end_line: int, question: str, intents: list[str],
+) -> tuple[int, int] | None:
+    """Keep a second bounded body window rather than assuming a long symbol's head is enough."""
+    end_line = min(end_line, len(lines))
+    terms = set(_meaningful_identifiers(question))
+    numbers = set(re.findall(r"\b\d{3}\b", question))
+    # Generic structural cues, not benchmark function names or prewritten answers.
+    cues = {
+        "error": r"\b(?:raise|except|throw|catch)\b",
+        "database": r"\b(?:select|insert|update|execute|connect|commit)\b",
+        "test": r"\b(?:assert|expect)\b",
+    }
+    best: tuple[float, int] | None = None
+    for index in range(start_line - 1, end_line):
+        line = lines[index].strip().lower()
+        if not line or line.startswith(("#", "//", "*", '"""', "'''")) or re.match(r"(?:async\s+)?(?:def|class|function)\b", line):
+            continue
+        score = sum(3 for term in terms if term in line)
+        score += sum(12 for number in numbers if number in line)
+        score += sum(3 for intent, pattern in cues.items() if intent in intents and re.search(pattern, line))
+        if score > 0 and (best is None or score > best[0]):
+            best = (score, index)
+    if best is None:
+        return None
+    # Bias toward useful statements following the anchor but retain surrounding context.
+    start = max(start_line - 1, min(best[1] - 6, end_line - 24))
+    return start + 1, min(end_line, start + 24)
 
 
 def _dependency_citations(
@@ -701,8 +876,26 @@ def _dependency_citations(
     return citations
 
 
+def _reciprocal_rank_fusion(*pools: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Fuse rank positions rather than incomparable lexical/dense score scales."""
+    scores: dict[tuple[int, int, int], float] = {}
+    items: dict[tuple[int, int, int], dict[str, object]] = {}
+    for pool in pools:
+        seen = set()
+        for rank, item in enumerate(pool, 1):
+            key = (int(item["file_id"]), int(item["start_line"]), int(item["end_line"]))
+            if key in seen:
+                continue
+            seen.add(key)
+            scores[key] = scores.get(key, 0.0) + 1 / (60 + rank)
+            items.setdefault(key, item)
+    return [dict(items[key]) for key in sorted(scores, key=lambda key: -scores[key])]
+
+
 def _rank_citations(
-    citations: list[dict[str, object]], intents: list[str], identifiers: list[str]
+    citations: list[dict[str, object]], intents: list[str], identifiers: list[str],
+    *, apply_weights: bool = True, explicit_targets: list[str] | None = None,
+    defer_selection: bool = False,
 ) -> list[dict[str, object]]:
     ranked: list[tuple[float, dict[str, object]]] = []
     hints = tuple(
@@ -711,10 +904,15 @@ def _rank_citations(
         )
     )
     for citation in citations:
+        if not apply_weights:
+            ranked.append((0, citation))
+            continue
         path = str(citation["file_path"]).lower()
         snippet = str(citation["snippet"]).lower()
         symbol = str(citation.get("symbol_name") or "").lower()
         score = float(citation.get("_score", 0.0))
+        if intents and intents[0] == "location" and citation.get("_definition"):
+            score += 12
         scope = classify_code_scope(path)
         if scope == "generated":
             score -= 60
@@ -754,43 +952,193 @@ def _rank_citations(
             score += max(0, 12 - path.count("/") * 5)
         if "impact" in intents and _is_test_path(path):
             score += 9
-        elif "test" not in intents and _is_test_path(path):
+        elif "test" not in intents and "impact" not in intents and _is_test_path(path):
             score -= 30
+        if _is_test_path(path) and any(intent in {"test", "impact"} for intent in intents):
+            # A test body is more informative than an import-only preview.
+            if re.search(r"\b(?:def|function|assert|expect)\b", snippet):
+                score += 16
+        if any(intent in {"test", "impact"} for intent in intents) and any(
+            re.search(rf"(?<![\w]){re.escape(identifier)}\s*\(", line)
+            and not re.match(r"\s*(?:(?:export|async)\s+)*(?:def|function)\b", line)
+            for identifier in identifiers
+            for line in snippet.splitlines()
+        ):
+            score += 20
         if "database" in intents and _extract_database_entities(snippet):
             score += 14
         citation["_score"] = score
         ranked.append((score, citation))
 
-    ranked.sort(
-        key=lambda item: (
-            -item[0],
-            str(item[1]["file_path"]),
-            int(item[1]["start_line"]),
+    if apply_weights:
+        ranked.sort(
+            key=lambda item: (
+                not (
+                    _has_target_evidence([item[1]], explicit_targets)
+                    and classify_code_scope(str(item[1]["file_path"])) != "generated"
+                    and (
+                        classify_code_scope(str(item[1]["file_path"])) != "test"
+                        or any(intent in {"test", "impact"} for intent in intents)
+                    )
+                    # A resolved dependency is a legitimate next step even when
+                    # its table name or caller does not repeat the entry symbol.
+                    or ("database" in intents and item[1].get("source") == "dependency_target")
+                    or ("impact" in intents and item[1].get("source") == "dependency_relation")
+                ) if explicit_targets else False,
+                -item[0],
+                str(item[1]["file_path"]),
+                int(item[1]["start_line"]),
+            )
         )
-    )
-    result: list[dict[str, object]] = []
-    seen: set[tuple[int, int, int]] = set()
-    per_file: Counter[int] = Counter()
-    selected_token_sets: list[set[str]] = []
-    for _, citation in ranked:
-        key = (
-            int(citation["file_id"]),
-            int(citation["start_line"]),
-            int(citation["end_line"]),
-        )
+    ordered = [item for _, item in ranked]
+    return ordered if defer_selection else _select_citation_windows(ordered)
+
+
+def _select_validated_citations(
+    database: Session, project: Project, citations: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    """Validate before allocating slots, without caching dozens of source files."""
+    verified: list[dict[str, object]] = []
+    selected: list[dict[str, object]] = []
+    bounded = citations[:MAX_EVIDENCE_CANDIDATES]
+    for offset in range(0, len(bounded), EVIDENCE_VALIDATION_BATCH_SIZE):
+        # _validate_citations' per-file line cache is released after each batch.
+        # Only the small, character-bounded citation dictionaries survive here.
+        verified.extend(_validate_citations(
+            database, project, bounded[offset:offset + EVIDENCE_VALIDATION_BATCH_SIZE]
+        ))
+        selected = _select_citation_windows(verified)
+        if len(selected) >= MAX_CITATIONS:
+            break
+    return selected
+
+
+def _select_citation_windows(citations: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Spend file slots on complementary source ranges, not overlapping previews."""
+    windows: list[dict[str, object]] = []
+    for citation in citations:
         file_id = int(citation["file_id"])
-        token_set = set(tokenize(str(citation["snippet"])))
-        too_similar = any(
-            len(token_set & selected) / max(1, len(token_set | selected)) >= 0.82
-            for selected in selected_token_sets
-        )
-        if key in seen or per_file[file_id] >= 2 or too_similar:
+        start, end = int(citation["start_line"]), int(citation["end_line"])
+        for index, selected in enumerate(windows):
+            if int(selected["file_id"]) != file_id:
+                continue
+            selected_start, selected_end = int(selected["start_line"]), int(selected["end_line"])
+            same_physical_evidence = (
+                selected["file_path"] == citation["file_path"]
+                and (selected_start, selected_end) == (start, end)
+                and selected["snippet"] == citation["snippet"]
+                and selected.get("_content_hash") == citation.get("_content_hash")
+            )
+            if same_physical_evidence:
+                # Search and semantic/structural suppliers can label exactly the
+                # same physical excerpt differently. It still occupies one slot.
+                if (
+                    not selected.get("symbol_name") and citation.get("symbol_name")
+                    or selected.get("symbol_name") == citation.get("symbol_name")
+                    and citation.get("_definition") and not selected.get("_definition")
+                ):
+                    windows[index] = citation
+                break
+            overlap = min(end, selected_end) - max(start, selected_start) + 1
+            if overlap <= 0 or selected.get("symbol_name") != citation.get("symbol_name"):
+                continue
+            merged = _merge_citation_windows(selected, citation)
+            if merged is not None:
+                windows[index] = merged
+                break
+            # Similar code in another file, or in a separate source range, is
+            # independent evidence. Token similarity alone cannot identify it.
+            tokens = set(tokenize(str(citation["snippet"])))
+            selected_tokens = set(tokenize(str(selected["snippet"])))
+            similar = len(tokens & selected_tokens) / max(1, len(tokens | selected_tokens)) >= 0.82
+            coverage = overlap / max(1, min(end - start + 1, selected_end - selected_start + 1))
+            complete = all(
+                len(str(item["snippet"])) < MAX_EVIDENCE_CHARS
+                and len(str(item["snippet"]).split("\n"))
+                == int(item["end_line"]) - int(item["start_line"]) + 1
+                for item in (selected, citation)
+            )
+            exact_short_text = (
+                selected["snippet"] == citation["snippet"]
+                and len(str(citation["snippet"])) < MAX_EVIDENCE_CHARS
+            )
+            if complete and (coverage >= 0.8 or similar) or exact_short_text:
+                # A body preview must not remove the route decorator or the
+                # actual definition simply because their token sets are alike.
+                if citation.get("_definition") and not selected.get("_definition"):
+                    windows[index] = citation
+                break
+        else:
+            windows.append(citation)
+
+    # A later window can bridge two earlier ranges. Finish their bounded,
+    # transitive merge before charging file slots to the remaining windows.
+    changed = True
+    while changed:
+        changed = False
+        for index, first in enumerate(windows):
+            for other_index in range(index + 1, len(windows)):
+                merged = _merge_citation_windows(first, windows[other_index])
+                if merged is not None:
+                    windows[index] = merged
+                    windows.pop(other_index)
+                    changed = True
+                    break
+            if changed:
+                break
+
+    result: list[dict[str, object]] = []
+    per_file: Counter[int] = Counter()
+    for citation in windows:
+        file_id = int(citation["file_id"])
+        if per_file[file_id] >= 2:
             continue
-        seen.add(key)
         per_file[file_id] += 1
-        selected_token_sets.append(token_set)
         result.append(citation)
+        if len(result) >= MAX_CITATIONS:
+            break
     return result
+
+
+def _merge_citation_windows(
+    first: dict[str, object], second: dict[str, object]
+) -> dict[str, object] | None:
+    """Merge only complete, consistent overlapping lines within the same budget."""
+    if (
+        first["file_id"] != second["file_id"]
+        or first["file_path"] != second["file_path"]
+        or first.get("symbol_name") != second.get("symbol_name")
+        or first.get("_content_hash") != second.get("_content_hash")
+        or max(int(first["start_line"]), int(second["start_line"]))
+        > min(int(first["end_line"]), int(second["end_line"]))
+    ):
+        return None
+    start = min(int(first["start_line"]), int(second["start_line"]))
+    end = max(int(first["end_line"]), int(second["end_line"]))
+    if end - start + 1 > MAX_MERGED_EVIDENCE_LINES:
+        return None
+    by_line: dict[int, str] = {}
+    for item in (first, second):
+        snippet = str(item["snippet"])
+        lines = snippet.split("\n")
+        item_start, item_end = int(item["start_line"]), int(item["end_line"])
+        # A character-truncated snippet can end part-way through a line, even
+        # when its line count looks complete. Never infer its missing suffix.
+        if len(snippet) >= MAX_EVIDENCE_CHARS or len(lines) != item_end - item_start + 1:
+            return None
+        for line_number, line in enumerate(lines, item_start):
+            if line_number in by_line and by_line[line_number] != line:
+                return None
+            by_line[line_number] = line
+    if len(by_line) != end - start + 1:
+        return None
+    snippet = "\n".join(by_line[number] for number in range(start, end + 1))
+    if len(snippet) > MAX_EVIDENCE_CHARS:
+        return None
+    preferred = second if second.get("_definition") and not first.get("_definition") else first
+    merged = dict(preferred)
+    merged.update(start_line=start, end_line=end, snippet=snippet)
+    return merged
 
 
 def _select_relevant_citations(
@@ -1153,6 +1501,7 @@ def _startup_commands_from_line(line: str) -> list[str]:
     commands: list[str] = []
     for candidate in candidates:
         normalized = re.sub(r"\s+", " ", candidate).strip().rstrip(".,;")
+        normalized = re.sub(r"^\$\s+", "", normalized)
         if STARTUP_COMMAND_PATTERN.fullmatch(normalized) and normalized not in commands:
             commands.append(normalized)
     return commands
@@ -1245,6 +1594,46 @@ def _safe_source_path(repository_root: Path, relative_path: str) -> Path | None:
         return None
 
 
+def _answer_context_version(
+    database: Session, project_id: int
+) -> tuple[object, tuple[object, ...] | None]:
+    # The existing bounded cache is invalidated before and after index changes.
+    # Cache eviction also rejects an in-flight answer conservatively; this token
+    # is request-local protection, not a persistent or cross-process revision.
+    generation = get_or_create_project_analysis(
+        database, project_id, "qa_answer_generation", object
+    )
+    # Scalars bypass Session's identity map so another session's committed
+    # project replacement/deletion cannot be hidden by a cached Project object.
+    row = database.execute(
+        select(
+            Project.storage_path, Project.source_commit, Project.updated_at,
+            Project.created_at, Project.name, Project.status,
+            Project.file_count, Project.code_line_count,
+        ).where(Project.id == project_id)
+    ).one_or_none()
+    return generation, tuple(row) if row is not None else None
+
+
+def _ensure_answer_context_current(
+    database: Session,
+    project: Project,
+    expected: tuple[object, tuple[object, ...] | None],
+    citations: list[dict[str, object]] | None = None,
+) -> None:
+    if expected[1] is None or _answer_context_version(database, project.id) != expected:
+        raise ReportProviderError(
+            "仓库分析上下文已更新或失效，本次回答未展示。请等待分析或同步完成后重新提问。"
+        )
+    if citations is not None:
+        if _validate_citations(database, project, citations) != citations:
+            raise ReportProviderError(
+                "生成期间引用源码已变化或不可读取，本次回答未展示。请重新分析仓库后提问。"
+            )
+        # An invalidation may happen while source evidence is being reread.
+        _ensure_answer_context_current(database, project, expected)
+
+
 def _validate_citations(
     database: Session,
     project: Project,
@@ -1260,7 +1649,7 @@ def _validate_citations(
             select(ProjectFile).where(
                 ProjectFile.project_id == project.id,
                 ProjectFile.id.in_(file_ids),
-            )
+            ).execution_options(populate_existing=True)
         )
     }
     repository_root = resolve_project_storage_path(project.storage_path)
@@ -1271,16 +1660,27 @@ def _validate_citations(
         project_file = project_files.get(file_id)
         if project_file is None or str(citation["file_path"]) != project_file.relative_path:
             continue
-        lines = line_cache.setdefault(
-            file_id,
-            _read_project_lines(repository_root, project_file.relative_path),
-        )
+        if file_id not in line_cache:
+            line_cache[file_id] = []
+            source_path = _safe_source_path(repository_root, project_file.relative_path)
+            if source_path is not None:
+                try:
+                    # An in-range line number is not enough if the source changed
+                    # since indexing. Never attach new unrelated text to old hits.
+                    if source_path.stat().st_size <= 2 * 1024 * 1024:
+                        content = source_path.read_bytes()
+                        if hashlib.sha256(content).hexdigest() == project_file.content_hash:
+                            line_cache[file_id] = content.decode("utf-8", errors="replace").splitlines()
+                except OSError:
+                    pass
+        lines = line_cache[file_id]
         start_line = int(citation["start_line"])
         end_line = int(citation["end_line"])
         if not lines or start_line < 1 or end_line < start_line or start_line > len(lines):
             continue
         end_line = min(end_line, len(lines))
         refreshed = dict(citation)
+        refreshed["_content_hash"] = project_file.content_hash
         refreshed["end_line"] = end_line
         refreshed["snippet"] = "\n".join(lines[start_line - 1 : end_line])[:MAX_EVIDENCE_CHARS]
         validated.append(refreshed)

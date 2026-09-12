@@ -1,0 +1,739 @@
+{
+  "version": "1.0.0",
+  "description": "36 个维护者可复核的标注问题；3 个自建合成源码样例，不代表真实大型仓库或生成模型准确率。",
+  "cases": [
+    {
+      "id": "accounts-01",
+      "repository": "accounts",
+      "category": "startup",
+      "question": "这个项目如何启动？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "README.md",
+          "start_line": 8,
+          "end_line": 8,
+          "contains": [
+            "uvicorn src.api:app"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "使用 uvicorn src.api:app --host 127.0.0.1 --port 8100 启动。"
+      ]
+    },
+    {
+      "id": "accounts-02",
+      "repository": "accounts",
+      "category": "location",
+      "question": "登录功能在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/auth.py",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "def login_user"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "实现位于 src/auth.py 的 login_user；不要把生成的 JavaScript SDK 当成服务端。"
+      ]
+    },
+    {
+      "id": "accounts-03",
+      "repository": "accounts",
+      "category": "api",
+      "question": "创建会话的接口路径是什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/api.py",
+          "start_line": 8,
+          "end_line": 8,
+          "contains": [
+            "@app.post(\"/sessions\")"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "POST /sessions，对应 create_session。"
+      ]
+    },
+    {
+      "id": "accounts-04",
+      "repository": "accounts",
+      "category": "database",
+      "question": "login_user 最后访问哪张表？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/models.py",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "FROM accounts"
+          ]
+        },
+        {
+          "file_path": "src/auth.py",
+          "start_line": 6,
+          "end_line": 6,
+          "contains": [
+            "user = find_user"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "login_user 调用 find_user，查询 accounts 表。"
+      ]
+    },
+    {
+      "id": "accounts-05",
+      "repository": "accounts",
+      "category": "impact",
+      "question": "修改 login_user 会影响什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/api.py",
+          "start_line": 11,
+          "end_line": 11,
+          "contains": [
+            "return login_user"
+          ]
+        },
+        {
+          "file_path": "tests/check_auth.py",
+          "start_line": 6,
+          "end_line": 6,
+          "contains": [
+            "login_user(database"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "create_session 直接调用 login_user，相关验证在 tests/check_auth.py；静态关系不是完整运行时调用图。"
+      ]
+    },
+    {
+      "id": "accounts-06",
+      "repository": "accounts",
+      "category": "config",
+      "question": "SESSION_TTL 如何配置？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/settings.py",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "os.getenv(\"SESSION_TTL\", \"1800\")"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "读取 SESSION_TTL 环境变量，默认 1800 秒。"
+      ]
+    },
+    {
+      "id": "accounts-07",
+      "repository": "accounts",
+      "category": "test",
+      "question": "哪些测试覆盖了 login_user？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "tests/check_auth.py",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "def check_login_rejects_missing_user"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "check_login_rejects_missing_user 验证不存在的用户被拒绝。"
+      ]
+    },
+    {
+      "id": "accounts-08",
+      "repository": "accounts",
+      "category": "error",
+      "question": "invalid credentials 错误在哪里转换为 HTTP 状态码？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/api.py",
+          "start_line": 13,
+          "end_line": 13,
+          "contains": [
+            "status_code=401"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "create_session 捕获 ValueError，转换为 HTTP 401。"
+      ]
+    },
+    {
+      "id": "accounts-09",
+      "repository": "accounts",
+      "category": "follow_up",
+      "question": "它最后访问哪张表？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/models.py",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "FROM accounts"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "这里的它指上一轮 login_user，最终读取 accounts 表。"
+      ],
+      "history": [
+        {
+          "role": "user",
+          "content": "login_user 在哪里？"
+        },
+        {
+          "role": "assistant",
+          "content": "定义为 `login_user`，位于 `src/auth.py:4-9`。"
+        }
+      ]
+    },
+    {
+      "id": "accounts-10",
+      "repository": "accounts",
+      "category": "unanswerable",
+      "question": "quantumTeleport 在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "未发现 quantumTeleport，不能把相似函数当作它。"
+      ]
+    },
+    {
+      "id": "accounts-11",
+      "repository": "accounts",
+      "category": "unanswerable",
+      "question": "quantumTeleport 的测试用例在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "不存在该目标；不要返回现有的登录测试冒充。"
+      ]
+    },
+    {
+      "id": "accounts-12",
+      "repository": "accounts",
+      "category": "project_context",
+      "question": "what is the name of the current project",
+      "expected_behavior": "project_context",
+      "expected_evidence": [],
+      "expected_facts": [
+        "当前记录名称为 accounts。"
+      ]
+    },
+    {
+      "id": "orders-01",
+      "repository": "orders",
+      "category": "startup",
+      "question": "How to start this project?",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "package.json",
+          "start_line": 5,
+          "end_line": 5,
+          "contains": [
+            "\"dev\": \"tsx src/server.ts\""
+          ]
+        },
+        {
+          "file_path": "README.md",
+          "start_line": 8,
+          "end_line": 8,
+          "contains": [
+            "npm run dev"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "启动命令 npm run dev，对应 tsx src/server.ts。"
+      ]
+    },
+    {
+      "id": "orders-02",
+      "repository": "orders",
+      "category": "location",
+      "question": "createOrder 在哪里实现？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/orders.ts",
+          "start_line": 3,
+          "end_line": 3,
+          "contains": [
+            "export function createOrder"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "业务实现在 src/orders.ts，不是生成的 client.min.js。"
+      ]
+    },
+    {
+      "id": "orders-03",
+      "repository": "orders",
+      "category": "api",
+      "question": "订单创建接口使用什么路径和请求方法？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/routes.ts",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "app.post(\"/orders\""
+          ]
+        }
+      ],
+      "expected_facts": [
+        "POST /orders；传入 request.body.items。"
+      ]
+    },
+    {
+      "id": "orders-04",
+      "repository": "orders",
+      "category": "database",
+      "question": "createOrder 最后写入哪张表？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/repository.ts",
+          "start_line": 2,
+          "end_line": 2,
+          "contains": [
+            "INSERT INTO orders"
+          ]
+        },
+        {
+          "file_path": "src/orders.ts",
+          "start_line": 6,
+          "end_line": 6,
+          "contains": [
+            "return insertOrder"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "createOrder 通过 insertOrder 写入 orders.total_cents。"
+      ]
+    },
+    {
+      "id": "orders-05",
+      "repository": "orders",
+      "category": "impact",
+      "question": "修改 createOrder 会影响什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/routes.ts",
+          "start_line": 6,
+          "end_line": 6,
+          "contains": [
+            "await createOrder"
+          ]
+        },
+        {
+          "file_path": "tests/orders.spec.ts",
+          "start_line": 5,
+          "end_line": 5,
+          "contains": [
+            "createOrder(db, [])"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "影响订单路由和空订单测试；其他运行时调用无法仅由这些证据断言。"
+      ]
+    },
+    {
+      "id": "orders-06",
+      "repository": "orders",
+      "category": "config",
+      "question": "PORT 环境变量的默认值是多少？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/config.ts",
+          "start_line": 2,
+          "end_line": 2,
+          "contains": [
+            "process.env.PORT ?? \"8200\""
+          ]
+        }
+      ],
+      "expected_facts": [
+        "PORT 默认 8200。"
+      ]
+    },
+    {
+      "id": "orders-07",
+      "repository": "orders",
+      "category": "test",
+      "question": "Which tests cover createOrder?",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "tests/orders.spec.ts",
+          "start_line": 3,
+          "end_line": 3,
+          "contains": [
+            "function checkEmptyOrder"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "checkEmptyOrder 验证空订单。"
+      ]
+    },
+    {
+      "id": "orders-08",
+      "repository": "orders",
+      "category": "error",
+      "question": "empty order 异常如何返回给客户端？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/routes.ts",
+          "start_line": 9,
+          "end_line": 9,
+          "contains": [
+            "response.status(400)"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "路由捕获异常并返回 HTTP 400 和 empty order。"
+      ]
+    },
+    {
+      "id": "orders-09",
+      "repository": "orders",
+      "category": "follow_up",
+      "question": "它最后写入哪张表？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "src/repository.ts",
+          "start_line": 2,
+          "end_line": 2,
+          "contains": [
+            "INSERT INTO orders"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "上一轮的 createOrder 写入 orders 表。"
+      ],
+      "history": [
+        {
+          "role": "user",
+          "content": "createOrder 在哪里？"
+        },
+        {
+          "role": "assistant",
+          "content": "`createOrder` 定义在 `src/orders.ts:3-7`。"
+        }
+      ]
+    },
+    {
+      "id": "orders-10",
+      "repository": "orders",
+      "category": "unanswerable",
+      "question": "reconcileInvoice 在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "没有 reconcileInvoice，不能编造账单功能。"
+      ]
+    },
+    {
+      "id": "orders-11",
+      "repository": "orders",
+      "category": "unanswerable",
+      "question": "reconcileInvoice 的测试在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "没有该方法的证据，不要替换为 createOrder 的测试。"
+      ]
+    },
+    {
+      "id": "orders-12",
+      "repository": "orders",
+      "category": "project_context",
+      "question": "当前项目名称是什么？",
+      "expected_behavior": "project_context",
+      "expected_evidence": [],
+      "expected_facts": [
+        "当前记录名称为 orders。"
+      ]
+    },
+    {
+      "id": "worker-01",
+      "repository": "worker",
+      "category": "startup",
+      "question": "怎样运行这个项目？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "README.md",
+          "start_line": 8,
+          "end_line": 8,
+          "contains": [
+            "python -m worker.main"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "README 给出 python -m worker.main；样例不含真实队列装配，不能宣称生产部署完整。"
+      ]
+    },
+    {
+      "id": "worker-02",
+      "repository": "worker",
+      "category": "location",
+      "question": "process_export 的实现在哪里？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "worker/jobs.py",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "def process_export"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "Python 实现在 worker/jobs.py；不要引用生成的 JS 同名函数作为业务实现。"
+      ]
+    },
+    {
+      "id": "worker-03",
+      "repository": "worker",
+      "category": "api",
+      "question": "导出任务的接口路径是什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "gateway/routes.py",
+          "start_line": 3,
+          "end_line": 3,
+          "contains": [
+            "ROUTES = {\"POST /exports\""
+          ]
+        }
+      ],
+      "expected_facts": [
+        "路由声明是 POST /exports，对应 submit_export。"
+      ]
+    },
+    {
+      "id": "worker-04",
+      "repository": "worker",
+      "category": "database",
+      "question": "process_export 会写入哪张表？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "worker/storage.py",
+          "start_line": 3,
+          "end_line": 3,
+          "contains": [
+            "INSERT INTO export_jobs"
+          ]
+        },
+        {
+          "file_path": "worker/jobs.py",
+          "start_line": 8,
+          "end_line": 8,
+          "contains": [
+            "return save_export"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "通过 save_export 写入 export_jobs 的 record_count。"
+      ]
+    },
+    {
+      "id": "worker-05",
+      "repository": "worker",
+      "category": "impact",
+      "question": "修改 process_export 会影响什么？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "worker/runner.py",
+          "start_line": 8,
+          "end_line": 8,
+          "contains": [
+            "return process_export"
+          ]
+        },
+        {
+          "file_path": "tests/check_jobs.py",
+          "start_line": 5,
+          "end_line": 5,
+          "contains": [
+            "process_export(database, ["
+          ]
+        }
+      ],
+      "expected_facts": [
+        "run_job 直接调用 process_export，相关验证是 check_export_count；静态推断需验证。"
+      ]
+    },
+    {
+      "id": "worker-06",
+      "repository": "worker",
+      "category": "config",
+      "question": "MAX_RETRIES 如何配置？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "worker/settings.py",
+          "start_line": 3,
+          "end_line": 3,
+          "contains": [
+            "os.getenv(\"MAX_RETRIES\", \"3\")"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "读取 MAX_RETRIES 环境变量，默认 3。"
+      ]
+    },
+    {
+      "id": "worker-07",
+      "repository": "worker",
+      "category": "test",
+      "question": "process_export 有哪些相关测试？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "tests/check_jobs.py",
+          "start_line": 4,
+          "end_line": 4,
+          "contains": [
+            "def check_export_count"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "check_export_count 检查写入的 count 为 2。"
+      ]
+    },
+    {
+      "id": "worker-08",
+      "repository": "worker",
+      "category": "error",
+      "question": "run_job 遇到 ValueError 时怎样重试？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "worker/runner.py",
+          "start_line": 6,
+          "end_line": 6,
+          "contains": [
+            "for attempt in range(MAX_RETRIES)"
+          ]
+        },
+        {
+          "file_path": "worker/runner.py",
+          "start_line": 10,
+          "end_line": 10,
+          "contains": [
+            "if attempt == MAX_RETRIES - 1:"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "最多尝试 MAX_RETRIES 次，最后一次 ValueError 向上抛出。"
+      ]
+    },
+    {
+      "id": "worker-09",
+      "repository": "worker",
+      "category": "follow_up",
+      "question": "它的数据存到哪张表？",
+      "expected_behavior": "evidence",
+      "expected_evidence": [
+        {
+          "file_path": "worker/storage.py",
+          "start_line": 3,
+          "end_line": 3,
+          "contains": [
+            "INSERT INTO export_jobs"
+          ]
+        }
+      ],
+      "expected_facts": [
+        "它指 process_export，经 save_export 写入 export_jobs。"
+      ],
+      "history": [
+        {
+          "role": "user",
+          "content": "process_export 在哪里实现？"
+        },
+        {
+          "role": "assistant",
+          "content": "见 `worker/jobs.py:4-8` 的 `process_export`。"
+        }
+      ]
+    },
+    {
+      "id": "worker-10",
+      "repository": "worker",
+      "category": "unanswerable",
+      "question": "rotateCertificate 在哪个文件？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "没有证书轮换函数的证据。"
+      ]
+    },
+    {
+      "id": "worker-11",
+      "repository": "worker",
+      "category": "unanswerable",
+      "question": "rotateCertificate 的测试覆盖在哪里？",
+      "expected_behavior": "insufficient",
+      "expected_evidence": [],
+      "expected_facts": [
+        "目标不存在，不能返回导出测试充数。"
+      ]
+    },
+    {
+      "id": "worker-12",
+      "repository": "worker",
+      "category": "project_context",
+      "question": "当前仓库叫什么名字？",
+      "expected_behavior": "project_context",
+      "expected_evidence": [],
+      "expected_facts": [
+        "当前记录名称为 worker。"
+      ]
+    }
+  ]
+}

@@ -32,6 +32,13 @@ def create_database() -> None:
                         "INTEGER NOT NULL DEFAULT 0"
                     )
                 )
+        project_columns = {
+            column["name"] for column in inspect(engine).get_columns("projects")
+        }
+        if "source_commit" not in project_columns:
+            with engine.begin() as connection:
+                # Historical metadata is not proof of the imported source revision.
+                connection.execute(text("ALTER TABLE projects ADD COLUMN source_commit VARCHAR(40)"))
 
 
 def get_db() -> Generator[Session, None, None]:

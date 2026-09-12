@@ -1,5 +1,6 @@
 import io
 import sqlite3
+import tempfile
 import zipfile
 from collections.abc import Generator
 from contextlib import closing
@@ -10,46 +11,63 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app import main as main_module
 from app.api.routes import projects as project_routes
+from app.core import database as database_module
 from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.main import app
+from app.models.analysis import AnalysisJob, AnalysisSnapshot
+from app.models.project import Project
 from app.services import repository_path_service, repository_qa_service, search_service
-from app.services.analysis_cache import analysis_cache_stats, clear_analysis_cache
-from app.services.github_service import GitHubComparison, GitHubMetadata
+from app.services.analysis_cache import (
+    analysis_cache_stats,
+    clear_analysis_cache,
+    get_or_create_project_analysis,
+)
+from app.services.github_service import GitHubComparison, GitHubMetadata, GitHubMetadataError
+from app.services.quality_service import QUALITY_CACHE_NAMESPACE
 
 
 @pytest.fixture
-def client(tmp_path: Path) -> Generator[TestClient, None, None]:
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
     engine = create_engine(
         f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
         connect_args={"check_same_thread": False},
     )
-    testing_session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-    settings = Settings(
-        database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
-        repository_root=tmp_path / "repositories",
-        search_index_root=tmp_path / "indexes",
-        semantic_search_enabled=False,
-        provider_config_path=tmp_path / "report-providers.json",
-        max_upload_mb=5,
-    )
-    settings.ensure_directories()
+    try:
+        testing_session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+        Base.metadata.create_all(bind=engine)
+        settings = Settings(
+            database_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
+            repository_root=tmp_path / "repositories",
+            temporary_root=tmp_path / "temporary",
+            search_index_root=tmp_path / "indexes",
+            semantic_search_enabled=False,
+            provider_config_path=tmp_path / "report-providers.json",
+            max_upload_mb=5,
+        )
+        settings.ensure_directories()
+        # Dependency overrides apply to routes, not to direct calls in lifespan.
+        # Keep startup migrations and temporary storage on the same test database.
+        monkeypatch.setattr(database_module, "engine", engine)
+        monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+        monkeypatch.setattr(tempfile, "tempdir", str(settings.temporary_root))
 
-    def override_database() -> Generator[Session, None, None]:
-        database = testing_session()
-        try:
-            yield database
-        finally:
-            database.close()
+        def override_database() -> Generator[Session, None, None]:
+            database = testing_session()
+            try:
+                yield database
+            finally:
+                database.close()
 
-    app.dependency_overrides[get_db] = override_database
-    app.dependency_overrides[get_settings] = lambda: settings
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-    engine.dispose()
+        app.dependency_overrides[get_db] = override_database
+        app.dependency_overrides[get_settings] = lambda: settings
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        engine.dispose()
 
 
 def make_archive(files: dict[str, str]) -> bytes:
@@ -112,6 +130,74 @@ def test_import_limits_follow_backend_configuration(client: TestClient) -> None:
     }
 
 
+@pytest.mark.parametrize("busy_state", ["queued", "running", "analyzing"])
+def test_busy_project_cannot_be_deleted_and_original_source_remains_readable(client, busy_state):
+    created = client.post("/api/projects", files={"archive": ("busy.zip", make_archive({"busy/main.py": "def original():\n    return 42\n"}), "application/zip")}).json()
+    project_id = created["id"]
+    session_source = app.dependency_overrides[get_db]()
+    database = next(session_source)
+    try:
+        if busy_state == "analyzing":
+            database.get(Project, project_id).status = "analyzing"
+        else:
+            database.add(AnalysisJob(id="busy-job", project_id=project_id, source_type="github_sync", source_label="test", status=busy_state))
+        database.commit()
+        response = client.delete(f"/api/projects/{project_id}")
+        assert response.status_code == 409
+        assert "in progress" in response.json()["detail"]
+        assert client.get(f"/api/projects/{project_id}").status_code == 200
+        content = client.get(f"/api/projects/{project_id}/files/{created['files'][0]['id']}/content")
+        assert content.status_code == 200
+        assert "original" in "\n".join(content.json()["lines"])
+        database.get(Project, project_id).status = "ready"
+        if busy_state != "analyzing":
+            database.get(AnalysisJob, "busy-job").status = "failed"
+        database.commit()
+        assert client.delete(f"/api/projects/{project_id}").status_code == 204
+    finally:
+        session_source.close()
+
+
+def test_full_analysis_invalidates_results_built_before_commit(client, monkeypatch):
+    created = client.post("/api/projects", files={"archive": ("cache.zip", make_archive({"cache/main.py": "def original():\n    return 42\n"}), "application/zip")}).json()
+    original = project_routes.analyze_project_structure
+
+    def scan_with_concurrent_cache(database, project, **kwargs):
+        original(database, project, **kwargs)
+        get_or_create_project_analysis(database, project.id, QUALITY_CACHE_NAMESPACE, lambda: {"obsolete": True})
+
+    monkeypatch.setattr(project_routes, "analyze_project_structure", scan_with_concurrent_cache)
+    assert client.post(f"/api/projects/{created['id']}/reanalyze").status_code == 200
+    response = client.get(f"/api/projects/{created['id']}/quality")
+    assert response.status_code == 200
+    assert "score" in response.json()
+
+
+def test_legacy_snapshot_api_returns_null_deltas_and_comparison_warning(client):
+    created = client.post("/api/projects", files={"archive": ("legacy.zip", make_archive({"legacy/main.py": "def original():\n    return 42\n"}), "application/zip")}).json()
+    project_id = created["id"]
+    first = client.get(f"/api/projects/{project_id}/snapshots").json()[0]
+    second = client.post(f"/api/projects/{project_id}/snapshots", json={"label": "current"}).json()
+    session_source = app.dependency_overrides[get_db]()
+    database = next(session_source)
+    try:
+        import json
+
+        row = database.get(AnalysisSnapshot, first["id"])
+        payload = json.loads(row.data_json)
+        payload.pop("analysis_context")
+        row.data_json = json.dumps(payload)
+        database.commit()
+    finally:
+        session_source.close()
+    response = client.get(f"/api/projects/{project_id}/snapshots/compare", params={"base_id": first["id"], "target_id": second["id"]})
+    assert response.status_code == 200
+    assert response.json()["comparable"] is False
+    assert response.json()["metric_changes"][0]["delta"] is None
+    assert response.json()["base"]["analysis_context"] is None
+    assert response.json()["comparison_warnings"]
+
+
 def test_project_lifecycle(client: TestClient) -> None:
     archive = make_archive(
         {
@@ -157,7 +243,7 @@ def test_project_lifecycle(client: TestClient) -> None:
     assert quality.status_code == 200
     assert quality.json()["score"] == 100
     assert len(quality.json()["rules"]) == 6
-    assert quality.json()["scoring"]["model"] == "source_scope_weighted_size_normalized_v4"
+    assert quality.json()["scoring"]["model"] == "source_scope_weighted_size_normalized_v5"
     assert quality.json()["scoring"]["adjusted_penalty"] == 0
     assert quality.json()["scope_scores"]["test"]["score"] is None
     assert quality.json()["scope_scores"]["test"]["available"] is False
@@ -327,6 +413,12 @@ def test_search_index_persists_across_memory_cache_resets(
 def test_repository_questions_require_generation_provider_and_return_source_citations(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    auth_source = (
+        "from models import User\n\n"
+        "def login_user(username, password):\n"
+        "    token = create_access_token(username)\n"
+        "    return token, User.__tablename__\n"
+    )
     archive = make_archive(
         {
             "qa-demo/README.md": "# QA Demo\n\nRun the project with `npm run dev`.\n",
@@ -335,12 +427,7 @@ def test_repository_questions_require_generation_provider_and_return_source_cita
                 "class User:\n"
                 "    __tablename__ = \"users\"\n"
             ),
-            "qa-demo/auth.py": (
-                "from models import User\n\n"
-                "def login_user(username, password):\n"
-                "    token = create_access_token(username)\n"
-                "    return token, User.__tablename__\n"
-            ),
+            "qa-demo/auth.py": auth_source,
             "qa-demo/service.py": (
                 "from auth import login_user\n\n"
                 "def create_session(username, password):\n"
@@ -424,9 +511,25 @@ def test_repository_questions_require_generation_provider_and_return_source_cita
     assert login.status_code == 200
     login_body = login.json()
     citation = next(item for item in login_body["citations"] if item["file_path"] == "auth.py")
-    assert citation["start_line"] == 3
-    assert citation["end_line"] >= 1
-    assert "login_user" in citation["snippet"]
+    auth_lines = auth_source.splitlines()
+    start, end = citation["start_line"], citation["end_line"]
+    # Citations are evidence windows, which can include the function's imports.
+    # Verify the exact definition offset and every supplied source line instead
+    # of requiring the merged window to start at the function declaration.
+    assert 1 <= start <= 3 <= end <= len(auth_lines)
+    assert citation["symbol_name"] == "login_user"
+    assert citation["source"] == "symbol_exact"
+    assert citation["snippet"].splitlines()[3 - start] == "def login_user(username, password):"
+    assert citation["snippet"] == "\n".join(auth_lines[start - 1:end])
+    assert len(login_body["citations"]) <= repository_qa_service.MAX_CITATIONS
+    assert all(
+        len(item["snippet"]) <= repository_qa_service.MAX_EVIDENCE_CHARS
+        for item in login_body["citations"]
+    )
+    assert all(
+        sum(item["file_id"] == file_id for item in login_body["citations"]) <= 2
+        for file_id in {item["file_id"] for item in login_body["citations"]}
+    )
 
     fuzzy_symbol = client.post(
         f"/api/projects/{project_id}/ask",
@@ -458,7 +561,14 @@ def test_repository_questions_require_generation_provider_and_return_source_cita
     )
     assert impact.status_code == 200
     impact_body = impact.json()
-    assert any(item["source"] == "dependency_relation" for item in impact_body["citations"])
+    # A full function chunk may supersede a redundant import-only citation.
+    # Check the actual caller evidence, not the retrieval channel that supplied it.
+    assert any(
+        item["file_path"] == "service.py"
+        and "from auth import login_user" in item["snippet"]
+        and "return login_user" in item["snippet"]
+        for item in impact_body["citations"]
+    )
     assert any(item["file_path"] == "tests/test_auth.py" for item in impact_body["citations"])
     assert len(generated_answers) == 6
 
@@ -493,7 +603,7 @@ def test_refreshes_and_returns_github_commit_metadata(
     assert unavailable.json()["available"] is False
     assert unavailable.json()["refreshable"] is False
 
-    with sqlite3.connect(tmp_path / "test.db") as connection:
+    with closing(sqlite3.connect(tmp_path / "test.db")) as connection:
         connection.execute(
             "UPDATE projects SET source_filename = ? WHERE id = ?",
             ("github.com/openai/example", project_id),
@@ -528,8 +638,9 @@ def test_refreshes_and_returns_github_commit_metadata(
     report = client.get(f"/api/projects/{project_id}/report.md")
     assert report.status_code == 200
     assert "| Git 默认分支 | `main` |" in report.text
-    assert f"| 源码 Commit | `{'c' * 40}` |" in report.text
-    assert "远端产生新提交后需要重新同步和分析" in report.text
+    assert f"| 最近获取的远端 Commit | `{'c' * 40}` |" in report.text
+    assert "| 源码 Commit | 未绑定可验证的 Git Commit |" in report.text
+    assert "当前项目未绑定可验证的 Git Commit" in report.text
 
     async def fake_comparison(repository: object, base: str, head: str) -> GitHubComparison:
         return GitHubComparison(
@@ -844,6 +955,15 @@ def test_report_handles_parse_issues(client: TestClient) -> None:
     assert issues.status_code == 200
     assert issues.json()["total"] >= 1
     assert issues.json()["items"][0]["file_path"] == "broken.py"
+    quality = client.get(f"/api/projects/{created['id']}/quality").json()
+    assert quality["scoring"]["parser_supported_file_count"] == 1
+    assert quality["scoring"]["parser_analyzed_file_count"] == 0
+    assert quality["scoring"]["parser_issue_file_count"] == 1
+    assert quality["scoring"]["coverage_level"] == "limited"
+    assert quality["scope_scores"]["production"]["score"] is None
+    assert "综合质量评分：暂不评级" in report.text
+    assert "| 生产代码 | 不适用 |" in report.text
+    assert "没有可用结构解析依据的范围不计 100 分" in report.text
 
 
 def test_configures_report_providers_from_the_api(
@@ -1148,16 +1268,30 @@ def test_rejects_non_github_import_url(client: TestClient) -> None:
     assert "github.com" in response.json()["detail"]
 
 
+@pytest.mark.parametrize("metadata_available", [True, False])
 def test_imports_public_github_repository(
-    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    metadata_available: bool,
 ) -> None:
-    async def fake_download(repository: object, settings: Settings) -> Path:
+    async def fake_metadata(repository: object) -> GitHubMetadata:
+        if not metadata_available:
+            raise GitHubMetadataError("synthetic metadata unavailable")
+        return GitHubMetadata(
+            repository_url="https://github.com/openai/example",
+            default_branch="main", head_commit="a" * 40, recent_commits=[],
+        )
+
+    async def fake_download(
+        repository: object, settings: Settings, *, commit_sha: str | None = None
+    ) -> Path:
+        assert commit_sha == ("a" * 40 if metadata_available else None)
         target = settings.repository_root / "mock-github" / "repo-main"
         target.mkdir(parents=True)
         (target / "main.py").write_text("print('github')\n", encoding="utf-8")
         return target
 
     monkeypatch.setattr(project_routes, "download_github_repository", fake_download)
+    monkeypatch.setattr(project_routes, "fetch_github_metadata", fake_metadata)
 
     response = client.post(
         "/api/projects/github",
@@ -1169,3 +1303,20 @@ def test_imports_public_github_repository(
     assert body["name"] == "example"
     assert body["source_filename"] == "github.com/openai/example"
     assert body["primary_language"] == "Python"
+    report = client.get(f"/api/projects/{body['id']}/report.md").text
+    if metadata_available:
+        assert f"| 源码 Commit | {'a' * 40} |" in report
+
+        async def newer_metadata(repository: object) -> GitHubMetadata:
+            return GitHubMetadata(
+                repository_url="https://github.com/openai/example",
+                default_branch="main", head_commit="b" * 40, recent_commits=[],
+            )
+
+        monkeypatch.setattr(project_routes, "fetch_github_metadata", newer_metadata)
+        assert client.post(f"/api/projects/{body['id']}/git-summary/refresh").status_code == 200
+        report = client.get(f"/api/projects/{body['id']}/report.md").text
+        assert f"| 源码 Commit | {'a' * 40} |" in report
+        assert f"| 最近获取的远端 Commit | `{'b' * 40}` |" in report
+    else:
+        assert "未绑定可验证的 Git Commit" in report

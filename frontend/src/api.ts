@@ -55,6 +55,7 @@ export class ApiRequestError extends Error {
 }
 
 const DETAIL_GUIDANCE: Array<{ pattern: RegExp; summary: string; action: string }> = [
+  { pattern: /Project analysis or synchronization is in progress/i, summary: "项目正在分析或同步，暂时不能删除", action: "等待任务结束后再删除，避免中途破坏源码和分析数据" },
   { pattern: /Project file is no longer available on disk/i, summary: "仓库目录中的源文件已被删除或移动", action: "执行一次增量分析以刷新文件索引，然后重新打开源码" },
   { pattern: /Project file not found/i, summary: "当前项目中没有这条文件记录", action: "刷新项目后重新选择搜索结果" },
   { pattern: /Project file resolves outside the repository/i, summary: "文件路径超出了当前仓库的安全范围", action: "检查仓库中的符号链接或异常相对路径" },
@@ -132,6 +133,8 @@ async function request<T>(path: string, operation: string, options?: RequestInit
   try {
     response = await fetch(`${API_ROOT}${path}`, options);
   } catch (error) {
+    // Navigation cancellation is not a backend connection failure.
+    if (options?.signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) throw error;
     const folderUploadInterrupted = operation === "导入本地文件夹";
     throw new ApiRequestError(
       folderUploadInterrupted
@@ -146,7 +149,8 @@ async function request<T>(path: string, operation: string, options?: RequestInit
     let detail: string | null = null;
     try {
       detail = extractDetail(await response.json());
-    } catch {
+    } catch (error) {
+      if (options?.signal?.aborted) throw error;
       // The status-based guidance remains useful when the response is not JSON.
     }
     throw new ApiRequestError(formatOperationError(operation, response.status, detail), operation, response.status, detail);
@@ -167,15 +171,19 @@ export function getImportLimits(): Promise<ImportLimits> {
   return request<ImportLimits>("/import-limits", "读取导入限制");
 }
 
-export function getProjectFileContent(projectId: number, fileId: number): Promise<ProjectFileContent> {
-  return request<ProjectFileContent>(`/projects/${projectId}/files/${fileId}/content`, "打开源码");
+export function getProjectFileContent(projectId: number, fileId: number, signal?: AbortSignal): Promise<ProjectFileContent> {
+  return request<ProjectFileContent>(`/projects/${projectId}/files/${fileId}/content`, "打开源码", signal ? { signal } : undefined);
 }
 
-export function getProjectFileTree(projectId: number, path = ""): Promise<ProjectFileTreeResponse> {
+export function getProjectFileTree(projectId: number, path = "", signal?: AbortSignal, pagination?: { limit: number; offset: number }): Promise<ProjectFileTreeResponse> {
   const params = new URLSearchParams();
   if (path) params.set("path", path);
+  if (pagination) {
+    params.set("limit", String(pagination.limit));
+    params.set("offset", String(pagination.offset));
+  }
   const query = params.size ? `?${params}` : "";
-  return request<ProjectFileTreeResponse>(`/projects/${projectId}/files/tree${query}`, "读取文件目录");
+  return request<ProjectFileTreeResponse>(`/projects/${projectId}/files/tree${query}`, "读取文件目录", signal ? { signal } : undefined);
 }
 
 export function getProjectStructure(id: number): Promise<ProjectStructure> {
@@ -209,37 +217,38 @@ export function incrementalReanalyzeProject(id: number): Promise<IncrementalAnal
   return request<IncrementalAnalysisResult>(`/projects/${id}/incremental-reanalyze`, "增量分析项目", { method: "POST" });
 }
 
-export function searchProject(id: number, query: string, limit = 10, offset = 0): Promise<CodeSearchResponse> {
+export function searchProject(id: number, query: string, limit = 10, offset = 0, signal?: AbortSignal): Promise<CodeSearchResponse> {
   const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) });
-  return request<CodeSearchResponse>(`/projects/${id}/search?${params}`, "搜索代码");
+  return request<CodeSearchResponse>(`/projects/${id}/search?${params}`, "搜索代码", signal ? { signal } : undefined);
 }
 
-export function askRepository(id: number, question: string, provider: string, history: RepositoryConversationItem[] = []): Promise<RepositoryAnswer> {
+export function askRepository(id: number, question: string, provider: string, history: RepositoryConversationItem[] = [], signal?: AbortSignal): Promise<RepositoryAnswer> {
   return request<RepositoryAnswer>(`/projects/${id}/ask`, "询问仓库", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, provider, history: history.slice(-10) }),
+    body: JSON.stringify({ question, provider, history: history.slice(-10).map((item) => ({ ...item, content: item.content.slice(0, 4000) })) }),
+    ...(signal ? { signal } : {}),
   });
 }
 
-export function getDependencyGraph(id: number, limit = 40, cycle?: number): Promise<DependencyGraph> {
+export function getDependencyGraph(id: number, limit = 40, cycle?: number, signal?: AbortSignal): Promise<DependencyGraph> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (cycle !== undefined) params.set("cycle", String(cycle));
-  return request<DependencyGraph>(`/projects/${id}/dependency-graph?${params}`, cycle === undefined ? "加载依赖图谱" : "加载循环依赖");
+  return request<DependencyGraph>(`/projects/${id}/dependency-graph?${params}`, cycle === undefined ? "加载依赖图谱" : "加载循环依赖", signal ? { signal } : undefined);
 }
 
-export function searchImpactTargets(id: number, query: string, limit = 20): Promise<ImpactTarget[]> {
+export function searchImpactTargets(id: number, query: string, limit = 20, signal?: AbortSignal): Promise<ImpactTarget[]> {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
-  return request<ImpactTarget[]>(`/projects/${id}/impact-targets?${params}`, "搜索影响分析对象");
+  return request<ImpactTarget[]>(`/projects/${id}/impact-targets?${params}`, "搜索影响分析对象", signal ? { signal } : undefined);
 }
 
-export function getChangeImpact(id: number, targetType: "file" | "symbol", targetId: number): Promise<ChangeImpact> {
+export function getChangeImpact(id: number, targetType: "file" | "symbol", targetId: number, signal?: AbortSignal): Promise<ChangeImpact> {
   const params = new URLSearchParams({ target_type: targetType, target_id: String(targetId) });
-  return request<ChangeImpact>(`/projects/${id}/impact?${params}`, "分析修改影响");
+  return request<ChangeImpact>(`/projects/${id}/impact?${params}`, "分析修改影响", signal ? { signal } : undefined);
 }
 
-export function listAnalysisSnapshots(id: number): Promise<AnalysisSnapshotSummary[]> {
-  return request<AnalysisSnapshotSummary[]>(`/projects/${id}/snapshots`, "加载分析快照");
+export function listAnalysisSnapshots(id: number, signal?: AbortSignal): Promise<AnalysisSnapshotSummary[]> {
+  return request<AnalysisSnapshotSummary[]>(`/projects/${id}/snapshots`, "加载分析快照", signal ? { signal } : undefined);
 }
 
 export function createAnalysisSnapshot(id: number, label?: string): Promise<AnalysisSnapshotSummary> {
@@ -250,34 +259,34 @@ export function createAnalysisSnapshot(id: number, label?: string): Promise<Anal
   });
 }
 
-export function compareAnalysisSnapshots(id: number, baseId: number, targetId: number): Promise<AnalysisSnapshotComparison> {
+export function compareAnalysisSnapshots(id: number, baseId: number, targetId: number, signal?: AbortSignal): Promise<AnalysisSnapshotComparison> {
   const params = new URLSearchParams({ base_id: String(baseId), target_id: String(targetId) });
-  return request<AnalysisSnapshotComparison>(`/projects/${id}/snapshots/compare?${params}`, "对比分析快照");
+  return request<AnalysisSnapshotComparison>(`/projects/${id}/snapshots/compare?${params}`, "对比分析快照", signal ? { signal } : undefined);
 }
 
 export function deleteAnalysisSnapshot(id: number, snapshotId: number): Promise<void> {
   return request<void>(`/projects/${id}/snapshots/${snapshotId}`, "删除分析快照", { method: "DELETE" });
 }
 
-export function getProjectGitSummary(id: number): Promise<ProjectGitSummary> {
-  return request<ProjectGitSummary>(`/projects/${id}/git-summary`, "加载 Git 提交信息");
+export function getProjectGitSummary(id: number, signal?: AbortSignal): Promise<ProjectGitSummary> {
+  return request<ProjectGitSummary>(`/projects/${id}/git-summary`, "加载 Git 提交信息", signal ? { signal } : undefined);
 }
 
 export function refreshProjectGitSummary(id: number): Promise<ProjectGitSummary> {
   return request<ProjectGitSummary>(`/projects/${id}/git-summary/refresh`, "刷新 Git 提交信息", { method: "POST" });
 }
 
-export function compareProjectGitCommits(id: number, base: string, head: string): Promise<GitComparison> {
+export function compareProjectGitCommits(id: number, base: string, head: string, signal?: AbortSignal): Promise<GitComparison> {
   const params = new URLSearchParams({ base, head });
-  return request<GitComparison>(`/projects/${id}/git-compare?${params}`, "对比 Git 提交");
+  return request<GitComparison>(`/projects/${id}/git-compare?${params}`, "对比 Git 提交", signal ? { signal } : undefined);
 }
 
-export function getQualityReport(id: number, limit = 100, offset = 0, severity = "all", rule = "all", scope = "all"): Promise<QualityReport> {
+export function getQualityReport(id: number, limit = 100, offset = 0, severity = "all", rule = "all", scope = "all", signal?: AbortSignal): Promise<QualityReport> {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (severity !== "all") params.set("severity", severity);
   if (rule !== "all") params.set("rule", rule);
   if (scope !== "all") params.set("scope", scope);
-  return request<QualityReport>(`/projects/${id}/quality?${params}`, "生成质量报告");
+  return request<QualityReport>(`/projects/${id}/quality?${params}`, "生成质量报告", signal ? { signal } : undefined);
 }
 
 export function getReportGenerators(): Promise<ReportGenerator[]> {
@@ -407,8 +416,8 @@ export function importGitHubProject(url: string): Promise<AnalysisJob> {
   });
 }
 
-export function getAnalysisJob(id: string): Promise<AnalysisJob> {
-  return request<AnalysisJob>(`/projects/jobs/${id}`, "查询分析进度");
+export function getAnalysisJob(id: string, signal?: AbortSignal): Promise<AnalysisJob> {
+  return request<AnalysisJob>(`/projects/jobs/${id}`, "查询分析进度", signal ? { signal } : undefined);
 }
 
 export function synchronizeGitHubProject(id: number): Promise<AnalysisJob> {

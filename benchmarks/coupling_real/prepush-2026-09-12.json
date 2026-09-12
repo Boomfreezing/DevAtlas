@@ -1,0 +1,4179 @@
+{
+  "version": "coupling-probes-v1",
+  "generated_at": "2026-09-12T14:34:26.250424+00:00",
+  "annotation_status": "maintainer-authored targeted probes; not exhaustive or independent holdout",
+  "metric_scope": "Positive confirmed and negative rejected only at specified file/line pairs; not whole-graph precision/recall",
+  "risk_scope": "Scores retained for diagnostics only; no observed defects/runtime tests for risk calibration",
+  "python": "3.13.5",
+  "implementation_hashes": {
+    "backend/app/__init__.py": "73f7744e274679bdffc3bf5c1392334aef215d7b12909efc162cef410f122dcb",
+    "backend/app/api/__init__.py": "bef9ac0fbdb88dd69007b4adbc94e2071b6bee5909e29833ff76e091b022ddf6",
+    "backend/app/api/router.py": "0c24a8a7c1baf5feaaaa04df0f74786fe8648d58ba230a94027741d7a95dbf1b",
+    "backend/app/api/routes/__init__.py": "912f2144f6ecd00e2bf0816406eaa2178dae538cdaf77a172cbc3c04a390ae75",
+    "backend/app/api/routes/health.py": "b3d2712e452db89e6f1b2004634c68783cb003496ca2238a0dc0307d98a5dae5",
+    "backend/app/api/routes/projects.py": "dcc94a743004112fb32e05a14b57c575370902071fcfa7175c77209f040797f9",
+    "backend/app/core/__init__.py": "dfb971c5c4b0a2bf4565f48abf03dc8ef99fc9472a055b59fdfdb1d03fc47de0",
+    "backend/app/core/config.py": "247c10c496db13a59d8117f6a66de695a80f94d0f5a66f2f6e52f77dfb3a595b",
+    "backend/app/core/database.py": "0ea5ccf4dacfd14acbb15b625a8c9f6517a9b7e7dfcd2abc9cff1b4e0d750502",
+    "backend/app/main.py": "c4683b412375d66d08462c2a6377676110d6c7734f40ad0c308bbdbee9adf8b7",
+    "backend/app/models/__init__.py": "a020afeb4c09837b80583cb39104459bf8be18614b78260be0cc26dff8fd2108",
+    "backend/app/models/analysis.py": "138512ef1d1f4aacc7c33c3db38c9129ad90cba692992cef190096cf5d456e0b",
+    "backend/app/models/project.py": "1bf33b5d5340a0ea7d0ca22bd92286a8b003675a316c2b1a11552439546118df",
+    "backend/app/schemas/__init__.py": "de88e393b99d9bf75d4bbc9625a619d1bdd29e410f854604d96dc502036614ab",
+    "backend/app/schemas/project.py": "ee91e3f1d8233235c98cf84854ea95b48d71f895f40bbf0b216321a24170429c",
+    "backend/app/services/__init__.py": "03b856fd659eeeba191caea3dc000419afec0fd8e3ff394179489c8f6b06afdf",
+    "backend/app/services/analysis_cache.py": "c450248aeb18808f3409658e3d87d1a31f7f085aadb0cd5778bdc0257fbec740",
+    "backend/app/services/archive_service.py": "2a56026989c984410bc2eea62fd0686b816df2b9ab6c546ae1eef7cc9184844a",
+    "backend/app/services/code_parser.py": "227daa5c6a70f9b30b2c20e9575ffa1a972b24121c0f19589b630e6217a6e7f8",
+    "backend/app/services/code_scope_service.py": "783907ba465238dff86cb2f15d34988b81b052e18f24c7064d8c152695a191ce",
+    "backend/app/services/dependency_classification_service.py": "03d382170bcf9c595b21237d7028932364d1019e9746c5cbab362d729d2bd692",
+    "backend/app/services/dependency_graph_service.py": "2913935de2de9b6a97167f398f1a0a65c23440e444fabc4588395f51a1513619",
+    "backend/app/services/file_content_service.py": "f56f13ce360ead4ea5860dc6224ba4365ddd577d63fd74996c31af5a4618f837",
+    "backend/app/services/folder_service.py": "a844e7ecfdc2c4e097abee1a166cf2aa1c6ebd14f41e2a1f0e8b6d2d7930f07f",
+    "backend/app/services/git_metadata_service.py": "afe36e88002c0dbadc42a0b383bdbff769f28efe181bec3d6ba7511c71db6943",
+    "backend/app/services/github_service.py": "d20308ef01649000f0f4e0d83bce3ab57fcf9a1c0db613d3ffe0ee97b5f47feb",
+    "backend/app/services/impact_analysis_service.py": "0cca3081faac2cb89217abcd197fb07e0b547b12e45cbbd12f513f739c30da6b",
+    "backend/app/services/impact_reference_resolver.py": "e813a99de5ee082bdeac7a07f644c9873b883104c5bd4fb0a801884887ab1cb8",
+    "backend/app/services/incremental_analyzer.py": "dce4678cf75ff7ed9c35ee87f2f4f46a434d0f4939e4baf4574c9d9296ce5be2",
+    "backend/app/services/job_service.py": "d536678cbb06b3f0a05d23e4c409c9c4ef24ff8942a1f32f38dd22c8eb265c29",
+    "backend/app/services/project_service.py": "9786414769b73494873e3ab5f0898007100e6683ded812bab65ea9ec585aa28d",
+    "backend/app/services/quality_service.py": "1108f80d487c91cdf264e5107e42c98afeb7fe64ae30cf4184c89684382cf54a",
+    "backend/app/services/report_provider_service.py": "874b4893ec0ca5d446fa042efe8b30f142b05ce863aba02e4ade3fc24af3842f",
+    "backend/app/services/report_service.py": "7118032321c01f984371ba0c43d2266b834ae0f57c772ac08e03b51a5612ef73",
+    "backend/app/services/repository_path_service.py": "8675e020ecfab6171ad3d6155e12cd00db6d7e3f7d732f7dd5cecd86149b2901",
+    "backend/app/services/repository_qa_service.py": "4bcbc552ddda7a4aa094878b00aef00dacdac76366a644f2d0a78bf066cd8191",
+    "backend/app/services/repository_scanner.py": "5d7174e0a20f5d9dfc1a4d74bce7d577cfbe882785a7ece009ca5f281be8b625",
+    "backend/app/services/search_service.py": "79611ef0cd082cd352fcc5bdc50092c6fb4c49ba6a0257d5cc73f33cfa0ac54c",
+    "backend/app/services/semantic_search_service.py": "17ee8e98edfa6395588d97aed1c95e0f4d7107a5841e5046c57f74d71541caaa",
+    "backend/app/services/snapshot_service.py": "d391780514305640d9439e8e93413f606f4429b3a37c993279eb1cf3c9cd1600",
+    "backend/app/services/structure_analyzer.py": "f6b5a10e9b727e6b35b3410af53fb7efdaa9da3285749464036c79dc45306e37",
+    "backend/evaluations/__init__.py": "5e9c7d37ca3229faae41da1039670432d036da25a764189f7f7a885ddf2f0630",
+    "backend/evaluations/benchmark_file_tree.py": "fc9a22d9c90f104a99bb2bf61cdbf75cd16ae0b6f4bf28c74c8eff9f76a1b468",
+    "backend/evaluations/coupling_real.py": "29f7abc9edf9e2ae92e53b6f849817ebff98686934e392651074cc0a5dbda903",
+    "backend/evaluations/local_embeddings.py": "b9e49c1c609c3d6007612373469aefb19357270420e061a7825b5ae7b29bec01",
+    "backend/evaluations/real_corpus.py": "2e53ab52314a8b671eb0fe8730867ac1ecea86c957324bc6c469734843c80f9b",
+    "backend/evaluations/real_repository_qa.py": "125b33bd15f3a74881300af87fe65fb6133bca4ce17d42aa997c268079b8fd1b",
+    "backend/evaluations/repository_qa.py": "a35570a36a59a630faf283bde898a5fae28fab5bb1c5fad85a12f110ecc06a1a",
+    "backend/evaluations/workspace_performance.py": "e7468ab10f9ed81889c5cae4ce443b5130ef222869021fb1c53e5bb01757354f",
+    "benchmarks/repository_qa/cases.json": "7b35c50b8ad5c9215d3cfbcd5690c8d6b952234129f4bdd323d62ecd9eccf414",
+    "benchmarks/repository_qa/sources.json": "21016fdbe9faccf2d450478d2d64ecf49b97d218713b016a26de2e37e425a37a",
+    "benchmarks/repository_qa_real/cases.json": "5df1ac232ba22d694964c78990419a6d39a14ed2a6d523494762290f04a75ad0",
+    "benchmarks/repository_qa_real/repositories.json": "6a66996045f2021b762dd4666bff4e4fd39b8f06ab90e9ce6c00496644df16df",
+    "coupling_annotations/flask.json": "2b80608d004fc98000575ca2546aa21f7542715655dbcce7f51b3d40df4970be",
+    "coupling_annotations/requests.json": "540ed16ec39c5b9aa4b764a904751e38ee90c190783bb039d2498aa5a4040b3f",
+    "coupling_annotations/express.json": "5f54613560f2d2d6a7e8667d86167ffdd95f1227b9e2d1c47be34e46f5aa48ef"
+  },
+  "implementation_unchanged": true,
+  "implementation_changed_paths": [],
+  "source_hashes": {
+    "express/.eslintrc.yml": "cb42efb5692421cb7eb32841c20919e1147ff9a4e9ee86903a01ebbe6b946de8",
+    "express/.github/workflows/ci.yml": "edb505629f9ff82b875e73bb2af26891ac3b5b7131ce4ec2c958fd977d8e657c",
+    "express/.github/workflows/codeql.yml": "5b3e2f70e2e3ab5d2458e6e2a20f326dde8687b979d301a3a05a24827621f30b",
+    "express/.github/workflows/iojs.yml": "6a59ad1bf3cc4a597fe109a846837bccc7da9efa93841fe0f66acc18f113bce9",
+    "express/appveyor.yml": "45791a7df7b0c1de7db1c9e2d6f0ba791a2cc90c92c806354dd5a73bf2ae9188",
+    "express/benchmarks/middleware.js": "4a96b8dbec13606d3c46ba7cdef2e4c14fd04708c27859ba749d6f1eb083463a",
+    "express/benchmarks/README.md": "dee52fe1078f3c76ebcb3ea07c7a6de2fe1f2442d13b4a2c26debd7df173eef2",
+    "express/Charter.md": "822af8af3572fbc96ea87adb1912f4a91b3369168b559f8ef5743d0803852832",
+    "express/Code-Of-Conduct.md": "a33d07177d86a6508cf373b9cf03541249da90713a250b5a381cbd533378fbef",
+    "express/Collaborator-Guide.md": "61753398972571e2a804183eaddb6bf7ac3e58e45060f41bc5def15ebfe96383",
+    "express/Contributing.md": "abea5690769ada45a6b2900c6a118fdc6245d9cd84f602e14a492b85901da4a6",
+    "express/examples/auth/index.js": "bd9221c7fadc99335b5c2e1e590ea4ffd3720f5e47d463142884047c6336c961",
+    "express/examples/content-negotiation/db.js": "508014d6735d509d7943753343b8351a989df0dd56dda025257da686d23a0175",
+    "express/examples/content-negotiation/index.js": "fadf6827e28bcb0271c03bb8059a67d2dca3d051f4243f6bd507ee036612a3b7",
+    "express/examples/content-negotiation/users.js": "9943db10754f61f8cee9488649e73b9a244a7f940ff0c3596af97924bcfcd234",
+    "express/examples/cookie-sessions/index.js": "4db8212bfb73efd9294673bf1699d4f7c649da9355c0651f43ae39febb19d318",
+    "express/examples/cookies/index.js": "e10c704eb3ba08ac22aa6184e9ebe61fd3fe4cbf94b0b055c1a266cb65fb9156",
+    "express/examples/downloads/files/amazing.txt": "008329dc26b4a1bed52a3ae6864947d90eaa5c3cdb73a9dae0b9a1f64af527c4",
+    "express/examples/downloads/files/CCTV大赛上海分赛区.txt": "f0224baa69097002466e024456202293d3b5cc146cb009645d0a1a8525c191ee",
+    "express/examples/downloads/files/notes/groceries.txt": "f3d71f2f0040f2e66c9ff22387a16b7703aa2b4ce2cd2f6d062f68c33f3f4c9a",
+    "express/examples/downloads/index.js": "aaafe66c16ebec99a03c184712046927b8779861e1debb4b124ee2895958fb5f",
+    "express/examples/ejs/index.js": "122a48592d26aa3884ab956071876ca3c29b9cfd16e3a32d3f5551ee236db12b",
+    "express/examples/ejs/public/stylesheets/style.css": "105685877b897fba265ed5207644f0071cae40698aae4234f91e838632d61e27",
+    "express/examples/ejs/views/footer.html": "02ed54edc42fbbbc36988b2a184b67e49568be4807832538ba9b7edda53744d8",
+    "express/examples/ejs/views/header.html": "3f7a9352cece6bdf0565c75ed915254fcccdcd10fe3cc0e7571f87805f45bb94",
+    "express/examples/ejs/views/users.html": "29c08228d1a70338505b44bda11fc5e75f4d4275bc85568f1f661effacfe5be6",
+    "express/examples/error/index.js": "a82e4d69a686e9ebc5802d45a6491d7365d5f79185d82ddf871489cfdb56fbdb",
+    "express/examples/error-pages/index.js": "326e7d0e8cf982cb6245a26f7dbab1e555bb4b45e499d6f6f7c07018b2b3e0aa",
+    "express/examples/hello-world/index.js": "ab0bb8d99209070fa5ad9f6f37a05730bbf6388ff512954d251d30eff4946686",
+    "express/examples/markdown/index.js": "9352db7d1fa44c7f361ebbec5d14662ea812b939a4fdf1209930047f61b86a76",
+    "express/examples/markdown/views/index.md": "74a23379873fbf3e8f223cc3cc491c0ed25b6f65d221f7dc0674ce7c9eb4b984",
+    "express/examples/multi-router/controllers/api_v1.js": "7220ce1de1ad06db1879030a1037f201dbc0d4c4ce58bd47273acd50b7480abe",
+    "express/examples/multi-router/controllers/api_v2.js": "0bc369adc101e2e301406a7860cff8059a1025adc85d05ee2a160e468af136bb",
+    "express/examples/multi-router/index.js": "2dd63ace2545575c3349d61b6c2660c46336de29290b5d20da0088f30a67cb55",
+    "express/examples/mvc/controllers/main/index.js": "f63daa739fe403d291c501a410d8dc8a123e47da575739fe74a71cc17c3839c7",
+    "express/examples/mvc/controllers/pet/index.js": "f4798e50906220321f0a0d7a0c97532802903c1089b4dba8228ec4e0364d177c",
+    "express/examples/mvc/controllers/user/index.js": "e652877886cf7ebec51ebee25e84178a39e45ca5af0fadc36a558994d0e8aafb",
+    "express/examples/mvc/controllers/user-pet/index.js": "397ff04667f5c7e564b1e6a55e5e9245761051565afa2f869bb6560deb2fd125",
+    "express/examples/mvc/db.js": "7b8c2e632192310a3bdee3cc22238bfc41d6fea7d7195d2e8a3fb0e9d891ab12",
+    "express/examples/mvc/index.js": "0120c1f0486d41c837901151d7e0497db186f62ee3aec185b48d8001eebd3066",
+    "express/examples/mvc/lib/boot.js": "031aa001de7a0b59a5cf18b8c3dde96f8bf30a5121d0adebe5af798112ada22a",
+    "express/examples/mvc/public/style.css": "3c784a798fc34c58bfc3148d886670ddc70588240f0cedf32bf78fa2d96257e0",
+    "express/examples/online/index.js": "2e952f14143390d6cc41055a8fe0852b275fa36fecacb02adb03e151795735b1",
+    "express/examples/params/index.js": "6cddb258f0914fea03452e16c77bcc60e77bbaf4fd511aa9f6c510d0696dcbd0",
+    "express/examples/README.md": "93d778625ad19379ca60d8534a2aaa72bb6c808310539def136a2e50fa7ca379",
+    "express/examples/resource/index.js": "a38a10fa1971f6cf206ad1a12ca129e64a75d576b4573365fbfaafec7386ebc0",
+    "express/examples/route-map/index.js": "4b921380a34e14e3da551e74520e3807a068fefd7adf2013df5caf5fc8b7a0f4",
+    "express/examples/route-middleware/index.js": "1180a70fe63106a532ebbc67489eb2b72483e9ed52d5522801cbd24fe0796588",
+    "express/examples/route-separation/index.js": "9bcb5bfb881bf8dc1489b40b064144e770407afe210202f8a9d6c8db393df0d2",
+    "express/examples/route-separation/post.js": "74b691649f50f97ad163c55f5517e1a9d6d856cf51f0c1641ecf81634ddaac82",
+    "express/examples/route-separation/public/style.css": "ac6db943939100daa36ad1a55096f8d7f36901c71902ad77133334732e758f2e",
+    "express/examples/route-separation/site.js": "14ebdee9f54233ecc523f9bf21eeacaf11fee66c9940c4d89893dcb2f80558e2",
+    "express/examples/route-separation/user.js": "3a82de5f48daffe1fd823540b401a24c938fd48ac56aea70b9b9f12c717584ac",
+    "express/examples/search/index.js": "9b9d9c167f8daddaa69408d92476af6fb34be63ac03709a006c6dc103d19ddcf",
+    "express/examples/search/public/client.js": "611bead77cfe54a99e75c38604c3428ddb4afa11271706f8d6e30929edf44b4f",
+    "express/examples/search/public/index.html": "36ca7e59c029ec83b4b62ea65726c62ea5e2ed000ad6144e1cadfe3c9511cd43",
+    "express/examples/session/index.js": "62dd5bf84224c3e6a1437f20833c4b8bfb7c9f73b0f142abeaac4af17149614f",
+    "express/examples/session/redis.js": "c882d4d0e3abe61b9bd64570f9157cbd5ff1c35ba3bf2825076a50ec633945ba",
+    "express/examples/static-files/index.js": "733ade29e2f8558d28cf08fc15569c3020ada3908678af5ea090486462fc8a5d",
+    "express/examples/static-files/public/css/style.css": "b4f354a4065d5c639a8b10b8fbae84ae229ab88e3f31ceef5c6a1384e54db937",
+    "express/examples/static-files/public/hello.txt": "fa690b82061edfd2852629aeba8a8977b57e40fcb77d1a7a28b26cba62591204",
+    "express/examples/static-files/public/js/app.js": "927f76991b9dc34bfd8103c005e69357979099983b82570946b9af76382ec177",
+    "express/examples/vhost/index.js": "57dc34057c96830eba5318c8705dd8b77b42dc3fe4c6b7805a97222cabf756b2",
+    "express/examples/view-constructor/github-view.js": "4c0a31ec8b08da0338bea382744e668427a204d951aabac1f0a50ff73bc7712e",
+    "express/examples/view-constructor/index.js": "eaeb509d4eb6afec5585f341315d7db08bfbd548db58ad09ee047e6cdbe0fd40",
+    "express/examples/view-locals/index.js": "b7081d283f9d120f0dab7c1d3e6a2ef282c58f7e28746201627eedba1cac09b5",
+    "express/examples/view-locals/user.js": "e2aceca879f0a5bdf0107056f5c6c3f7fcd1f12b48700332242f38b977ae454a",
+    "express/examples/web-service/index.js": "726532ea16b88e64d1c492f1cd058ffeba04121887c866ab8257f318fd7ba101",
+    "express/History.md": "5459f96ed46da662296e15b270d0bd1e471c11fa797fa656ccfbb7e2c61ac721",
+    "express/index.js": "4d2f5afc192178c5b0dc418d2da5826d52a8b6998771b011aede7fdba9118140",
+    "express/lib/application.js": "5901b32f609ba349351bf7406dbdc0c4c57b77ce6f7215ea67ccca5ac2a28e88",
+    "express/lib/express.js": "2f25585c03c3050779c8f5f00597f8653f4fb8a97448ef8ef8cb21e65ba4d15d",
+    "express/lib/middleware/init.js": "48c1d12f1494b20377fcdeec9056272eff84ed8c081e1e56dc2aea395f77d19c",
+    "express/lib/middleware/query.js": "6edce3963588b42e41942900b24218e665b97df0c0b1c74090b2b934fa68ca08",
+    "express/lib/request.js": "64ac10752c0516d789cb0698bb433586d4ce3b46f7f06ee3cb2880762b8bda40",
+    "express/lib/response.js": "4b5c338cb66eb53b07ef900bacf4cd520f057ae53996402286f4334e02806d56",
+    "express/lib/router/index.js": "19c5ca9b025396612dbe464d07fbe7104ff9170c4d6a1c7e5507df4dbbf4d5cb",
+    "express/lib/router/layer.js": "c90709dcba8d9a6cfd1f2b4ef6d7a22d833e317f0c876d884342cee5a96f8a02",
+    "express/lib/router/route.js": "86db123570815a63dc23aa88d73e1b3dce908692ac2e3cf20fa350d69de63337",
+    "express/lib/utils.js": "9035c6d946ece511e749043cc823e32d3efe6727b8a9d52aac89649e99584f09",
+    "express/lib/view.js": "ec627880c1b43aee5887164ac2e9c58f01e4ee8086e23a829eddf1af3858c021",
+    "express/package.json": "37ac624cec9a1a3d98596794bac913345ebb0b39c5dbab949fc84e5d9d500470",
+    "express/Readme-Guide.md": "24462bd331dcfc6c65e2d556f4fb29611a9f746ec325d6950524201f12534b54",
+    "express/Readme.md": "016f344ef66b81bbe03c8516e5414982244599fec6401f0fcc1ccb112123d370",
+    "express/Release-Process.md": "9ec0cfd28981889d83936fb0c2a03823ab88f9d7a5dcf25e18e8c2a3389877ff",
+    "express/Security.md": "60e795fd8c582dbeca87278be76c266332fa589364d7688c2b9211e4b8d7574a",
+    "express/test/acceptance/auth.js": "788ee64833f7bf18c7c8d6236e2423f5f2f94d62ea750c7c456ece6fea92ed29",
+    "express/test/acceptance/content-negotiation.js": "aeb415791ce1c7675401f3d41433900145620a191b6ad4e107a0b41f798c1446",
+    "express/test/acceptance/cookie-sessions.js": "65f79320983cb4dff1efcd03d9546cdf36635dde7a4b361eaa9501b7b95cd00c",
+    "express/test/acceptance/cookies.js": "02525d8572520090b040f5d00edfc224638430147af94a67894909b6d5ab5e47",
+    "express/test/acceptance/downloads.js": "83ae2726f60b581b7365e805d5a83f7517f743f8b80bf900627f90f0424fb6aa",
+    "express/test/acceptance/ejs.js": "3babd4b539171c71a72afae2318c42b66d949e6599c712901963c732b6b1b803",
+    "express/test/acceptance/error-pages.js": "5f3fc7b689e76253d75a9f0d0a29dcbaa64151b2e157a54cb1bcb6bb2bc18855",
+    "express/test/acceptance/error.js": "0409fe9e66ed52c7386a17d286c8d939cf0679c934e85811d277ec5c815b99da",
+    "express/test/acceptance/hello-world.js": "1047572c2e458969e9ff1dba0f9671b1a32a53de3633c79f9ea83c9669e5fc92",
+    "express/test/acceptance/markdown.js": "1cfe5b3a6715a9f9113c5b080bb5e761cea442eff4a6878e743bb9cb18a07bfa",
+    "express/test/acceptance/multi-router.js": "62ebf8ac4e00790b6d2db04baa85be064eeb31d6da6b63ba4669f6d558bd70e6",
+    "express/test/acceptance/mvc.js": "fa95870634e2059676930875d1cf306693397d0f3ba08863a870d9f1035732b8",
+    "express/test/acceptance/params.js": "f3e14ec179c345496dbef4c0251e0430ebd694333c714c078156c4cd19fc00c5",
+    "express/test/acceptance/resource.js": "5139e45dad146bd6e1753f8802484b4fc3faa73e37bff189c6277e308b8f42ca",
+    "express/test/acceptance/route-map.js": "00b0da9b7dc07f25c7a596475d402027c87f346bf21eb0d24220d953d67269a9",
+    "express/test/acceptance/route-separation.js": "4bf8efc813b76faebc5c48ddeffe85ed2c50db155092854ead18f9d2ac1be695",
+    "express/test/acceptance/vhost.js": "e8c39760376299c631755e18f39fee13b3522ad935f2f2ea51c1e34e36b31a12",
+    "express/test/acceptance/web-service.js": "43e75989e5cd70dc60fbdf1f7761004c8cb7c7d63f32a061f04a83aa04149fee",
+    "express/test/app.all.js": "139a1c635996f400d7aa17731ffa5b25bedfd72fa070489f470af80fcfbfe788",
+    "express/test/app.del.js": "90bb786aed1b8bc1972685bd7adc5077fa4e9c93bed42829d08b576ee1a9d445",
+    "express/test/app.engine.js": "ce2499e467663df2067866a4f0ca7bca1dcd9783a3bfcc4d3b90b8ce89b13929",
+    "express/test/app.head.js": "6521eb2c185c5384e2de2299a6e7e99a2fc9960c0a81d8ef35cfbb7d15544719",
+    "express/test/app.js": "ca8f1199de63f2e43a1eb1f5d0df381fb7ee570bf39c5f950e8663fb2340b3bf",
+    "express/test/app.listen.js": "3ab63133dd16046c22ff87fbbf543befa6851a085b292e9d285958764fa713c5",
+    "express/test/app.locals.js": "d81b53d97038f1df0963eb8d33e357e23b4319b3eda4bd11b8f8566e24c49e7d",
+    "express/test/app.options.js": "968a544410df5a1f3fd05c36bfcdab7585add82aa4104c34140a2ee4270467c1",
+    "express/test/app.param.js": "f035832db5b33b42883a93dc5647752ac290d319ff084bea545b7fc575608374",
+    "express/test/app.render.js": "14fa60a76019e929617c1d91c6824bf88fdfc63875bb210d9714e92cfcfadc49",
+    "express/test/app.request.js": "b725a947d7aa5b23d70e4a7b47a00fccec68b0d521d1d7e34c32992e6231bd4f",
+    "express/test/app.response.js": "fa825e21a28538d00ae9877198e7644090447fa3660b842aa43b4a32e16f6869",
+    "express/test/app.route.js": "99f5be7cb0624b149324c8b266ef189a571863127470e7f6ce817852433e2ef5",
+    "express/test/app.router.js": "28b9f9c1ce372cdc3b0e9211e154ae50f42badfe89b0f123547e7ee93ffbb7c0",
+    "express/test/app.routes.error.js": "3645dcc14f5c69322f10b1185621dc88a6e53f85ed89f6bed0623d1f363020d8",
+    "express/test/app.use.js": "79a15d9b3b3a5d8ddec97e3f2b40c1b4f2c7ac917ddb80895193391330aa442e",
+    "express/test/config.js": "df2cb815c8ebd98c6975f1f73d17e154b98113d4863e2f4686426249467bcbca",
+    "express/test/exports.js": "2e740f79b5ccf8d4b809947957ecbaef0dda6ab5ede854b2bbc0f58dc31eb321",
+    "express/test/express.json.js": "cd977c3de9bc78cf61ff41fc1d3fc2821e086a680c2628a4bedb573ac68a8ac2",
+    "express/test/express.raw.js": "cf92ff6f85a42985ac6ccf1f83263d82b7d6c7136e38b6da2ff68aa578e6dccc",
+    "express/test/express.static.js": "97dcb1b99da75c63c0cd1316324a167b7263ba506bad691137ae659ff0c9f580",
+    "express/test/express.text.js": "9d8105aad5a0d015a971598c125386946ef87a76376d7f0815ab8fd749fcf4b8",
+    "express/test/express.urlencoded.js": "7f8e4ae036593190016aa24208e687340a3a0b1c7e8ee188ca1946aab0151804",
+    "express/test/fixtures/% of dogs.txt": "dc934fe30a942bca07b4c288b4b3e48aa79a717d6db2b586553cd2416dc8b9b8",
+    "express/test/fixtures/blog/index.html": "1b571f59f8491058419851f52b778cdb4ea29c520eae6e93a40c22bbea69f527",
+    "express/test/fixtures/empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "express/test/fixtures/name.txt": "cd6f33ab869d39460147064d5c5a72f182f7bb9502ed73f8e239a5a62ff69d42",
+    "express/test/fixtures/nums.txt": "15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",
+    "express/test/fixtures/pets/names.txt": "265a10cb78678052876011c9a354b9c0c29550abe5b88243f8f20870a1b0d47c",
+    "express/test/fixtures/todo.html": "16cabc7917ee7139f12a3e7a3d4191b3900c151d542cecbfa00612523e72c15f",
+    "express/test/fixtures/todo.txt": "eb979de14bf70765034c14804df98c3fb956efda8bdcae85fd12de3ebca4d6d0",
+    "express/test/fixtures/user.html": "e74d14151909b3675eb64ff0343b1d30f174d51acbe2456ad4c3286118f03b36",
+    "express/test/fixtures/users/index.html": "90c9420dc4a709e77f1f42ca40e9022586e155d4d1947a265ea91b3dfad37a01",
+    "express/test/fixtures/users/tobi.txt": "6d594f4cca0d699cb0316849c24387b8c6c8bba8443230698ff87c2f234d54c9",
+    "express/test/middleware.basic.js": "998cf5b0682dede8f7dc41a473bfd15d4211a1a0f08fcc78cc98fa35693f1676",
+    "express/test/regression.js": "030464330427a72e495502b7d28e4192f8c364348ccccb4c3ea82f5dc4e64383",
+    "express/test/req.accepts.js": "80bd6f4700f6a28a837bc42f7284b9830c178591d472fd589297cb26c863f5e5",
+    "express/test/req.acceptsCharset.js": "0cd16e81d6c0af7cdf1e6b97c7575d0fc445e3aaa1176c68b9ed271da7676d79",
+    "express/test/req.acceptsCharsets.js": "e145e311d4487e2152d8575f05cca624a4a933b1ad0a7d294b9a61e859b3b9df",
+    "express/test/req.acceptsEncoding.js": "b7777375697f1fad2812bcf54a91558a4604a5776020f4f7018e8c2e932da7b3",
+    "express/test/req.acceptsEncodings.js": "bd2c58a5435926db2bdb39640c3e967e7953e752b1baddc3e33be84de547fa8a",
+    "express/test/req.acceptsLanguage.js": "0519e4f23eaa29c621e8ce8e10386fcd7f234a6718602084aa14ff144479c726",
+    "express/test/req.acceptsLanguages.js": "93a795aa224ac42f700fd0479be32399d097903dcdc482b9e30f70ddd607d44f",
+    "express/test/req.baseUrl.js": "e20c9aa41f9e1cad5676ab4df70412be4847a20b9473947eba3e09849bd66810",
+    "express/test/req.fresh.js": "a43872ec8a694393e290f27a3bbcec83772a79e884bbaa3e6d7f827877cd7acc",
+    "express/test/req.get.js": "75d24008c7a948dd7e95592d8e52819ece4b7d0f94f7fc357611a3fac26b528c",
+    "express/test/req.host.js": "fc9f9b819a99cb1f0d5cff0190623d95f9a9ae0d3fc391552ad744a1ddea1b6c",
+    "express/test/req.hostname.js": "882dcbca78105b0de0abf8b329319dbee798897c99e301dced6516d54411e873",
+    "express/test/req.ip.js": "053fbbd6ee2aa3b5b81b3af8b9375797825b952a91d78d29ebb688119d372bbe",
+    "express/test/req.ips.js": "f14aaa30756b15f3ce8604e3b0dec162c4b008c4bf9eb538b35f13878dfec3d4",
+    "express/test/req.is.js": "c348305f45be8c307c1bbc1d49044e53336535ad6c151fc028e668a48d80b1d7",
+    "express/test/req.param.js": "daccbd6ea77b19a9e629cfc7c9d78147bf7bd80048fc4ea13f65ea011ea5fde1",
+    "express/test/req.path.js": "a5086d758464bff1c620e8042ea8cf961d81d1522193b70db3045a9cda78a706",
+    "express/test/req.protocol.js": "173e5600708b9133f0bcb75d48803ee4fac178db2368f0fb947546c3b70e76a3",
+    "express/test/req.query.js": "9cd9c29991fb05a18b06a4f8c4bd71858196abadc862e64bfe9258edb0a68913",
+    "express/test/req.range.js": "263ed06eebe97323c116cde572c68a749a6183cc4c493cfeb0a32af4919e837d",
+    "express/test/req.route.js": "14a9acd2f0ebae08b83973574c86937bd39ee9e42fc16d7fb459c60a17b83d51",
+    "express/test/req.secure.js": "ab1b40856ef99e44d022243a50a9ee71a8ccc926abfa05a64358cd09055e2b39",
+    "express/test/req.signedCookies.js": "f4cf63e15d459f7c418221564be4c5630785c0029b3fafd39349f731c4b62faa",
+    "express/test/req.stale.js": "a7e5835111913aa59bd17244e2afb6756764e4102aea77097980ebadc1123eee",
+    "express/test/req.subdomains.js": "b06fc91e7a90eb5ed5a0f68273ae28fc9094d49da29ae5f8fce9efa1b1f8b822",
+    "express/test/req.xhr.js": "c63968e22ea15512686a4a81acf5529f4e62fdeed3896bcd2d6456371f8b1f2b",
+    "express/test/res.append.js": "60c36bd712c891302729228cbbfc6dea6231ef54b0be46d57a99c8329e06faa0",
+    "express/test/res.attachment.js": "ecf7b0fea61f14620cb12fdd17ba0012f2d94b1c79f2e8aa52a61e134e1e1529",
+    "express/test/res.clearCookie.js": "ab72ff5e321aaba32e6140bae63f9f1eff59ac1332130d3dddd49eefd063994c",
+    "express/test/res.cookie.js": "a45e0551eace09a8d5224f0befc7cd47caa5fde879632a2b7c833a78b94161c4",
+    "express/test/res.download.js": "d095bcebf88bba5f2ffddc088fd1bb6f28956f263dc5bade6c63a6295b2419d5",
+    "express/test/res.format.js": "f81aec91f921f7c0cfae57afbd4bbc8cf49f89802f638a81b529820f038b24dc",
+    "express/test/res.get.js": "8acb82fb8337faae72acc8349f7e53ad8c8ec28b5ad50ee8348ef43e837a5b40",
+    "express/test/res.json.js": "94bf2bf4c7f6028ca7eda8bf51d39cb1969f89b4aa7fc808ce2a98441b1f0e2b",
+    "express/test/res.jsonp.js": "1e7d749b1ba921e8e9bd07b194b8a0eff45568f0a39a0213bc54ce31a138bf84",
+    "express/test/res.links.js": "8dfa158a3c7d227ff97c81f3dd6abd30c212a312570a8f1fb0046267d9d1c3ae",
+    "express/test/res.locals.js": "1b7ef31efd3da01df660fe852faabfe2ce126afe8ea8d43989347d0247ea1bf9",
+    "express/test/res.location.js": "4dd922197215aec67b72c06b957480e64e55c6f7e4ff4839cb0e58475716713c",
+    "express/test/res.redirect.js": "a3a6f2f10069292ffc0ee7d482c1f437e06b074d43030072222e2cf18b7155fe",
+    "express/test/res.render.js": "b5fd5d9ffa03306812d38d0abfbddde351b244d009814cfeebcaef9b9c833bbb",
+    "express/test/res.send.js": "5e329fcc8e44479ee48ab3d7a097b3eed6474029f21baf14f5e66932b31475ee",
+    "express/test/res.sendFile.js": "2556958782103ac14b55a182ee9d4099ecf98750aec1ae74143043e840c71fba",
+    "express/test/res.sendStatus.js": "870fc011b5d940d097dea6131717d6ac338d28847bbae40344a7c3d62b8b7b9f",
+    "express/test/res.set.js": "18e7ba428f65f200307e904c1bd34009632f6c0c8a51a88a51127950b78a1c6d",
+    "express/test/res.status.js": "cc60df748992d5cdd4e2d05a2717187583b4ce07deaa2aee90da311e0c9e6c17",
+    "express/test/res.type.js": "db6ef3a2b7e5fc97f28519fdbbfc602ce4b0efdc9c8ff1b7a84b9144873b128a",
+    "express/test/res.vary.js": "7d412b1e4b6650de17de74305a1407d73f0fb0bd5a7acf91a178027a8f287fb2",
+    "express/test/Route.js": "d31ede7d69b1bc073d53949e99e84df69002afb7faf6184e25891e56d0ca64f7",
+    "express/test/Router.js": "878ab1c11c1e8c17a948c6a7974e504054da333be2fcd97b4f197f2149855d5b",
+    "express/test/support/env.js": "70c10952a6441e831e652406c31cfa20d4a4f18a0757abce643a1f6a948a8e0b",
+    "express/test/support/tmpl.js": "0d04550e36552afcb0fe8be6491562871dc9f9af26a80f334120008901022960",
+    "express/test/support/utils.js": "f46d4a7d6357b20f95ceb002fe3807401a6bef34e95913b6a7a77f864af62a21",
+    "express/test/utils.js": "8c802acc532510c178dbc8637bb534f1428bac00d454b62e4562d3e16dff0fe8",
+    "express/Triager-Guide.md": "b1d17d40062e1f3e335799edb7a20c3d1e350ce17fde29f8278fb7c07c096427",
+    "flask/.devcontainer/devcontainer.json": "b8fdd479fae20d10e0563d343d4a8e3fa728a88288ef8b24e9e9c761f1e00dc6",
+    "flask/.github/ISSUE_TEMPLATE/bug-report.md": "d4828e11051d02342734b905c78ae9dfc2f611f7a373d9fd3c4cdf8895849388",
+    "flask/.github/ISSUE_TEMPLATE/config.yml": "eebd18561a249840cf3c41e42e5ed090f7821b9ef5dd2e4a09ea1fd6a9056236",
+    "flask/.github/ISSUE_TEMPLATE/feature-request.md": "09f7166294a022f7926f32a0c3a785706b3e777f53586dd2cfdf07ee172410b6",
+    "flask/.github/pull_request_template.md": "f92d7fa6366d19dfed8f7b49e753c506c39bb17e23f0908da9dea408f0f07800",
+    "flask/.github/workflows/lock.yaml": "2353b6c6228552382f5588d0335a122d59056db069dc09d5a7c6e6fe0a18f92a",
+    "flask/.github/workflows/pre-commit.yaml": "236037b58c169255cf94eceddcc103c56a3c007abc9162d3f66ee526bc403253",
+    "flask/.github/workflows/publish.yaml": "e85422fe83664991eb0b996f21564d428ba870a230caa4ea10a35b687c5bb776",
+    "flask/.github/workflows/tests.yaml": "eecb649354daf63873b2f56df382c6ae65f842dfef764b4b07d5938206d5b394",
+    "flask/.pre-commit-config.yaml": "c9cf1f2405b4144222c2f83e7626ed7d94afe5d6a5d47e1536cdf032f81aa872",
+    "flask/.readthedocs.yaml": "a4c65667267e129bb23e1c88455cd7617473ee5ed4d11738c2e6b908307b82be",
+    "flask/CODE_OF_CONDUCT.md": "3b3eee7b9db5c0c0a27b60a60883dd706dc954b5dcb25264ff1611ef87426c79",
+    "flask/docs/conf.py": "46b1c74197624e021d8a9936883a74bdd15542e5087b9131729e728faac51328",
+    "flask/examples/celery/make_celery.py": "ff32ebf85ef8791fc07177ffe2dad6020fad34a4a57831d37a8bd8531f6e6707",
+    "flask/examples/celery/pyproject.toml": "00d27458e466294e03bd3be48bfb8c436be5f9bd49cee885e2fb2d88f2b684b5",
+    "flask/examples/celery/README.md": "c31bd98ee22d28e11f183815dfe5727342260d0582a3a5e89ab552c5611d34c8",
+    "flask/examples/celery/requirements.txt": "96eaefbbd532b79f687e17d0418807257cddf6f9c1d15aad0b11683ebf23a382",
+    "flask/examples/celery/src/task_app/__init__.py": "172de995eb076d7ea1911f20bf4c2fcb72dbc3d7eee3e5796c4cdfa2dfd486ab",
+    "flask/examples/celery/src/task_app/tasks.py": "d2c365c8ed2f5abf0b5b109361ebe58941559b7d67e57f96d6a6b7bd69970364",
+    "flask/examples/celery/src/task_app/templates/index.html": "2ca135b39b9e685a164001abd6d8acb985fec1e126c2a6f36fffbd59b2117f10",
+    "flask/examples/celery/src/task_app/views.py": "cb9f3c9ebbb359bae6d49f55fd717700062691d2be60f1700e2abf7060082704",
+    "flask/examples/javascript/js_example/__init__.py": "ea2307cfd406f1b66de1537bc11eecc7d9ff2bf098b65befbe52e99a52ca2b09",
+    "flask/examples/javascript/js_example/templates/base.html": "08d0064958cae81c9b2b30e50ba233195d211316b7e44988fad6ebfa4b42decd",
+    "flask/examples/javascript/js_example/templates/fetch.html": "47c946da9cad2e382ffb69dd9cbde239dce4223e1128cc4b2292d396d3b0a4ca",
+    "flask/examples/javascript/js_example/templates/jquery.html": "4fa2ef87d2f563ff3bfe54429eac4bdbb674aeebe1377efe38b3cba9d96f1643",
+    "flask/examples/javascript/js_example/templates/xhr.html": "e0f2cbefc4be46244d9fc787a47c16dcecaabf26b91409ada20c5669861fa763",
+    "flask/examples/javascript/js_example/views.py": "221cbb10e105b7463f25e0f296da6efc4db0346f49c6127f07168f283b3e70ca",
+    "flask/examples/javascript/LICENSE.txt": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea",
+    "flask/examples/javascript/pyproject.toml": "2efeb4bc2175dd05aa6452dd11ed761cbeb278bb3ce1de6aca2ed0caf29ce12a",
+    "flask/examples/javascript/tests/conftest.py": "aff1ac8ea5b7c6e4d7adf67a0eae5c13cbb9adf38e1a2434e6cc7e6824c56b11",
+    "flask/examples/javascript/tests/test_js_example.py": "52a0ce22402bb671b391cd278c2ab0865d2d5f9d6daf8d4387ef23337f0a026f",
+    "flask/examples/tutorial/flaskr/__init__.py": "ecfe54451a0cb1cfb8aac26d0f65bdfc4b1fc5ccd7148f4ad38829a8ba26f03a",
+    "flask/examples/tutorial/flaskr/auth.py": "a5ed5eaa05c6f6ee3e5bdb07b9e657a6e9320a115a68fd74b1cb4ac646680167",
+    "flask/examples/tutorial/flaskr/blog.py": "c49c5f6e3db32d74bfac13633fd328ec904cb7159d76ca78f6956432076c1fd7",
+    "flask/examples/tutorial/flaskr/db.py": "700f9d0a455bf79c9bf6de4f2784f13b96256faea19c15ddee71fb7957e14c31",
+    "flask/examples/tutorial/flaskr/schema.sql": "c23021b8a5229cedd3191825850e963f393790a794d31ac2f83846a0c5d559f7",
+    "flask/examples/tutorial/flaskr/static/style.css": "b7724c7981be21b5a13484c8f7eb9df306f06a88406db3dc7619b80aa040e372",
+    "flask/examples/tutorial/flaskr/templates/auth/login.html": "f0d4ee341a19c8f9d51a66c5da624e687e58de7e3fb2ca41c6f5b8d07e20a6c1",
+    "flask/examples/tutorial/flaskr/templates/auth/register.html": "53da308c1d62f057613ec8e445eb70e89404288f503156102d1e3e39ec5b2153",
+    "flask/examples/tutorial/flaskr/templates/base.html": "a3c74c6ba8ae95bd3b4b63c0bcf5712944c5b954578514c1316a248db0949b07",
+    "flask/examples/tutorial/flaskr/templates/blog/create.html": "f41e3166cfd09d41a88def1896fb93631e707b0d9968b14ccb00953263e20025",
+    "flask/examples/tutorial/flaskr/templates/blog/index.html": "67cdf10979b06f697953477d0ee8043e56a11ebe87b03b307ada12d13a240617",
+    "flask/examples/tutorial/flaskr/templates/blog/update.html": "0e16cd0d933914628e890411dcddd7527fb96b5a7c9113390d93b3e79b44b5ad",
+    "flask/examples/tutorial/LICENSE.txt": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea",
+    "flask/examples/tutorial/pyproject.toml": "8ea666f85481f44bc7a5cef54e39ab939f92f5f2cb576f9a6b959866a3fac0aa",
+    "flask/examples/tutorial/tests/conftest.py": "2778b7c035d917bb0909ec6ee2f9d61ccba030ff8ae635ff65a52c133ec5afca",
+    "flask/examples/tutorial/tests/data.sql": "244a542220a64bdbf9bd3340f8280551b95e6d3248ead974fdd0a07a7dd06a0c",
+    "flask/examples/tutorial/tests/test_auth.py": "cbbe178c9980d8499561d8eae72f01b8abeead2fa10c9d5f71427da4af38a938",
+    "flask/examples/tutorial/tests/test_blog.py": "a4c01c486e86aed522c3ade398bf4016f6ef59bbada2c7c5f69eb55ce297877c",
+    "flask/examples/tutorial/tests/test_db.py": "324baea21b981575b4e6d92b6517f21ec2ad86a6138010863a9fcfb4f984e649",
+    "flask/examples/tutorial/tests/test_factory.py": "1906cfed379afe315b6ad7db3c71c951ac87c53b57b28b04b5b6c84df2a79e01",
+    "flask/LICENSE.txt": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea",
+    "flask/pyproject.toml": "625d2002343fdfc7535b7ce1cb590f86c2a9a9296e632ef5127becea31519fbf",
+    "flask/README.md": "fb7d8b568546b8a345f588f949e7a55faefcc844c5906b352be887c9d736fedf",
+    "flask/requirements/build.txt": "d3ef91ebee54f317182134b191061325ad72eed5be7a2484d1f9de7205c5a293",
+    "flask/requirements/dev.txt": "b87e38a26a1b5447d21dadef1bf65ad292b8ec339646f650bd3135c1a4cf67c9",
+    "flask/requirements/docs.txt": "3e0950d0fc806ded75695d533c5bcf7cc5627f1e3c0f7c4843a43fe7aee2ca6b",
+    "flask/requirements/tests-dev.txt": "d276872a04714f304d7fdeec7bba6655c48388df91c475d54d85fbe981faf498",
+    "flask/requirements/tests-min.txt": "9fbf9f0aef84deb42623fe0f228d959fd6025dec691fc65e6e6d271b087bd1da",
+    "flask/requirements/tests.txt": "a62e8f75b5f0d986c2cbb9fa52f28b4ffe4030992c596f5d2752682d47142c7a",
+    "flask/requirements/typing.txt": "1594bc36e55303332bf537ef2f6be9c1143bda85930d4a1c22fd5fcd2084f42c",
+    "flask/src/flask/__init__.py": "eb132a7550341484365352956865f79733427573f3a073da6b486f40235c7d29",
+    "flask/src/flask/__main__.py": "6d8b7d7846a845059d7a3107143f11131f63c5511d669b44085b15ec5e3d2279",
+    "flask/src/flask/app.py": "184ed0384fcdf531c38eeccac7481423d685e212e1d31c010daee12d5b23cbea",
+    "flask/src/flask/blueprints.py": "a79404da5635f0622d6ddaff44a46967c0e8d7b8343ef4062206644940e15f69",
+    "flask/src/flask/cli.py": "5dd9a4043ef84a74f48ebb7682ac87ac4f685c675695c753ac9411fa2e5a0296",
+    "flask/src/flask/config.py": "3e2a85d033da9ba1d6d051f8087d61a574c17b7d0d4b38cf10ec2bcf56fa92dd",
+    "flask/src/flask/ctx.py": "e1ab4384927f72957554cab8aac7d4e04ffad4cd6837dde3952d87f608eb979f",
+    "flask/src/flask/debughelpers.py": "3c6203852b56fde7d18e969adf31c8a68fa1b52b49391e35229dce2563d8070a",
+    "flask/src/flask/globals.py": "5dd419992b4198f22cf2df77b63c7aa4eec19b78286c068e3569057141da19ab",
+    "flask/src/flask/helpers.py": "ee78e6ce4149beb3d242e76c80e36c810cda1ab1a9a5e04835ebca8167ac70f9",
+    "flask/src/flask/json/__init__.py": "84b351f3df296aaa1e7dd78086b69ae70c89cbe6e6441da4d9d578120572d99f",
+    "flask/src/flask/json/provider.py": "e62984cd8e478d5d87a1456b41b24ba970b330da595df0f46355ea74b5765c10",
+    "flask/src/flask/json/tag.py": "0e168dc2e20e85db7647be28382f58e19f19a6bc4562245be5d50fe5bcb220dc",
+    "flask/src/flask/logging.py": "f2c33758c4ee6e2d5c05bd9cfe53e45a937427c74c02aae029160b2e2d5d0952",
+    "flask/src/flask/sansio/app.py": "5a3f4d546b624758ef919f6048577dd6eb1494cf07d20d3a68f573dac321e1bc",
+    "flask/src/flask/sansio/blueprints.py": "4ea7beec4919fad6d67219bc883a027c3f38f1fd3fde72efe8d3637883ef1f03",
+    "flask/src/flask/sansio/README.md": "fb45f5b440a78a59b3d5ca20c7e621370e5dee0b8aec62ababf0c45763b3954d",
+    "flask/src/flask/sansio/scaffold.py": "abac0ce18e1a60c18637f2e2b6c8f73d82a9052dd9beeb74c610e6a4110715da",
+    "flask/src/flask/sessions.py": "a4899215020308fb55f97488f2db40c934dbbed44c9210dea89f153d965469fd",
+    "flask/src/flask/signals.py": "57b94c530c3b0aa809d93854067d4f89ab59b506a73b2b7b399a6ed86648fb7e",
+    "flask/src/flask/templating.py": "d937172d3f3902c7e59b65bd58e485c4a0a6627e5ee3dc3f26483df8d69a256a",
+    "flask/src/flask/testing.py": "e43c60e9567464f863c06f517949784eb86f923058be023357de3d8e46348c85",
+    "flask/src/flask/typing.py": "6fb98c048780a0e70023fbc5cf385f3a6eca799fe7f3af1220cc3ac695f92984",
+    "flask/src/flask/views.py": "c73271ea826a18495386d12085937b65018cc394c3172b91c5491e73046e0280",
+    "flask/src/flask/wrappers.py": "8d492fe2655e93622ae21c3177846faab20c6faf41bf43c49438162e6779391a",
+    "flask/tests/conftest.py": "822fa3248cec3a9ee35306fd19a8b0770fe7162054e405b0778a59de9e9663ba",
+    "flask/tests/static/config.json": "28d7be9c2566e893e5e2da9eec54951032b55485fefc36ab4d53fa97b271c981",
+    "flask/tests/static/config.toml": "1551d036dd594e88079db2179d045df595760af46dd6c80c11ef828fa2f7a02a",
+    "flask/tests/static/index.html": "7f6f02fe6b981005a81f27dab9bc6d8be4cb074c0c8c5647208ddef5346c9ac2",
+    "flask/tests/templates/_macro.html": "5c0daa9f0a49a4eddab928d994a5ce0f3794e057278a6d7689ee6531778bf26b",
+    "flask/tests/templates/context_template.html": "857bc7cdd820b2aa8ed9e5d195be848460d34f33c842271a324d8489bcda8034",
+    "flask/tests/templates/escaping_template.html": "3913ccdd020e22efe55aff4cd74d5b3c766df9b9b2f018aedbaeb7680a0ee748",
+    "flask/tests/templates/mail.txt": "f1ff63d4fc54a3f75e19bae926e0ddae28b5eaa13ec6d57d454ea660f544ffae",
+    "flask/tests/templates/nested/nested.txt": "efa3e5343b700d55a364c3c746506a497f798d8e767bf45664224a65f4569005",
+    "flask/tests/templates/non_escaping_template.txt": "a1bf0b2dc534994c5cd3e2eddee3d81b7c9be229dfc35c57284507576c0fe214",
+    "flask/tests/templates/simple_template.html": "7746a4931590d544240e22f8e5bf2752f084d0aa4be7bf43862a1896fef5ddb1",
+    "flask/tests/templates/template_filter.html": "1e499ffeb7db1bdb46ad1a26ca8b37bd0d87f2e7ebc1ef81d912fed8b7c525a0",
+    "flask/tests/templates/template_test.html": "8376605103743da3a2cf6f3dfc0c4d78fdc809f476f688336d09777c2bf12bff",
+    "flask/tests/test_appctx.py": "4e40c0ab6c7b7bd04b9e286a329ffba7c32082969961176aa8c30a0eb78a7fb0",
+    "flask/tests/test_apps/blueprintapp/__init__.py": "87622ebc37bcfe87d81be1437e4b97a4c2a8341eb3df38461dd37a0b89db07d3",
+    "flask/tests/test_apps/blueprintapp/apps/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "flask/tests/test_apps/blueprintapp/apps/admin/__init__.py": "5e849dc6984b0b3944ea687e40d96da9d5a9f42e32aa5b4035dedef4558ad83d",
+    "flask/tests/test_apps/blueprintapp/apps/admin/static/css/test.css": "1750c6f80056de8eb2003f4d73a23357d89879f65e387867e7dd34f4b3096e86",
+    "flask/tests/test_apps/blueprintapp/apps/admin/static/test.txt": "95c3e2ba78ba2d1febc399b1ca3466cfc88c7227e249236a3c5948ae62cace36",
+    "flask/tests/test_apps/blueprintapp/apps/admin/templates/admin/index.html": "d8e592e9062ac5a6ab9d901690bbda9b43f6412a1d44d900e8cd397843952f0e",
+    "flask/tests/test_apps/blueprintapp/apps/frontend/__init__.py": "1630cefb5d073808e8b4164e4d910f69aee57a93eaee53debb575e7e7aabb83f",
+    "flask/tests/test_apps/blueprintapp/apps/frontend/templates/frontend/index.html": "85c0bb0ce45263118d2b90c0202571d41785565cda6a7c5c2213834309bdaf08",
+    "flask/tests/test_apps/cliapp/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "flask/tests/test_apps/cliapp/app.py": "b0c37142ff064f6d7f3ca21b8acec34a0657cf1a7c354178d5e3acc0879c7467",
+    "flask/tests/test_apps/cliapp/factory.py": "3a93cd69f200848e8ffef6b2abdaa5803fb5044981ab64297f8c7d6541820570",
+    "flask/tests/test_apps/cliapp/importerrorapp.py": "5ad812b09337f9699cd2b6aeebfd7d6f14045451de846b0503d746a34ce8a8c4",
+    "flask/tests/test_apps/cliapp/inner1/__init__.py": "d3885f0114c83025a754fb3a8582634946541c9aeb72fe4f90af27554a6d4c83",
+    "flask/tests/test_apps/cliapp/inner1/inner2/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "flask/tests/test_apps/cliapp/inner1/inner2/flask.py": "570567aafaf185348cffa097d904b964c44fe1a92c5ec82488b97e3d93dbab38",
+    "flask/tests/test_apps/cliapp/message.txt": "f41c9f8b6285b72bbd8f18a781c679d49741835c0ac49b5cd953768002e191de",
+    "flask/tests/test_apps/cliapp/multiapp.py": "0580225ea4edb705c2e412c5ac6bd27d659cc239f0243467a33eaa9ee74675fc",
+    "flask/tests/test_apps/helloworld/hello.py": "42722083156af9f3eb82e3a88403f4191b9dfcb5f9e1c3432e79f02827b0ccf1",
+    "flask/tests/test_apps/helloworld/wsgi.py": "c1d5a162364e71546a8a8b76eb7fba0381582b8546ad14189f6431e647b7a547",
+    "flask/tests/test_apps/subdomaintestmodule/__init__.py": "31e4dbd8ce53affded865990aea6a44db0bc46a0f44ee3fd6c14106f84a65cad",
+    "flask/tests/test_apps/subdomaintestmodule/static/hello.txt": "e4fbc4e56428293f5d5e439367adef7c6f45d22032b324e64935f4740e2e8902",
+    "flask/tests/test_async.py": "0a6a50bfd651581478abe8cda5c94aba6d70df35567a220aabc7ba08202d471c",
+    "flask/tests/test_basic.py": "b3ba24c897272f9df537d8101aa6c1ca829751de62b1bcca492885a5a9db5698",
+    "flask/tests/test_blueprints.py": "63592f00e0151b8f4362fdae5fa231c42ca638cb4d2b94fabe216e39f3874142",
+    "flask/tests/test_cli.py": "bc9b456bcd5c8698f4a809ca9c5a595b8be47ac5f8f057442d6c78498b70e3f8",
+    "flask/tests/test_config.py": "09df8aec5f88df421fa5b47bd66ee4e3aef23384c7c36a1be191d24723caadd0",
+    "flask/tests/test_converters.py": "4f529ca6ee85a88c487a488807ff30cb8e4672307b9017f348174a67a5984347",
+    "flask/tests/test_helpers.py": "53416203889a17bbb591a2ff4082f473c4d5fc4e80988eda1200aef048df3a09",
+    "flask/tests/test_instance_config.py": "8eed24cc54fac632f4a96896181e07c2938c27eab47c49a1225de245110c6f9a",
+    "flask/tests/test_json.py": "f6c73c61a602ee3b8b87bfa90284fbc96e567b77c3a6d86c0e3919c5f12b64c6",
+    "flask/tests/test_json_tag.py": "019a2cd9b43245667b178e023dbd3541086f561677c32f06fa2eb85fd81aff65",
+    "flask/tests/test_logging.py": "311ea43751a836c3d585a40f08fa54a60d783a232aa50c5ea1225b689e9ac683",
+    "flask/tests/test_regression.py": "2749a17454a9aa8a610a2213d739046488af06fe742da1c06802d00ab28a3bf8",
+    "flask/tests/test_reqctx.py": "8c19e1468ed3360efccef5e5ea886377cfe5baf8bb259b34dc84ee993974a764",
+    "flask/tests/test_request.py": "4e9b4bb6fa9ec22285bf8c5004bec5a32d25b60ab1717acd38f98ed8f6ec63c4",
+    "flask/tests/test_session_interface.py": "d3990141744f27683503ffc17f46042b9fe0b10119c77e414ea47795079b7dba",
+    "flask/tests/test_signals.py": "eaa27de84a44ad1f1b0baa883ec7b76793ee0973362646a7f93ebb7d5e3b2abe",
+    "flask/tests/test_subclassing.py": "0d325f8099e38403287a0cd8f1e184884beb5c345ac894300f2aa469a04cbd10",
+    "flask/tests/test_templating.py": "d20c5f1f67fdc81ed0f9fdaf450b699fa9cb787e2eb1b40637b4c758a1e20e19",
+    "flask/tests/test_testing.py": "57715cab1ba6470c821eb2a3a94af98cf73a9380de9b1af3f30b504ea77c921d",
+    "flask/tests/test_user_error_handler.py": "f05213bb275e08d354bf9750eb3a37aeb8fc713a8beee7edcdd3078d11af9d60",
+    "flask/tests/test_views.py": "166328b1cef85fcd8f4336ac1c1a27e40444c9d26c54b46a1321fbfc11a4fca9",
+    "flask/tests/type_check/typing_app_decorators.py": "1236df0a3447c828b1401cc56a31f1b988d6a4aa4944e63bf678c5470e373859",
+    "flask/tests/type_check/typing_error_handler.py": "6ca69ec7b4813dfac97080cfb49b9c2d41acab44351e86620e337e1f25674604",
+    "flask/tests/type_check/typing_route.py": "4554c7c77994fdd2ba2a8c50756c418aba619707f3e951551f26e8e9fd37c72a",
+    "requests/.github/CODE_OF_CONDUCT.md": "0216c86755ca264f605593cc82deadc13c3e84b97a60bf461fcda7b4b8b23242",
+    "requests/.github/CONTRIBUTING.md": "6ce203a20b7bc3c87eccdb9be5888bded1bcb7743a598b3cf91b7be65f41f4e0",
+    "requests/.github/dependabot.yml": "a078b8ce767c5341ef0eae3556c9c976a30fb1bf76ac64c9578869fd6ac83536",
+    "requests/.github/FUNDING.yml": "203cc6fc6930c94572f841b0924808acc9ad4f1c0cbb1574875221e4a22fc815",
+    "requests/.github/ISSUE_TEMPLATE/Bug_report.md": "78aa399ad5f5d62630636f120fd57621614ecb27acbafe13b6b4b5a7a777a790",
+    "requests/.github/ISSUE_TEMPLATE/Custom.md": "c0be301afca081989d6921491bbcb68044e5ad8135bae9c8bbc0ca5c12a2fc09",
+    "requests/.github/ISSUE_TEMPLATE/Feature_request.md": "bf9da32349adebc85a08f0b1ede63c149bda96d41f77bf2266d98eeaf4e03ca3",
+    "requests/.github/ISSUE_TEMPLATE.md": "24ac47c35e70fb3c7dfb2b768ac3ae49f6ea997b96beca4fe489f279429509ca",
+    "requests/.github/SECURITY.md": "d829bca715473cd6460083460346f8f4dd223fc282908fa5f001f8bc0f594892",
+    "requests/.github/workflows/close-issues.yml": "a78f5d43c521f4cecdfb759cbebdb83142d1b2001bdc6ca05fba83a81dc92137",
+    "requests/.github/workflows/codeql-analysis.yml": "f6132a3eb038c7af9c374fe122e0574f1b6b249d7dc17a72df8f210c4b161346",
+    "requests/.github/workflows/lint.yml": "3cd8b1863d8c131241f16abb68a358ddd86609dd893c40ecd2dfd35b78203972",
+    "requests/.github/workflows/lock-issues.yml": "a14707b1ba897e4f3c8498c07d3a4e25d553e1c0edadf9e2fb3cb81b1e8dbdc7",
+    "requests/.github/workflows/run-tests.yml": "32ce66aec219d87fcd9f79a5fb0708b16b41eecf9627278475b6cb4878c1e9cd",
+    "requests/.pre-commit-config.yaml": "73802ffd0ef1b78ca604b72c188c61f08805a1de7d18da753cbb7791bde8edfa",
+    "requests/.readthedocs.yaml": "9a6fe18b0b5e1162bda0b7628214c94aa82ab725e4eac91af4b7c536622d296d",
+    "requests/docs/_static/custom.css": "ec1d99bc2726a46b938e2342cde4c4aa39b3fcab99ce5957ab6893b22010b618",
+    "requests/docs/_templates/hacks.html": "14590290d56e931e1db77681dfe0c08554df988d60e0a4b94d336b7ba0fdfb33",
+    "requests/docs/_templates/sidebarintro.html": "8f12aea53eca6a91f008b9fee139918cbda40effd502ec1d671f0d9545faf3e1",
+    "requests/docs/_templates/sidebarlogo.html": "8f72024c8eeb01d573eff11ed2e1dacd5985510331a084f9e6c8e32892248e82",
+    "requests/docs/_themes/flask_theme_support.py": "bba3677c6eeb99f678e808e90142a025b798b7658bac1ab4632591df8441d209",
+    "requests/docs/conf.py": "7288e50389e89cc24cd7ac6b96d8108438ff9d5e0191a950907be392a5458478",
+    "requests/docs/requirements.txt": "5a7725baff849507d224e35c1b0c7324e4594ce79fc042df276c97eab96a5ffc",
+    "requests/HISTORY.md": "0eb3e62434380d747997cd019e03d4a502e5e77021554735db19b1cde419a679",
+    "requests/pyproject.toml": "a5b52f2e3196da56ac62b0d48b2be83e36eccf62f9d062b93fca8488da49ab60",
+    "requests/README.md": "4f7bfa1b3f7c87268767235307d0bcae78997a96ca00a3b31062e5b9a295ed7c",
+    "requests/requirements-dev.txt": "984d3776a35647ed943e26cf2e62a8c4faed695ae64913a404f274f5935dbd15",
+    "requests/setup.py": "b45df91c5c6c34e6a799e5a2cbec75eb8bfcead682aaddd10d5da4583f20bfc1",
+    "requests/src/requests/__init__.py": "e3168011198f0c804fb1ad8fb23a54f6bd3aca8a0afb69992874d90215915adb",
+    "requests/src/requests/__version__.py": "1557e09606663509e660f5e93a8843539f05e4451bffe5674936807ac4b5f3b8",
+    "requests/src/requests/_internal_utils.py": "9cc4329abe21b37d93a95a3901b0ab99c24486f3d487bc57965bb2ab0b252e24",
+    "requests/src/requests/adapters.py": "28871e72c72a6a6eab78e097465e03c0fe235fc25c97cb1de7b7edd7b291d9c4",
+    "requests/src/requests/api.py": "fd96fd39aeedcd5222cd32b016b3e30c463d7a3b66fce9d2444467003c46b10b",
+    "requests/src/requests/auth.py": "905ef9b6a9cb72d67d31ffe19bd4d9223e1c4169cde6ec51cfca16b31e70991d",
+    "requests/src/requests/certs.py": "67d49be35d009efea35054f2b2cd23145854eb1b2df1cb442ea7f2f04bf6de0c",
+    "requests/src/requests/compat.py": "0b9c3f0cf2d2bab5cf81c75653bf1fa2b6b400f99b6245f61bcf50bc7e71ccf0",
+    "requests/src/requests/cookies.py": "6cd8be8aa123e0d3d9d34fa86feac7bf392f39bccdde5129830de0ea9692dd7c",
+    "requests/src/requests/exceptions.py": "8c93d2d545804ecf3a4a155468ba2b4e225bd52686ba83445a020225ea7e5646",
+    "requests/src/requests/help.py": "80f5f977f1fb5ddf3c6830017a386a1a097d075545453b79066898bcbdcfcc84",
+    "requests/src/requests/hooks.py": "0a2bb2b221c0dfd57951f702057148c7cdc8ac3a6ec1f37d45c4d482fdbc7ed4",
+    "requests/src/requests/models.py": "938daba17cc2f2efce6a000f422f54e0c91f3bb8b8af615d6aabccaacb4f7a17",
+    "requests/src/requests/packages.py": "fe0d2067af355320252874631fa91a9db6a8c71d9e01beaacdc5e2383c932287",
+    "requests/src/requests/sessions.py": "ca44c8f145864a5b4e7c7d3b1caa25947ee44c11b0e168620556901a67244f0e",
+    "requests/src/requests/status_codes.py": "889500780db96da4ddc3ee8f7c3d1e178aa1a48343251248fb268cab1b382c42",
+    "requests/src/requests/structures.py": "f886e6855cf4e92fb968f499b94b6167afba0fd5ce8d1b935c739a6d8d38d573",
+    "requests/src/requests/utils.py": "1e2402e8dabf0dade4b5a32217342487e7429378901c7284b184b990373ef02c",
+    "requests/tests/__init__.py": "ac7f253daae0905f9b3dec647cae736bb3c090185aa373b30b3e851599e5342c",
+    "requests/tests/certs/expired/README.md": "80690554d2353ab1c348bee8df833bdf7b3cd1cb8d728b4380221f34b5881eeb",
+    "requests/tests/certs/mtls/README.md": "57dd4ec5bd44f1d2e1bc2de7e6cb292eb62f2236d34fd889a46d81a19dbde9f7",
+    "requests/tests/certs/README.md": "a902fe53d4cc6224b59532e47d94fc42726b2227462e801538aa50a7888d38f3",
+    "requests/tests/compat.py": "d58ff5e3167de0140a667cc51427f809c552e485875c95b9dad43ce13ba15083",
+    "requests/tests/conftest.py": "c31d83bf96fbf585c0d497fbf21a39b2e69411948ddb947e5ad51e5857976c5c",
+    "requests/tests/test_adapters.py": "28f88de1601bcde6a9f178b98452d6b90c55f5d1a6c9a2c15622cd760fbd4c91",
+    "requests/tests/test_help.py": "1c2ac8ca9f4986429717791df766122b23e1fe90aa621318380ccf1f8e83d0f6",
+    "requests/tests/test_hooks.py": "a9e5163f538543a660be3b06650cd0b803ff0c503f5948f66b6fc50ede38109c",
+    "requests/tests/test_lowlevel.py": "2dc5990ef15fbbfcf1681827a337e6195144ee0e2031fb951ed1d32e29cdc27d",
+    "requests/tests/test_packages.py": "90875423db059d65b39416d7b6d01b18938851b8071279877400beb506e08676",
+    "requests/tests/test_requests.py": "8e553d75084306fd04a2b3fd8ec3f7f7578ae1c44c48d96790e56046cbdf5fbf",
+    "requests/tests/test_structures.py": "f7b80e00888105ae80312203279e0cf9256726740bcaa15c6cee7c2c07d33d60",
+    "requests/tests/test_testserver.py": "5c388f68ff0bb13c255856ed19c5943ed493cfa52a62ad557c5ae84887b5da1f",
+    "requests/tests/test_utils.py": "6d76461599944810c00b059c4c75acca1e034c3c96701a190b8115f87b5442af",
+    "requests/tests/testserver/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "requests/tests/testserver/server.py": "15a9092cc5edb005af6732097555515c4b82093d9394f6463c966259f83068c3",
+    "requests/tests/utils.py": "cfaec86690eba62573c8c730a121332837809333fb2b1006a20e2e8f4d34d4de"
+  },
+  "sources_unchanged": true,
+  "results": [
+    {
+      "id": "flask-01",
+      "repository": "flask",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/flask/logging.py",
+        "qualified_name": "has_level_handler",
+        "anchor": "def has_level_handler(logger: logging.Logger) -> bool:",
+        "line": 31
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/flask/logging.py",
+        "qualified_name": "create_logger",
+        "anchor": "if not has_level_handler(logger):",
+        "line": 76
+      },
+      "reason": "人工源码依据：create_logger 中的裸名称调用对应同一模块唯一的 has_level_handler 定义；参数只有 app，函数内未重绑定该名称。标注的是静态调用位置，不断言分支运行频率。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 72,
+          "file_path": "src/flask/logging.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            76
+          ],
+          "symbol_id": 229,
+          "symbol_name": "create_logger",
+          "symbol_kind": "function",
+          "start_line": 58,
+          "end_line": 79
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 72,
+          "file_path": "src/flask/logging.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            76
+          ],
+          "symbol_id": 229,
+          "symbol_name": "create_logger",
+          "symbol_kind": "function",
+          "start_line": 58,
+          "end_line": 79
+        },
+        {
+          "file_id": 99,
+          "file_path": "tests/test_logging.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            72,
+            76,
+            79,
+            83
+          ],
+          "symbol_id": 1210,
+          "symbol_name": "test_has_level_handler",
+          "symbol_kind": "function",
+          "start_line": 70,
+          "end_line": 83
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 51,
+        "confidence": "medium",
+        "reasons": [
+          "存在 2 个直接调用或引用位置",
+          "目标依赖 2 个项目内对象",
+          "发现 1 个二级影响模块",
+          "目标位于循环依赖中",
+          "定位到 1 个存在目标静态调用的测试文件，仍需运行验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 17,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 4,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 2,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 2,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 3,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 2.07,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 8,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 1,
+            "reference": 2,
+            "unit": "个",
+            "contribution": -3,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 61.302,
+      "invalid_locations": []
+    },
+    {
+      "id": "flask-02",
+      "repository": "flask",
+      "direction": "outgoing",
+      "target": {
+        "file_path": "src/flask/templating.py",
+        "qualified_name": "render_template",
+        "anchor": "def render_template(",
+        "line": 138
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/flask/templating.py",
+        "qualified_name": "_render",
+        "anchor": "def _render(app: Flask, template: Template, context: dict[str, t.Any]) -> str:",
+        "line": 126
+      },
+      "reason": "人工源码依据：render_template 末尾 return _render(app, template, context) 直接调用同一模块唯一的 _render；不存在同名参数或局部赋值。出边证据定位被调用定义，而非调用方行号。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 75,
+          "file_path": "src/flask/templating.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            126
+          ],
+          "symbol_id": 270,
+          "symbol_name": "_render",
+          "symbol_kind": "function",
+          "start_line": 126,
+          "end_line": 135
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 75,
+          "file_path": "src/flask/templating.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            126
+          ],
+          "symbol_id": 270,
+          "symbol_name": "_render",
+          "symbol_kind": "function",
+          "start_line": 126,
+          "end_line": 135
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 52,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "目标依赖 7 个项目内对象",
+          "目标位于循环依赖中",
+          "影响范围触及接口或路由层",
+          "定位到 1 个存在目标静态调用的测试文件，仍需运行验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 13,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 4,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 7,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.69,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 4,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 1,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 8,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 1,
+            "reference": 2,
+            "unit": "个",
+            "contribution": -3,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 188.504,
+      "invalid_locations": []
+    },
+    {
+      "id": "flask-03",
+      "repository": "flask",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/flask/helpers.py",
+        "qualified_name": "get_root_path",
+        "anchor": "def get_root_path(import_name: str) -> str:",
+        "line": 570
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/flask/sansio/scaffold.py",
+        "qualified_name": "Scaffold.__init__",
+        "anchor": "root_path = get_root_path(self.import_name)",
+        "line": 96
+      },
+      "reason": "人工源码依据：scaffold.py 明确 from ..helpers import get_root_path；Scaffold.__init__ 中赋值的是 root_path 而非 get_root_path，因此该裸名称调用可绑定到 helpers.py 的定义。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 86,
+          "file_path": "src/flask/sansio/scaffold.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            96
+          ],
+          "symbol_id": 450,
+          "symbol_name": "Scaffold.__init__",
+          "symbol_kind": "method",
+          "start_line": 75,
+          "end_line": 215
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 86,
+          "file_path": "src/flask/sansio/scaffold.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            96
+          ],
+          "symbol_id": 450,
+          "symbol_name": "Scaffold.__init__",
+          "symbol_kind": "method",
+          "start_line": 75,
+          "end_line": 215
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "high",
+        "score": 71,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "目标依赖 3 个项目内对象",
+          "发现 6 个二级影响模块",
+          "目标位于循环依赖中",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 55,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 6,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 3,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 7,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 6,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 9,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 4.83,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 12,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 285.547,
+      "invalid_locations": []
+    },
+    {
+      "id": "flask-04",
+      "repository": "flask",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/flask/helpers.py",
+        "qualified_name": "get_debug_flag",
+        "anchor": "def get_debug_flag() -> bool:",
+        "line": 27
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/flask/app.py",
+        "qualified_name": "Flask.run",
+        "anchor": "self.debug = get_debug_flag()",
+        "line": 628
+      },
+      "reason": "人工源码依据：app.py 明确 from .helpers import get_debug_flag；Flask.run 的环境变量分支中直接调用此导入名称，无局部同名遮蔽。条件调用仍是静态关联，不等于每次 run 都执行。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 64,
+          "file_path": "src/flask/app.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            628
+          ],
+          "symbol_id": 80,
+          "symbol_name": "Flask.run",
+          "symbol_kind": "method",
+          "start_line": 546,
+          "end_line": 667
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 64,
+          "file_path": "src/flask/app.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            628
+          ],
+          "symbol_id": 80,
+          "symbol_name": "Flask.run",
+          "symbol_kind": "method",
+          "start_line": 546,
+          "end_line": 667
+        },
+        {
+          "file_id": 84,
+          "file_path": "src/flask/sansio/app.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            495
+          ],
+          "symbol_id": 384,
+          "symbol_name": "App.make_config",
+          "symbol_kind": "method",
+          "start_line": 482,
+          "end_line": 496
+        },
+        {
+          "file_id": 95,
+          "file_path": "tests/test_helpers.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            323
+          ],
+          "symbol_id": 1135,
+          "symbol_name": "TestHelpers.test_get_debug_flag",
+          "symbol_kind": "method",
+          "start_line": 321,
+          "end_line": 323
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "high",
+        "score": 65,
+        "confidence": "medium",
+        "reasons": [
+          "存在 3 个直接调用或引用位置",
+          "目标依赖 3 个项目内对象",
+          "发现 12 个二级影响模块",
+          "目标位于循环依赖中",
+          "定位到 1 个存在目标静态调用的测试文件，仍需运行验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 6,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 3,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 13,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 3,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 7,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 12,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 10.34,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 12,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 1,
+            "reference": 2,
+            "unit": "个",
+            "contribution": -3,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 321.617,
+      "invalid_locations": []
+    },
+    {
+      "id": "flask-05",
+      "repository": "flask",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/flask/helpers.py",
+        "qualified_name": "_split_blueprint_path",
+        "anchor": "def _split_blueprint_path(name: str) -> list[str]:",
+        "line": 628
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/flask/wrappers.py",
+        "qualified_name": "Request.blueprints",
+        "anchor": "return _split_blueprint_path(name)",
+        "line": 195
+      },
+      "reason": "人工源码依据：wrappers.py 明确 from .helpers import _split_blueprint_path，Request.blueprints 直接调用该名称。目标被 functools.cache 装饰：此处 bound 仅指源码符号调用关联，不断言原始函数体在缓存命中时运行；@property 不改变方法体内名称绑定。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 79,
+          "file_path": "src/flask/wrappers.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            195
+          ],
+          "symbol_id": 309,
+          "symbol_name": "Request.blueprints",
+          "symbol_kind": "method",
+          "start_line": 181,
+          "end_line": 195
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 71,
+          "file_path": "src/flask/helpers.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            632
+          ],
+          "symbol_id": 226,
+          "symbol_name": "_split_blueprint_path",
+          "symbol_kind": "function",
+          "start_line": 628,
+          "end_line": 634
+        },
+        {
+          "file_id": 84,
+          "file_path": "src/flask/sansio/app.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            924
+          ],
+          "symbol_id": 409,
+          "symbol_name": "App.inject_url_defaults",
+          "symbol_kind": "method",
+          "start_line": 911,
+          "end_line": 930
+        },
+        {
+          "file_id": 79,
+          "file_path": "src/flask/wrappers.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            195
+          ],
+          "symbol_id": 309,
+          "symbol_name": "Request.blueprints",
+          "symbol_kind": "method",
+          "start_line": 181,
+          "end_line": 195
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "high",
+        "score": 84,
+        "confidence": "medium",
+        "reasons": [
+          "存在 3 个直接调用或引用位置",
+          "目标依赖 3 个项目内对象",
+          "发现 17 个二级影响模块",
+          "目标位于循环依赖中",
+          "影响范围触及接口或路由层",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 7,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 3,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 13,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 3,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 7,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 17,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 13.79,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 12,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 1,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 8,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 283.377,
+      "invalid_locations": []
+    },
+    {
+      "id": "flask-06",
+      "repository": "flask",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/flask/helpers.py",
+        "qualified_name": "redirect",
+        "anchor": "def redirect(",
+        "line": 242
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "src/flask/helpers.py",
+        "qualified_name": "redirect",
+        "anchor": "return current_app.redirect(location, code=code)",
+        "line": 261
+      },
+      "reason": "人工源码反例：此行调用 current_app 接收者的 redirect 属性，current_app 在 globals.py 中是运行时 LocalProxy；它不是对 helpers.redirect 裸名称的递归调用。不能因为方法同名便绑定到所选 helpers.redirect 定义。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 43,
+        "confidence": "low",
+        "reasons": [
+          "目标依赖 3 个项目内对象",
+          "目标位于循环依赖中",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 22,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 5,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 3,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 7,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 293.59,
+      "invalid_locations": []
+    },
+    {
+      "id": "flask-07",
+      "repository": "flask",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/flask/logging.py",
+        "qualified_name": "wsgi_errors_stream",
+        "anchor": "def wsgi_errors_stream() -> t.TextIO:",
+        "line": 16
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "src/flask/logging.py",
+        "anchor": "default_handler = logging.StreamHandler(wsgi_errors_stream)  # type: ignore",
+        "line": 52
+      },
+      "reason": "人工源码反例：真实调用对象是 logging.StreamHandler，wsgi_errors_stream 只是传入的参数，且定义被 @LocalProxy 装饰。名称引用或后续代理求值都不能标注为这一行直接调用该函数；此反例不否认其间接数据关系。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 41,
+        "confidence": "low",
+        "reasons": [
+          "目标依赖 2 个项目内对象",
+          "目标位于循环依赖中",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 13,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 4,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 2,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 88.92,
+      "invalid_locations": []
+    },
+    {
+      "id": "flask-08",
+      "repository": "flask",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/flask/templating.py",
+        "qualified_name": "DispatchingJinjaLoader.get_source",
+        "anchor": "def get_source(",
+        "line": 60
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "src/flask/templating.py",
+        "qualified_name": "DispatchingJinjaLoader._get_source_fast",
+        "anchor": "return loader.get_source(environment, template)",
+        "line": 96
+      },
+      "reason": "人工源码反例：loader 来自 self._iter_loaders(template) 的运行时迭代结果，可以是应用或蓝图配置的 BaseLoader；并非明确绑定到当前 DispatchingJinjaLoader 实例。不能仅凭 get_source 同名就把该调用确认为所选方法的入边。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 44,
+        "confidence": "low",
+        "reasons": [
+          "目标依赖 7 个项目内对象",
+          "目标位于循环依赖中",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 6,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 7,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 286.382,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-01",
+      "repository": "requests",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/requests/api.py",
+        "qualified_name": "request",
+        "anchor": "def request(method, url, **kwargs):",
+        "line": 14
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/requests/api.py",
+        "qualified_name": "get",
+        "anchor": "return request(\"get\", url, params=params, **kwargs)",
+        "line": 73
+      },
+      "reason": "api.get 的函数体直接调用同一模块定义的 request；get 的形参只有 url、params 和 kwargs，没有 request 同名遮蔽。探针只要求该调用行与 api.request 的静态绑定，不声称请求已执行成功。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 178,
+          "file_path": "src/requests/api.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            73,
+            85,
+            100,
+            115,
+            130,
+            145,
+            157
+          ],
+          "symbol_id": 1610,
+          "symbol_name": "get",
+          "symbol_kind": "function",
+          "start_line": 62,
+          "end_line": 73
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 178,
+          "file_path": "src/requests/api.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            73,
+            85,
+            100,
+            115,
+            130,
+            145,
+            157
+          ],
+          "symbol_id": 1610,
+          "symbol_name": "get",
+          "symbol_kind": "function",
+          "start_line": 62,
+          "end_line": 73
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "high",
+        "score": 67,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "目标依赖 1 个项目内对象",
+          "发现 1 个二级影响模块",
+          "目标位于循环依赖中",
+          "影响范围触及接口或路由层",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 46,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 6,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 1,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 4,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 3,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 3.12,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 9,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 1,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 8,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 60.401,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-02",
+      "repository": "requests",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/requests/utils.py",
+        "qualified_name": "select_proxy",
+        "anchor": "def select_proxy(url, proxies):",
+        "line": 838
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/requests/adapters.py",
+        "qualified_name": "HTTPAdapter.request_url",
+        "after": "def request_url(self, request, proxies):",
+        "anchor": "proxy = select_proxy(request.url, proxies)",
+        "line": 560
+      },
+      "reason": "adapters.py 从 .utils 导入 select_proxy，HTTPAdapter.request_url 在该唯一作用域内直接调用它；request 是传入对象，但这里只读取 request.url 作为参数，调用目标仍是已导入的模块函数 select_proxy。after 用于区别同文件其他方法中的同文调用行。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 177,
+          "file_path": "src/requests/adapters.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            466,
+            516,
+            560
+          ],
+          "symbol_id": 1602,
+          "symbol_name": "HTTPAdapter.get_connection_with_tls_context",
+          "symbol_kind": "method",
+          "start_line": 446,
+          "end_line": 493
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 177,
+          "file_path": "src/requests/adapters.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            466,
+            516,
+            560
+          ],
+          "symbol_id": 1602,
+          "symbol_name": "HTTPAdapter.get_connection_with_tls_context",
+          "symbol_kind": "method",
+          "start_line": 446,
+          "end_line": 493
+        },
+        {
+          "file_id": 203,
+          "file_path": "tests/test_utils.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            533
+          ],
+          "symbol_id": 2283,
+          "symbol_name": "test_select_proxies",
+          "symbol_kind": "function",
+          "start_line": 531,
+          "end_line": 533
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 63,
+        "confidence": "medium",
+        "reasons": [
+          "存在 2 个直接调用或引用位置",
+          "目标依赖 7 个项目内对象",
+          "发现 3 个二级影响模块",
+          "目标位于循环依赖中",
+          "定位到 1 个存在目标静态调用的测试文件，仍需运行验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 24,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 5,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 2,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 7,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 3,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 7.81,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 12,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 1,
+            "reference": 2,
+            "unit": "个",
+            "contribution": -3,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 359.102,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-03",
+      "repository": "requests",
+      "direction": "outgoing",
+      "target": {
+        "file_path": "src/requests/sessions.py",
+        "qualified_name": "Session.merge_environment_settings",
+        "anchor": "def merge_environment_settings(self, url, proxies, stream, verify, cert):",
+        "line": 750
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/requests/utils.py",
+        "qualified_name": "get_environ_proxies",
+        "anchor": "def get_environ_proxies(url, no_proxy=None):",
+        "line": 826
+      },
+      "reason": "sessions.py 明确从 .utils 导入 get_environ_proxies；Session.merge_environment_settings 中 env_proxies = get_environ_proxies(url, no_proxy=no_proxy) 是该导入函数的直接调用。出向证据采用被调用函数在 utils.py 的定义行，而不是把 sessions.py 的调用行配给 utils.py。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 191,
+          "file_path": "src/requests/utils.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            826
+          ],
+          "symbol_id": 1854,
+          "symbol_name": "get_environ_proxies",
+          "symbol_kind": "function",
+          "start_line": 826,
+          "end_line": 835
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 191,
+          "file_path": "src/requests/utils.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            826
+          ],
+          "symbol_id": 1854,
+          "symbol_name": "get_environ_proxies",
+          "symbol_kind": "function",
+          "start_line": 826,
+          "end_line": 835
+        },
+        {
+          "file_id": 188,
+          "file_path": "src/requests/sessions.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            61
+          ],
+          "symbol_id": 1776,
+          "symbol_name": "merge_setting",
+          "symbol_kind": "function",
+          "start_line": 61,
+          "end_line": 88
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 56,
+        "confidence": "low",
+        "reasons": [
+          "目标依赖 11 个项目内对象",
+          "目标位于循环依赖中",
+          "影响范围触及数据库实体或访问层",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 30,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 5,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 11,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 1,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 10,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 366.248,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-04",
+      "repository": "requests",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/requests/exceptions.py",
+        "qualified_name": "SSLError",
+        "anchor": "class SSLError(ConnectionError):",
+        "line": 67
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/requests/models.py",
+        "qualified_name": "Response.iter_content.generate",
+        "anchor": "raise RequestsSSLError(e)",
+        "line": 828
+      },
+      "reason": "models.py 使用 from .exceptions import SSLError as RequestsSSLError；Response.iter_content 内嵌 generate 的 raise RequestsSSLError(e) 构造该项目内异常类。此处必须沿别名绑定，不应与同文件 except SSLError 捕获的 urllib3 异常混淆。qualified_name 按现有解析器的类、方法和嵌套函数逐级命名。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 186,
+          "file_path": "src/requests/models.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            828
+          ],
+          "symbol_id": 1768,
+          "symbol_name": "Response.iter_content.generate",
+          "symbol_kind": "method",
+          "start_line": 816,
+          "end_line": 837
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 177,
+          "file_path": "src/requests/adapters.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            698,
+            711
+          ],
+          "symbol_id": 1608,
+          "symbol_name": "HTTPAdapter.send",
+          "symbol_kind": "method",
+          "start_line": 613,
+          "end_line": 719
+        },
+        {
+          "file_id": 186,
+          "file_path": "src/requests/models.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            828
+          ],
+          "symbol_id": 1768,
+          "symbol_name": "Response.iter_content.generate",
+          "symbol_kind": "method",
+          "start_line": 816,
+          "end_line": 837
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 61,
+        "confidence": "medium",
+        "reasons": [
+          "存在 2 个直接调用或引用位置",
+          "目标依赖 1 个项目内对象",
+          "发现 4 个二级影响模块",
+          "影响范围触及数据库实体或访问层",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 2,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 2,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 2,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 1,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 4,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 4,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 7,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 9.38,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 12,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 1,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 10,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 437.931,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-05",
+      "repository": "requests",
+      "direction": "outgoing",
+      "target": {
+        "file_path": "src/requests/utils.py",
+        "qualified_name": "resolve_proxies",
+        "anchor": "def resolve_proxies(request, proxies, trust_env=True):",
+        "line": 864
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "src/requests/utils.py",
+        "qualified_name": "should_bypass_proxies",
+        "anchor": "def should_bypass_proxies(url, no_proxy):",
+        "line": 765
+      },
+      "reason": "resolve_proxies 的条件 if trust_env and not should_bypass_proxies(url, no_proxy=no_proxy) 直接调用同模块 should_bypass_proxies；形参 request、proxies、trust_env 均不遮蔽该函数名。它是条件分支中的静态调用证据，不表示每次运行都会到达该分支。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 191,
+          "file_path": "src/requests/utils.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            765
+          ],
+          "symbol_id": 1852,
+          "symbol_name": "should_bypass_proxies",
+          "symbol_kind": "function",
+          "start_line": 765,
+          "end_line": 823
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 191,
+          "file_path": "src/requests/utils.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            765
+          ],
+          "symbol_id": 1852,
+          "symbol_name": "should_bypass_proxies",
+          "symbol_kind": "function",
+          "start_line": 765,
+          "end_line": 823
+        },
+        {
+          "file_id": 191,
+          "file_path": "src/requests/utils.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            826
+          ],
+          "symbol_id": 1854,
+          "symbol_name": "get_environ_proxies",
+          "symbol_kind": "function",
+          "start_line": 826,
+          "end_line": 835
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "high",
+        "score": 69,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "目标依赖 7 个项目内对象",
+          "发现 2 个二级影响模块",
+          "目标位于循环依赖中",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 25,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 5,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 7,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 2,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 5,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 4.69,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 12,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 492.04,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-06",
+      "repository": "requests",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/requests/api.py",
+        "qualified_name": "request",
+        "anchor": "def request(method, url, **kwargs):",
+        "line": 14
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "src/requests/api.py",
+        "qualified_name": "request",
+        "anchor": "return session.request(method=method, url=url, **kwargs)",
+        "line": 59
+      },
+      "reason": "该行调用 with sessions.Session() as session 得到的对象上的 request 方法，并非裸名 api.request 的递归调用。同名 request 不能证明绑定到所选模块函数；本负例只禁止把接收者方法当成 api.request 的高置信直接调用，不否认存在实际的方法调用。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [
+        {
+          "file_id": 178,
+          "file_path": "src/requests/api.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            73,
+            85,
+            100,
+            115,
+            130,
+            145,
+            157
+          ],
+          "symbol_id": 1610,
+          "symbol_name": "get",
+          "symbol_kind": "function",
+          "start_line": 62,
+          "end_line": 73
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "high",
+        "score": 67,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "目标依赖 1 个项目内对象",
+          "发现 1 个二级影响模块",
+          "目标位于循环依赖中",
+          "影响范围触及接口或路由层",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 46,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 6,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 1,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 4,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 3,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 3.12,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 9,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 1,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 8,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 60.401,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-07",
+      "repository": "requests",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/requests/hooks.py",
+        "qualified_name": "dispatch_hook",
+        "anchor": "def dispatch_hook(key, hooks, hook_data, **kwargs):",
+        "line": 22
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "src/requests/hooks.py",
+        "qualified_name": "dispatch_hook",
+        "anchor": "_hook_data = hook(hook_data, **kwargs)",
+        "line": 30
+      },
+      "reason": "hook 是从形参 hooks 所提供集合迭代得到的回调变量，源码并未将它静态绑定到 dispatch_hook 的定义。这里只要求不能输出指向 dispatch_hook 的高置信绑定；回调在某次实际运行可能指向其他可调用对象，探针不把未支持的动态解析等同于运行时不存在调用。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [
+        {
+          "file_id": 188,
+          "file_path": "src/requests/sessions.py",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            710
+          ],
+          "symbol_id": 1798,
+          "symbol_name": "Session.send",
+          "symbol_kind": "method",
+          "start_line": 673,
+          "end_line": 748
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 43,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "发现 2 个二级影响模块",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 12,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 4,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 2,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 5,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 4.69,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 12,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 722.69,
+      "invalid_locations": []
+    },
+    {
+      "id": "requests-08",
+      "repository": "requests",
+      "direction": "incoming",
+      "target": {
+        "file_path": "src/requests/sessions.py",
+        "qualified_name": "session",
+        "anchor": "def session():",
+        "line": 819
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "src/requests/api.py",
+        "anchor": "from . import sessions",
+        "line": 11
+      },
+      "reason": "api.py 这里只导入 sessions 模块，其 request 函数随后使用 sessions.Session() 类构造器；并未调用 sessions.py 中为兼容保留的小写 session() 工厂。模块导入行不能作为该工厂函数的直接调用证据。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 55,
+        "confidence": "low",
+        "reasons": [
+          "目标依赖 11 个项目内对象",
+          "目标位于循环依赖中",
+          "影响范围触及数据库实体或访问层",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 13,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 4,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 11,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 10,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 1,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 15,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 1,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 10,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 347.699,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-01",
+      "repository": "express",
+      "direction": "incoming",
+      "target": {
+        "file_path": "lib/router/route.js",
+        "qualified_name": "Route",
+        "anchor": "function Route(path) {",
+        "line": 43
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "lib/router/index.js",
+        "anchor": "var route = new Route(path);",
+        "line": 503
+      },
+      "reason": "index.js 通过 var Route = require('./route') 引入相邻模块；route.js 明确 module.exports = Route。new Route(path) 是对该构造函数的显式调用，不是按名称猜测或仅引用模块。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 294,
+          "file_path": "lib/router/index.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            503
+          ],
+          "symbol_id": null,
+          "symbol_name": "route",
+          "symbol_kind": "module",
+          "start_line": 503,
+          "end_line": 503
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 294,
+          "file_path": "lib/router/index.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            503
+          ],
+          "symbol_id": null,
+          "symbol_name": "route",
+          "symbol_kind": "module",
+          "start_line": 503,
+          "end_line": 503
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 48,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "目标依赖 1 个项目内对象",
+          "发现 2 个二级影响模块",
+          "影响范围触及接口或路由层",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 9,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 1,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 4,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 2,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 5,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 1.55,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 6,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 2,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 8,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 85.827,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-02",
+      "repository": "express",
+      "direction": "incoming",
+      "target": {
+        "file_path": "test/support/utils.js",
+        "qualified_name": "shouldHaveHeader",
+        "anchor": "function shouldHaveHeader (header) {",
+        "line": 45
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "test/res.sendFile.js",
+        "anchor": ".expect(utils.shouldHaveHeader('Last-Modified'))",
+        "line": 628
+      },
+      "reason": "测试文件以 require('./support/utils') 绑定 utils，目标模块以 exports.shouldHaveHeader = shouldHaveHeader 导出函数。传给 expect 的是 utils.shouldHaveHeader(...) 的返回值，因此工厂函数本身在此已被直接调用；不把其返回回调的后续执行算入本探针。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 365,
+          "file_path": "test/res.sendFile.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            628
+          ],
+          "symbol_id": null,
+          "symbol_name": "<anonymous:616>",
+          "symbol_kind": "module",
+          "start_line": 628,
+          "end_line": 628
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 365,
+          "file_path": "test/res.sendFile.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            628
+          ],
+          "symbol_id": null,
+          "symbol_name": "<anonymous:616>",
+          "symbol_kind": "module",
+          "start_line": 628,
+          "end_line": 628
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "low",
+        "score": 17,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "定位到 1 个存在目标静态调用的测试文件，仍需运行验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 5,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.52,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 3,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 1,
+            "reference": 2,
+            "unit": "个",
+            "contribution": -3,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 258.734,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-03",
+      "repository": "express",
+      "direction": "outgoing",
+      "target": {
+        "file_path": "test/support/utils.js",
+        "qualified_name": "shouldSkipQuery",
+        "anchor": "function shouldSkipQuery(versionString) {",
+        "line": 79
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "test/support/utils.js",
+        "qualified_name": "getMajorVersion",
+        "anchor": "function getMajorVersion(versionString) {",
+        "line": 75
+      },
+      "reason": "shouldSkipQuery 的 return Number(getMajorVersion(versionString)) === 21 显式调用同模块唯一的 getMajorVersion；参数名为 versionString，没有同名局部遮蔽。出向证据定位被调用函数的定义，而非 shouldSkipQuery 中的调用行。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 403,
+          "file_path": "test/support/utils.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            75
+          ],
+          "symbol_id": 2480,
+          "symbol_name": "getMajorVersion",
+          "symbol_kind": "function",
+          "start_line": 75,
+          "end_line": 77
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 403,
+          "file_path": "test/support/utils.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            75
+          ],
+          "symbol_id": 2480,
+          "symbol_name": "getMajorVersion",
+          "symbol_kind": "function",
+          "start_line": 75,
+          "end_line": 77
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "low",
+        "score": 19,
+        "confidence": "low",
+        "reasons": [
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 7,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 260.366,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-04",
+      "repository": "express",
+      "direction": "incoming",
+      "target": {
+        "file_path": "lib/utils.js",
+        "qualified_name": "createETagGenerator",
+        "anchor": "function createETagGenerator (options) {",
+        "line": 270
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "lib/utils.js",
+        "anchor": "exports.wetag = createETagGenerator({ weak: true })",
+        "line": 46
+      },
+      "reason": "CommonJS 导出属性的右值显式调用同文件函数 createETagGenerator，导出的是其返回的 generateETag 闭包。这里检查初始化时的工厂调用，不将 exports.wetag 的后续使用等同于再次调用 createETagGenerator。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 290,
+          "file_path": "lib/utils.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            35,
+            46
+          ],
+          "symbol_id": null,
+          "symbol_name": null,
+          "symbol_kind": "module",
+          "start_line": 35,
+          "end_line": 35
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 290,
+          "file_path": "lib/utils.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            35,
+            46
+          ],
+          "symbol_id": null,
+          "symbol_name": null,
+          "symbol_kind": "module",
+          "start_line": 35,
+          "end_line": 35
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "medium",
+        "score": 38,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "发现 3 个二级影响模块",
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 9,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 3,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 2.06,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 7,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 124.674,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-05",
+      "repository": "express",
+      "direction": "incoming",
+      "target": {
+        "file_path": "test/support/tmpl.js",
+        "qualified_name": "generateVariableLookup",
+        "anchor": "function generateVariableLookup(data) {",
+        "line": 25
+      },
+      "expected": "bound",
+      "evidence": {
+        "file_path": "test/support/tmpl.js",
+        "anchor": "str = str.replace(variableRegExp, generateVariableLookup(options));",
+        "line": 13
+      },
+      "reason": "CommonJS 导出的 renderFile 函数表达式内，onReadFile 闭包直接调用外层模块的 generateVariableLookup(options)，再将其返回的 variableLookup 回调交给 replace。闭包参数没有遮蔽 generateVariableLookup，调用对象由词法作用域可确定。",
+      "passed": true,
+      "confirmed": true,
+      "matched_relations": [
+        {
+          "file_id": 402,
+          "file_path": "test/support/tmpl.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            13
+          ],
+          "symbol_id": null,
+          "symbol_name": "renderFile.onReadFile",
+          "symbol_kind": "module",
+          "start_line": 13,
+          "end_line": 13
+        }
+      ],
+      "relations": [
+        {
+          "file_id": 402,
+          "file_path": "test/support/tmpl.js",
+          "relation": "bound_symbol_call",
+          "confidence": "high",
+          "depth": 1,
+          "line_numbers": [
+            13
+          ],
+          "symbol_id": null,
+          "symbol_name": "renderFile.onReadFile",
+          "symbol_kind": "module",
+          "start_line": 13,
+          "end_line": 13
+        }
+      ],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "low",
+        "score": 26,
+        "confidence": "medium",
+        "reasons": [
+          "存在 1 个直接调用或引用位置",
+          "发现 2 个二级影响模块",
+          "定位到 1 个存在目标静态调用的测试文件，仍需运行验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 12,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 4,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 1,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 6,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 2,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 5,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 1.55,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 6,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 1,
+            "reference": 2,
+            "unit": "个",
+            "contribution": -3,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 48.284,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-06",
+      "repository": "express",
+      "direction": "incoming",
+      "target": {
+        "file_path": "examples/error/index.js",
+        "qualified_name": "error",
+        "anchor": "function error(err, req, res, next) {",
+        "line": 20
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "examples/web-service/index.js",
+        "anchor": "if (!key) return next(error(400, 'api key required'));",
+        "line": 34
+      },
+      "reason": "web-service/index.js 自己定义了 function error(status, msg)，此处 error(...) 由该文件的词法绑定解析，未导入 examples/error/index.js 的同名中间件。不能仅因同名将它高置信绑定到目标函数。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "low",
+        "score": 19,
+        "confidence": "low",
+        "reasons": [
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 8,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 10.421,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-07",
+      "repository": "express",
+      "direction": "incoming",
+      "target": {
+        "file_path": "examples/error/index.js",
+        "qualified_name": "error",
+        "anchor": "function error(err, req, res, next) {",
+        "line": 20
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "examples/error/index.js",
+        "qualified_name": "error",
+        "anchor": "if (!test) console.error(err.stack);",
+        "line": 22
+      },
+      "reason": "目标函数体中的 console.error(...) 是以 console 为 receiver 的成员调用，不是裸标识符 error(...)。即使属性名与当前函数相同，也没有把 console.error 赋为目标函数的静态证据，不应记为目标的高置信递归调用。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "low",
+        "score": 19,
+        "confidence": "low",
+        "reasons": [
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 8,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 3,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 10.421,
+      "invalid_locations": []
+    },
+    {
+      "id": "express-08",
+      "repository": "express",
+      "direction": "incoming",
+      "target": {
+        "file_path": "test/Router.js",
+        "qualified_name": "handler",
+        "anchor": "var handler = function(req, res){ res.end(new Error('wrong handler')) };",
+        "line": 94
+      },
+      "expected": "not_bound",
+      "evidence": {
+        "file_path": "test/Router.js",
+        "anchor": "router.get('/thing' + i, handler)",
+        "line": 98
+      },
+      "reason": "handler 是局部变量持有的函数表达式，此行将函数值作为参数注册给 router.get，没有出现 handler(...)。框架后续可能调用回调不等于此行直接调用了 handler；本探针仅要求不要把注册引用标成高置信静态调用。",
+      "passed": true,
+      "confirmed": false,
+      "matched_relations": [],
+      "relations": [],
+      "risk": {
+        "model": "evidence_v3",
+        "base_score": 8,
+        "level": "low",
+        "score": 17,
+        "confidence": "low",
+        "reasons": [
+          "未定位到可核验的目标级测试调用，仍需补充验证"
+        ],
+        "factors": [
+          {
+            "key": "change_scope",
+            "label": "修改范围",
+            "actual": 1,
+            "reference": 200,
+            "unit": "行",
+            "contribution": 1,
+            "explanation": "修改范围越大，遗漏联动逻辑的可能性越高。"
+          },
+          {
+            "key": "direct_callers",
+            "label": "直接调用或引用",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "达到参考值时计满该项风险。"
+          },
+          {
+            "key": "dependencies",
+            "label": "项目内依赖",
+            "actual": 0,
+            "reference": 6,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "依赖对象越多，修改时需要同步确认的契约越多。"
+          },
+          {
+            "key": "indirect_impacts",
+            "label": "二级影响模块",
+            "actual": 0,
+            "reference": 8,
+            "unit": "个",
+            "contribution": 0,
+            "explanation": "二级反向依赖代表潜在的间接回归范围。"
+          },
+          {
+            "key": "blast_radius",
+            "label": "项目影响占比",
+            "actual": 0.0,
+            "reference": 5,
+            "unit": "%",
+            "contribution": 0,
+            "explanation": "参考值为影响约 5% 的项目文件，用于结合仓库规模校正影响面。"
+          },
+          {
+            "key": "cycles",
+            "label": "循环依赖",
+            "actual": 0,
+            "reference": 1,
+            "unit": "组",
+            "contribution": 0,
+            "explanation": "进入依赖环会增加修改顺序与回归定位难度。"
+          },
+          {
+            "key": "api_surface",
+            "label": "接口层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "接口层变化可能影响外部调用方或协议兼容性。"
+          },
+          {
+            "key": "database_surface",
+            "label": "数据层触达",
+            "actual": 0,
+            "reference": 1,
+            "unit": "处",
+            "contribution": 0,
+            "explanation": "数据模型或访问层变化可能影响持久化契约。"
+          },
+          {
+            "key": "test_evidence",
+            "label": "静态测试关联",
+            "actual": 0,
+            "reference": 2,
+            "unit": "个",
+            "contribution": 8,
+            "explanation": "仅有目标绑定调用的测试文件提供有限参考，最多降低 6 分；不代表测试通过或运行覆盖率。"
+          }
+        ]
+      },
+      "elapsed_ms": 32.564,
+      "invalid_locations": []
+    }
+  ],
+  "summary": {
+    "probes": 24,
+    "passed": 24,
+    "positive_probes": 15,
+    "positive_confirmed": 15,
+    "negative_probes": 9,
+    "negative_rejected": 9,
+    "incorrect_confirmations": 0,
+    "evaluation_errors": 0,
+    "invalid_location_cases": 0,
+    "failed_ids": []
+  },
+  "by_repository": {
+    "flask": {
+      "probes": 8,
+      "passed": 8,
+      "positive_probes": 5,
+      "positive_confirmed": 5,
+      "negative_probes": 3,
+      "negative_rejected": 3,
+      "incorrect_confirmations": 0,
+      "evaluation_errors": 0,
+      "invalid_location_cases": 0,
+      "failed_ids": []
+    },
+    "requests": {
+      "probes": 8,
+      "passed": 8,
+      "positive_probes": 5,
+      "positive_confirmed": 5,
+      "negative_probes": 3,
+      "negative_rejected": 3,
+      "incorrect_confirmations": 0,
+      "evaluation_errors": 0,
+      "invalid_location_cases": 0,
+      "failed_ids": []
+    },
+    "express": {
+      "probes": 8,
+      "passed": 8,
+      "positive_probes": 5,
+      "positive_confirmed": 5,
+      "negative_probes": 3,
+      "negative_rejected": 3,
+      "incorrect_confirmations": 0,
+      "evaluation_errors": 0,
+      "invalid_location_cases": 0,
+      "failed_ids": []
+    }
+  },
+  "suite_start_hashes": {
+    "backend/app/__init__.py": "73f7744e274679bdffc3bf5c1392334aef215d7b12909efc162cef410f122dcb",
+    "backend/app/api/__init__.py": "bef9ac0fbdb88dd69007b4adbc94e2071b6bee5909e29833ff76e091b022ddf6",
+    "backend/app/api/router.py": "0c24a8a7c1baf5feaaaa04df0f74786fe8648d58ba230a94027741d7a95dbf1b",
+    "backend/app/api/routes/__init__.py": "912f2144f6ecd00e2bf0816406eaa2178dae538cdaf77a172cbc3c04a390ae75",
+    "backend/app/api/routes/health.py": "b3d2712e452db89e6f1b2004634c68783cb003496ca2238a0dc0307d98a5dae5",
+    "backend/app/api/routes/projects.py": "dcc94a743004112fb32e05a14b57c575370902071fcfa7175c77209f040797f9",
+    "backend/app/core/__init__.py": "dfb971c5c4b0a2bf4565f48abf03dc8ef99fc9472a055b59fdfdb1d03fc47de0",
+    "backend/app/core/config.py": "247c10c496db13a59d8117f6a66de695a80f94d0f5a66f2f6e52f77dfb3a595b",
+    "backend/app/core/database.py": "0ea5ccf4dacfd14acbb15b625a8c9f6517a9b7e7dfcd2abc9cff1b4e0d750502",
+    "backend/app/main.py": "c4683b412375d66d08462c2a6377676110d6c7734f40ad0c308bbdbee9adf8b7",
+    "backend/app/models/__init__.py": "a020afeb4c09837b80583cb39104459bf8be18614b78260be0cc26dff8fd2108",
+    "backend/app/models/analysis.py": "138512ef1d1f4aacc7c33c3db38c9129ad90cba692992cef190096cf5d456e0b",
+    "backend/app/models/project.py": "1bf33b5d5340a0ea7d0ca22bd92286a8b003675a316c2b1a11552439546118df",
+    "backend/app/schemas/__init__.py": "de88e393b99d9bf75d4bbc9625a619d1bdd29e410f854604d96dc502036614ab",
+    "backend/app/schemas/project.py": "ee91e3f1d8233235c98cf84854ea95b48d71f895f40bbf0b216321a24170429c",
+    "backend/app/services/__init__.py": "03b856fd659eeeba191caea3dc000419afec0fd8e3ff394179489c8f6b06afdf",
+    "backend/app/services/analysis_cache.py": "c450248aeb18808f3409658e3d87d1a31f7f085aadb0cd5778bdc0257fbec740",
+    "backend/app/services/archive_service.py": "2a56026989c984410bc2eea62fd0686b816df2b9ab6c546ae1eef7cc9184844a",
+    "backend/app/services/code_parser.py": "227daa5c6a70f9b30b2c20e9575ffa1a972b24121c0f19589b630e6217a6e7f8",
+    "backend/app/services/code_scope_service.py": "783907ba465238dff86cb2f15d34988b81b052e18f24c7064d8c152695a191ce",
+    "backend/app/services/dependency_classification_service.py": "03d382170bcf9c595b21237d7028932364d1019e9746c5cbab362d729d2bd692",
+    "backend/app/services/dependency_graph_service.py": "2913935de2de9b6a97167f398f1a0a65c23440e444fabc4588395f51a1513619",
+    "backend/app/services/file_content_service.py": "f56f13ce360ead4ea5860dc6224ba4365ddd577d63fd74996c31af5a4618f837",
+    "backend/app/services/folder_service.py": "a844e7ecfdc2c4e097abee1a166cf2aa1c6ebd14f41e2a1f0e8b6d2d7930f07f",
+    "backend/app/services/git_metadata_service.py": "afe36e88002c0dbadc42a0b383bdbff769f28efe181bec3d6ba7511c71db6943",
+    "backend/app/services/github_service.py": "d20308ef01649000f0f4e0d83bce3ab57fcf9a1c0db613d3ffe0ee97b5f47feb",
+    "backend/app/services/impact_analysis_service.py": "0cca3081faac2cb89217abcd197fb07e0b547b12e45cbbd12f513f739c30da6b",
+    "backend/app/services/impact_reference_resolver.py": "e813a99de5ee082bdeac7a07f644c9873b883104c5bd4fb0a801884887ab1cb8",
+    "backend/app/services/incremental_analyzer.py": "dce4678cf75ff7ed9c35ee87f2f4f46a434d0f4939e4baf4574c9d9296ce5be2",
+    "backend/app/services/job_service.py": "d536678cbb06b3f0a05d23e4c409c9c4ef24ff8942a1f32f38dd22c8eb265c29",
+    "backend/app/services/project_service.py": "9786414769b73494873e3ab5f0898007100e6683ded812bab65ea9ec585aa28d",
+    "backend/app/services/quality_service.py": "1108f80d487c91cdf264e5107e42c98afeb7fe64ae30cf4184c89684382cf54a",
+    "backend/app/services/report_provider_service.py": "874b4893ec0ca5d446fa042efe8b30f142b05ce863aba02e4ade3fc24af3842f",
+    "backend/app/services/report_service.py": "7118032321c01f984371ba0c43d2266b834ae0f57c772ac08e03b51a5612ef73",
+    "backend/app/services/repository_path_service.py": "8675e020ecfab6171ad3d6155e12cd00db6d7e3f7d732f7dd5cecd86149b2901",
+    "backend/app/services/repository_qa_service.py": "4bcbc552ddda7a4aa094878b00aef00dacdac76366a644f2d0a78bf066cd8191",
+    "backend/app/services/repository_scanner.py": "5d7174e0a20f5d9dfc1a4d74bce7d577cfbe882785a7ece009ca5f281be8b625",
+    "backend/app/services/search_service.py": "79611ef0cd082cd352fcc5bdc50092c6fb4c49ba6a0257d5cc73f33cfa0ac54c",
+    "backend/app/services/semantic_search_service.py": "17ee8e98edfa6395588d97aed1c95e0f4d7107a5841e5046c57f74d71541caaa",
+    "backend/app/services/snapshot_service.py": "d391780514305640d9439e8e93413f606f4429b3a37c993279eb1cf3c9cd1600",
+    "backend/app/services/structure_analyzer.py": "f6b5a10e9b727e6b35b3410af53fb7efdaa9da3285749464036c79dc45306e37",
+    "backend/evaluations/__init__.py": "5e9c7d37ca3229faae41da1039670432d036da25a764189f7f7a885ddf2f0630",
+    "backend/evaluations/benchmark_file_tree.py": "fc9a22d9c90f104a99bb2bf61cdbf75cd16ae0b6f4bf28c74c8eff9f76a1b468",
+    "backend/evaluations/coupling_real.py": "29f7abc9edf9e2ae92e53b6f849817ebff98686934e392651074cc0a5dbda903",
+    "backend/evaluations/local_embeddings.py": "b9e49c1c609c3d6007612373469aefb19357270420e061a7825b5ae7b29bec01",
+    "backend/evaluations/real_corpus.py": "2e53ab52314a8b671eb0fe8730867ac1ecea86c957324bc6c469734843c80f9b",
+    "backend/evaluations/real_repository_qa.py": "125b33bd15f3a74881300af87fe65fb6133bca4ce17d42aa997c268079b8fd1b",
+    "backend/evaluations/repository_qa.py": "a35570a36a59a630faf283bde898a5fae28fab5bb1c5fad85a12f110ecc06a1a",
+    "backend/evaluations/workspace_performance.py": "e7468ab10f9ed81889c5cae4ce443b5130ef222869021fb1c53e5bb01757354f",
+    "benchmarks/repository_qa/cases.json": "7b35c50b8ad5c9215d3cfbcd5690c8d6b952234129f4bdd323d62ecd9eccf414",
+    "benchmarks/repository_qa/sources.json": "21016fdbe9faccf2d450478d2d64ecf49b97d218713b016a26de2e37e425a37a",
+    "benchmarks/repository_qa_real/cases.json": "5df1ac232ba22d694964c78990419a6d39a14ed2a6d523494762290f04a75ad0",
+    "benchmarks/repository_qa_real/repositories.json": "6a66996045f2021b762dd4666bff4e4fd39b8f06ab90e9ce6c00496644df16df",
+    "coupling_annotations/flask.json": "2b80608d004fc98000575ca2546aa21f7542715655dbcce7f51b3d40df4970be",
+    "coupling_annotations/requests.json": "540ed16ec39c5b9aa4b764a904751e38ee90c190783bb039d2498aa5a4040b3f",
+    "coupling_annotations/express.json": "5f54613560f2d2d6a7e8667d86167ffdd95f1227b9e2d1c47be34e46f5aa48ef"
+  },
+  "repositories": [
+    {
+      "name": "flask",
+      "github": "pallets/flask",
+      "tag": "3.1.0",
+      "commit": "ab8149664182b662453a563161aa89013c806dc9",
+      "archive_sha256": "9cef17604c5b8d99a69fb9e001788ddc43307b35cc38827974191f037b396205",
+      "split": "development",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "requests",
+      "github": "psf/requests",
+      "tag": "v2.32.3",
+      "commit": "0e322af87745eff34caffe4df68456ebc20d9068",
+      "archive_sha256": "ce709c9c71109afc6d0308b3975dab231c03fb414ac572bcbd55e40909f0a2b3",
+      "split": "validation",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "express",
+      "github": "expressjs/express",
+      "tag": "4.21.2",
+      "commit": "1faf228935aa0a13111f92c28ee795be64ce3f0f",
+      "archive_sha256": "b7845dec67b00abb868585e669cb4253748c814af1ed7a4a419def26071635dc",
+      "split": "holdout",
+      "license": "MIT"
+    }
+  ]
+}

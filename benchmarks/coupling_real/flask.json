@@ -1,0 +1,137 @@
+[
+  {
+    "id": "flask-01",
+    "repository": "flask",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/flask/logging.py",
+      "qualified_name": "has_level_handler",
+      "anchor": "def has_level_handler(logger: logging.Logger) -> bool:"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/flask/logging.py",
+      "qualified_name": "create_logger",
+      "anchor": "if not has_level_handler(logger):"
+    },
+    "reason": "人工源码依据：create_logger 中的裸名称调用对应同一模块唯一的 has_level_handler 定义；参数只有 app，函数内未重绑定该名称。标注的是静态调用位置，不断言分支运行频率。"
+  },
+  {
+    "id": "flask-02",
+    "repository": "flask",
+    "direction": "outgoing",
+    "target": {
+      "file_path": "src/flask/templating.py",
+      "qualified_name": "render_template",
+      "anchor": "def render_template("
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/flask/templating.py",
+      "qualified_name": "_render",
+      "anchor": "def _render(app: Flask, template: Template, context: dict[str, t.Any]) -> str:"
+    },
+    "reason": "人工源码依据：render_template 末尾 return _render(app, template, context) 直接调用同一模块唯一的 _render；不存在同名参数或局部赋值。出边证据定位被调用定义，而非调用方行号。"
+  },
+  {
+    "id": "flask-03",
+    "repository": "flask",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/flask/helpers.py",
+      "qualified_name": "get_root_path",
+      "anchor": "def get_root_path(import_name: str) -> str:"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/flask/sansio/scaffold.py",
+      "qualified_name": "Scaffold.__init__",
+      "anchor": "root_path = get_root_path(self.import_name)"
+    },
+    "reason": "人工源码依据：scaffold.py 明确 from ..helpers import get_root_path；Scaffold.__init__ 中赋值的是 root_path 而非 get_root_path，因此该裸名称调用可绑定到 helpers.py 的定义。"
+  },
+  {
+    "id": "flask-04",
+    "repository": "flask",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/flask/helpers.py",
+      "qualified_name": "get_debug_flag",
+      "anchor": "def get_debug_flag() -> bool:"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/flask/app.py",
+      "qualified_name": "Flask.run",
+      "anchor": "self.debug = get_debug_flag()"
+    },
+    "reason": "人工源码依据：app.py 明确 from .helpers import get_debug_flag；Flask.run 的环境变量分支中直接调用此导入名称，无局部同名遮蔽。条件调用仍是静态关联，不等于每次 run 都执行。"
+  },
+  {
+    "id": "flask-05",
+    "repository": "flask",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/flask/helpers.py",
+      "qualified_name": "_split_blueprint_path",
+      "anchor": "def _split_blueprint_path(name: str) -> list[str]:"
+    },
+    "expected": "bound",
+    "evidence": {
+      "file_path": "src/flask/wrappers.py",
+      "qualified_name": "Request.blueprints",
+      "anchor": "return _split_blueprint_path(name)"
+    },
+    "reason": "人工源码依据：wrappers.py 明确 from .helpers import _split_blueprint_path，Request.blueprints 直接调用该名称。目标被 functools.cache 装饰：此处 bound 仅指源码符号调用关联，不断言原始函数体在缓存命中时运行；@property 不改变方法体内名称绑定。"
+  },
+  {
+    "id": "flask-06",
+    "repository": "flask",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/flask/helpers.py",
+      "qualified_name": "redirect",
+      "anchor": "def redirect("
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "src/flask/helpers.py",
+      "qualified_name": "redirect",
+      "anchor": "return current_app.redirect(location, code=code)"
+    },
+    "reason": "人工源码反例：此行调用 current_app 接收者的 redirect 属性，current_app 在 globals.py 中是运行时 LocalProxy；它不是对 helpers.redirect 裸名称的递归调用。不能因为方法同名便绑定到所选 helpers.redirect 定义。"
+  },
+  {
+    "id": "flask-07",
+    "repository": "flask",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/flask/logging.py",
+      "qualified_name": "wsgi_errors_stream",
+      "anchor": "def wsgi_errors_stream() -> t.TextIO:"
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "src/flask/logging.py",
+      "anchor": "default_handler = logging.StreamHandler(wsgi_errors_stream)  # type: ignore"
+    },
+    "reason": "人工源码反例：真实调用对象是 logging.StreamHandler，wsgi_errors_stream 只是传入的参数，且定义被 @LocalProxy 装饰。名称引用或后续代理求值都不能标注为这一行直接调用该函数；此反例不否认其间接数据关系。"
+  },
+  {
+    "id": "flask-08",
+    "repository": "flask",
+    "direction": "incoming",
+    "target": {
+      "file_path": "src/flask/templating.py",
+      "qualified_name": "DispatchingJinjaLoader.get_source",
+      "anchor": "def get_source("
+    },
+    "expected": "not_bound",
+    "evidence": {
+      "file_path": "src/flask/templating.py",
+      "qualified_name": "DispatchingJinjaLoader._get_source_fast",
+      "anchor": "return loader.get_source(environment, template)"
+    },
+    "reason": "人工源码反例：loader 来自 self._iter_loaders(template) 的运行时迭代结果，可以是应用或蓝图配置的 BaseLoader；并非明确绑定到当前 DispatchingJinjaLoader 实例。不能仅凭 get_source 同名就把该调用确认为所选方法的入边。"
+  }
+]

@@ -114,7 +114,7 @@ def test_reports_all_quality_rules() -> None:
     assert warning_page["has_more"] is True
     assert warning_next_page["offset"] == 1
     assert warning_next_page["findings"][0]["id"] != warning_page["findings"][0]["id"]
-    assert report["scoring"]["model"] == "source_scope_weighted_size_normalized_v4"
+    assert report["scoring"]["model"] == "source_scope_weighted_size_normalized_v5"
     assert report["scoring"]["size_factor"] == 1
     assert report["scoring"]["project_size"] == {
         "file_count": 12,
@@ -297,7 +297,9 @@ def test_quality_marks_unsupported_source_language_as_limited_coverage() -> None
 
         report = build_quality_report(database, project.id)
 
-    assert report["score"] == 100
+    assert report["score"] == 0  # Internal placeholder; coverage suppresses the displayed grade.
+    assert report["scope_scores"]["production"]["score"] is None
+    assert report["scope_scores"]["production"]["available"] is False
     assert report["scoring"]["coverage_level"] == "limited"
     assert report["scoring"]["source_file_count"] == 1
     assert report["scoring"]["parser_supported_file_count"] == 0

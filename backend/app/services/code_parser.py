@@ -17,6 +17,9 @@ LANGUAGES = {
     ".tsx": TSX_LANGUAGE,
 }
 
+# Bump when parser/import-resolution semantics change, independently of app UI versions.
+PARSER_ANALYSIS_VERSION = "structure-v1"
+
 
 @dataclass(frozen=True)
 class ParsedSymbol:

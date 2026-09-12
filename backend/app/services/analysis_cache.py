@@ -28,27 +28,32 @@ def get_or_create_project_analysis(
     global _hits, _misses
     engine = _session_engine(database)
     with _lock:
-        project_cache = _database_caches.get(engine)
-        if project_cache is not None:
-            namespaces = project_cache.get(project_id)
-            if namespaces is not None and namespace in namespaces:
-                project_cache.move_to_end(project_id)
-                _hits += 1
-                return cast(T, namespaces[namespace])
-
-    value = factory()
-    with _lock:
         project_cache = _database_caches.setdefault(engine, OrderedDict())
         namespaces = project_cache.setdefault(project_id, {})
-        existing = namespaces.get(namespace)
-        if existing is not None:
-            _hits += 1
-            return cast(T, existing)
-        namespaces[namespace] = value
         project_cache.move_to_end(project_id)
+        if namespace in namespaces:
+            _hits += 1
+            return cast(T, namespaces[namespace])
+        # The entry identity is a bounded generation token. Invalidating, clearing
+        # or evicting it fences off every factory already running for that entry.
         _misses += 1
         while len(project_cache) > MAX_CACHED_PROJECTS_PER_DATABASE:
             project_cache.popitem(last=False)
+
+    value = factory()
+    with _lock:
+        if (
+            _database_caches.get(engine) is not project_cache
+            or project_cache.get(project_id) is not namespaces
+        ):
+            # The original caller may finish, but its obsolete result must never
+            # become a cache hit for a subsequent request (or a recreated ID).
+            return value
+        if namespace in namespaces:
+            _hits += 1
+            return cast(T, namespaces[namespace])
+        namespaces[namespace] = value
+        project_cache.move_to_end(project_id)
     return value
 
 

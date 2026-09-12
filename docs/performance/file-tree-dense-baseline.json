@@ -1,0 +1,3173 @@
+{
+  "schema_version": 1,
+  "label": "baseline",
+  "captured_at": "2026-09-12T10:16:24.488Z",
+  "implementation_sha256": {
+    "src/workspaces/FileTree.tsx": "a851ff89d6112a6229678d8661c7f65070d5b8c21b6bca669743ed7cd63056db",
+    "src/workspaces/FileTreeFilePages.tsx": "18b7fab99869b36ee595de6e05863b7c6faf28e5296ffd3e7ef538a8cf85343f",
+    "src/workspaces/fileTreeCache.ts": "cc2aa7aa0b841ad374949d08b92f9ef12975abc0c4c67f616be0bd6300cd6a57",
+    "src/App.tsx": "4669ca0b95e4dc29b009fd5e435ef675f3221fa5df44c9040ef55eaf2b972fad",
+    "src/styles.css": "5354f7736ad96579927893b60f402a26e022f4bff2d3ab588f11f19c6c83224a",
+    "src/terminal-theme.css": "310a3ddb013ac4e5b4caf6ff1c0b0513c73b894b8231cc08ef18db3852b63d48",
+    "perf/file-tree-dense.spec.ts": "5d3f6f9db401fb6dac153928817f7bb38290f93066494805dba945a265cc7f20"
+  },
+  "environment": {
+    "browser_version": "152.0.7977.83",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "node_version": "v24.18.0",
+    "platform": "win32"
+  },
+  "repetitions": 3,
+  "page_size": 200,
+  "method": {
+    "isolation": "Synthetic API route mocks only, isolated Playwright services on 8011/5175 and D: runtime. No user repository, database, model or remote network requests.",
+    "timings": "Independent browser page per sample, warmed Vite shell. Node monotonic elapsed time includes Playwright IPC, waits, and two animation frames. Append uses real handler via native DOM click; expand and project/menu navigation use Playwright click. Three raw samples per scenario, not statistical significance.",
+    "loaded_records": "Counted from unique successfully served project/path/offset responses, not mounted rows. The expanded scenario opens all 24 directories and loads exactly 100 files in each. No automatic collapsing or fewer loaded pages is used for comparison.",
+    "memory": "CDP Runtime.getHeapUsage after forced HeapProfiler.collectGarbage, diagnostic JS heap only, not browser process RSS or natural GC. Collection is outside interaction timings.",
+    "switch": "A child request is held until UI has switched A→B→A via project picker. Late response must not appear, reopening A must yield fresh current file; failed request events record observed cancellation."
+  },
+  "results": [
+    {
+      "scenario": "wide_directories",
+      "repetition": 1,
+      "expected_directory_count": 600,
+      "expected_file_count": 600,
+      "root_ms": 109.1,
+      "actions": [
+        {
+          "offset": 200,
+          "elapsed_ms": 74.91,
+          "live_tree_elements": 2404,
+          "live_file_rows": 0,
+          "live_directory_rows": 400,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 2537
+        },
+        {
+          "offset": 400,
+          "elapsed_ms": 48.11,
+          "live_tree_elements": 3602,
+          "live_file_rows": 0,
+          "live_directory_rows": 600,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 3735
+        }
+      ],
+      "unique_loaded_root_items": 600,
+      "unique_loaded_file_records": 0,
+      "loaded_dom": {
+        "live_tree_elements": 3602,
+        "live_file_rows": 0,
+        "live_directory_rows": 600,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 3735
+      },
+      "returned_dom": {
+        "live_tree_elements": 1204,
+        "live_file_rows": 0,
+        "live_directory_rows": 200,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 1337
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4824892,
+        "total_js_heap_bytes_after_forced_gc": 5726208
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 11202008,
+        "total_js_heap_bytes_after_forced_gc": 12075008
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 6011556,
+        "total_js_heap_bytes_after_forced_gc": 7094272
+      },
+      "leave_menu_ms": 44.28,
+      "return_menu_ms": 55.75,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 200,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 400,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "wide_directories",
+      "repetition": 2,
+      "expected_directory_count": 600,
+      "expected_file_count": 600,
+      "root_ms": 102.37,
+      "actions": [
+        {
+          "offset": 200,
+          "elapsed_ms": 74.38,
+          "live_tree_elements": 2404,
+          "live_file_rows": 0,
+          "live_directory_rows": 400,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 2537
+        },
+        {
+          "offset": 400,
+          "elapsed_ms": 56.87,
+          "live_tree_elements": 3602,
+          "live_file_rows": 0,
+          "live_directory_rows": 600,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 3735
+        }
+      ],
+      "unique_loaded_root_items": 600,
+      "unique_loaded_file_records": 0,
+      "loaded_dom": {
+        "live_tree_elements": 3602,
+        "live_file_rows": 0,
+        "live_directory_rows": 600,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 3735
+      },
+      "returned_dom": {
+        "live_tree_elements": 1204,
+        "live_file_rows": 0,
+        "live_directory_rows": 200,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 1337
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4824840,
+        "total_js_heap_bytes_after_forced_gc": 5726208
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 11195376,
+        "total_js_heap_bytes_after_forced_gc": 11812864
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 6004692,
+        "total_js_heap_bytes_after_forced_gc": 6832128
+      },
+      "leave_menu_ms": 41.4,
+      "return_menu_ms": 56.05,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 200,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 400,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "wide_directories",
+      "repetition": 3,
+      "expected_directory_count": 600,
+      "expected_file_count": 600,
+      "root_ms": 108.49,
+      "actions": [
+        {
+          "offset": 200,
+          "elapsed_ms": 83.31,
+          "live_tree_elements": 2404,
+          "live_file_rows": 0,
+          "live_directory_rows": 400,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 2537
+        },
+        {
+          "offset": 400,
+          "elapsed_ms": 72.8,
+          "live_tree_elements": 3602,
+          "live_file_rows": 0,
+          "live_directory_rows": 600,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 3735
+        }
+      ],
+      "unique_loaded_root_items": 600,
+      "unique_loaded_file_records": 0,
+      "loaded_dom": {
+        "live_tree_elements": 3602,
+        "live_file_rows": 0,
+        "live_directory_rows": 600,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 3735
+      },
+      "returned_dom": {
+        "live_tree_elements": 1204,
+        "live_file_rows": 0,
+        "live_directory_rows": 200,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 1337
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4837880,
+        "total_js_heap_bytes_after_forced_gc": 5988352
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 11197056,
+        "total_js_heap_bytes_after_forced_gc": 11812864
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 6006672,
+        "total_js_heap_bytes_after_forced_gc": 7094272
+      },
+      "leave_menu_ms": 37.08,
+      "return_menu_ms": 56.33,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 200,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 400,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 200,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "many_expanded_directories",
+      "repetition": 1,
+      "expected_directory_count": 24,
+      "expected_file_count": 2400,
+      "root_ms": 81.54,
+      "actions": [
+        {
+          "directory": "alpha_0000",
+          "elapsed_ms": 110.72,
+          "live_tree_elements": 948,
+          "live_file_rows": 100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 1,
+          "live_document_elements": 1081
+        },
+        {
+          "directory": "alpha_0001",
+          "elapsed_ms": 89.61,
+          "live_tree_elements": 1751,
+          "live_file_rows": 200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 2,
+          "live_document_elements": 1884
+        },
+        {
+          "directory": "alpha_0002",
+          "elapsed_ms": 98.17,
+          "live_tree_elements": 2554,
+          "live_file_rows": 300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 3,
+          "live_document_elements": 2687
+        },
+        {
+          "directory": "alpha_0003",
+          "elapsed_ms": 115.15,
+          "live_tree_elements": 3357,
+          "live_file_rows": 400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 4,
+          "live_document_elements": 3490
+        },
+        {
+          "directory": "alpha_0004",
+          "elapsed_ms": 98.6,
+          "live_tree_elements": 4160,
+          "live_file_rows": 500,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 5,
+          "live_document_elements": 4293
+        },
+        {
+          "directory": "alpha_0005",
+          "elapsed_ms": 106.59,
+          "live_tree_elements": 4963,
+          "live_file_rows": 600,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 6,
+          "live_document_elements": 5096
+        },
+        {
+          "directory": "alpha_0006",
+          "elapsed_ms": 143.09,
+          "live_tree_elements": 5766,
+          "live_file_rows": 700,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 7,
+          "live_document_elements": 5899
+        },
+        {
+          "directory": "alpha_0007",
+          "elapsed_ms": 144.28,
+          "live_tree_elements": 6569,
+          "live_file_rows": 800,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 8,
+          "live_document_elements": 6702
+        },
+        {
+          "directory": "alpha_0008",
+          "elapsed_ms": 192,
+          "live_tree_elements": 7372,
+          "live_file_rows": 900,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 9,
+          "live_document_elements": 7505
+        },
+        {
+          "directory": "alpha_0009",
+          "elapsed_ms": 236.33,
+          "live_tree_elements": 8175,
+          "live_file_rows": 1000,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 10,
+          "live_document_elements": 8308
+        },
+        {
+          "directory": "alpha_0010",
+          "elapsed_ms": 235.38,
+          "live_tree_elements": 8978,
+          "live_file_rows": 1100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 11,
+          "live_document_elements": 9111
+        },
+        {
+          "directory": "alpha_0011",
+          "elapsed_ms": 225.81,
+          "live_tree_elements": 9781,
+          "live_file_rows": 1200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 12,
+          "live_document_elements": 9914
+        },
+        {
+          "directory": "alpha_0012",
+          "elapsed_ms": 231.21,
+          "live_tree_elements": 10584,
+          "live_file_rows": 1300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 13,
+          "live_document_elements": 10717
+        },
+        {
+          "directory": "alpha_0013",
+          "elapsed_ms": 281.13,
+          "live_tree_elements": 11387,
+          "live_file_rows": 1400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 14,
+          "live_document_elements": 11520
+        },
+        {
+          "directory": "alpha_0014",
+          "elapsed_ms": 316.25,
+          "live_tree_elements": 12190,
+          "live_file_rows": 1500,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 15,
+          "live_document_elements": 12323
+        },
+        {
+          "directory": "alpha_0015",
+          "elapsed_ms": 537.99,
+          "live_tree_elements": 12993,
+          "live_file_rows": 1600,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 16,
+          "live_document_elements": 13126
+        },
+        {
+          "directory": "alpha_0016",
+          "elapsed_ms": 563.84,
+          "live_tree_elements": 13796,
+          "live_file_rows": 1700,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 17,
+          "live_document_elements": 13929
+        },
+        {
+          "directory": "alpha_0017",
+          "elapsed_ms": 509.45,
+          "live_tree_elements": 14599,
+          "live_file_rows": 1800,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 18,
+          "live_document_elements": 14732
+        },
+        {
+          "directory": "alpha_0018",
+          "elapsed_ms": 1246.94,
+          "live_tree_elements": 15402,
+          "live_file_rows": 1900,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 19,
+          "live_document_elements": 15535
+        },
+        {
+          "directory": "alpha_0019",
+          "elapsed_ms": 731.98,
+          "live_tree_elements": 16205,
+          "live_file_rows": 2000,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 20,
+          "live_document_elements": 16338
+        },
+        {
+          "directory": "alpha_0020",
+          "elapsed_ms": 823.46,
+          "live_tree_elements": 17008,
+          "live_file_rows": 2100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 21,
+          "live_document_elements": 17141
+        },
+        {
+          "directory": "alpha_0021",
+          "elapsed_ms": 838.87,
+          "live_tree_elements": 17811,
+          "live_file_rows": 2200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 22,
+          "live_document_elements": 17944
+        },
+        {
+          "directory": "alpha_0022",
+          "elapsed_ms": 956.27,
+          "live_tree_elements": 18614,
+          "live_file_rows": 2300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 23,
+          "live_document_elements": 18747
+        },
+        {
+          "directory": "alpha_0023",
+          "elapsed_ms": 848.42,
+          "live_tree_elements": 19417,
+          "live_file_rows": 2400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 24,
+          "live_document_elements": 19550
+        }
+      ],
+      "unique_loaded_root_items": 24,
+      "unique_loaded_file_records": 2400,
+      "loaded_dom": {
+        "live_tree_elements": 19417,
+        "live_file_rows": 2400,
+        "live_directory_rows": 24,
+        "expanded_directory_rows": 24,
+        "live_document_elements": 19550
+      },
+      "returned_dom": {
+        "live_tree_elements": 145,
+        "live_file_rows": 0,
+        "live_directory_rows": 24,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 278
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4838316,
+        "total_js_heap_bytes_after_forced_gc": 5464064
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 30332892,
+        "total_js_heap_bytes_after_forced_gc": 32870400
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5796252,
+        "total_js_heap_bytes_after_forced_gc": 6774784
+      },
+      "leave_menu_ms": 92.79,
+      "return_menu_ms": 90.2,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0001",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0001",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0002",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0002",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0003",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0003",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0004",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0004",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0005",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0005",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0006",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0006",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0007",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0007",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0008",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0008",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0009",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0009",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0010",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0010",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0011",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0011",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0012",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0012",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0013",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0013",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0014",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0014",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0015",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0015",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0016",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0016",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0017",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0017",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0018",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0018",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0019",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0019",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0020",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0020",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0021",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0021",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0022",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0022",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0023",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0023",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0001&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0002&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0003&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0004&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0005&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0006&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0007&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0008&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0009&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0010&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0011&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0012&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0013&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0014&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0015&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0016&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0017&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0018&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0019&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0020&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0021&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0022&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0023&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "many_expanded_directories",
+      "repetition": 2,
+      "expected_directory_count": 24,
+      "expected_file_count": 2400,
+      "root_ms": 75.15,
+      "actions": [
+        {
+          "directory": "alpha_0000",
+          "elapsed_ms": 90.92,
+          "live_tree_elements": 948,
+          "live_file_rows": 100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 1,
+          "live_document_elements": 1081
+        },
+        {
+          "directory": "alpha_0001",
+          "elapsed_ms": 89.3,
+          "live_tree_elements": 1751,
+          "live_file_rows": 200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 2,
+          "live_document_elements": 1884
+        },
+        {
+          "directory": "alpha_0002",
+          "elapsed_ms": 91.04,
+          "live_tree_elements": 2554,
+          "live_file_rows": 300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 3,
+          "live_document_elements": 2687
+        },
+        {
+          "directory": "alpha_0003",
+          "elapsed_ms": 122.98,
+          "live_tree_elements": 3357,
+          "live_file_rows": 400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 4,
+          "live_document_elements": 3490
+        },
+        {
+          "directory": "alpha_0004",
+          "elapsed_ms": 106.06,
+          "live_tree_elements": 4160,
+          "live_file_rows": 500,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 5,
+          "live_document_elements": 4293
+        },
+        {
+          "directory": "alpha_0005",
+          "elapsed_ms": 141.12,
+          "live_tree_elements": 4963,
+          "live_file_rows": 600,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 6,
+          "live_document_elements": 5096
+        },
+        {
+          "directory": "alpha_0006",
+          "elapsed_ms": 153.77,
+          "live_tree_elements": 5766,
+          "live_file_rows": 700,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 7,
+          "live_document_elements": 5899
+        },
+        {
+          "directory": "alpha_0007",
+          "elapsed_ms": 131.79,
+          "live_tree_elements": 6569,
+          "live_file_rows": 800,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 8,
+          "live_document_elements": 6702
+        },
+        {
+          "directory": "alpha_0008",
+          "elapsed_ms": 248.92,
+          "live_tree_elements": 7372,
+          "live_file_rows": 900,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 9,
+          "live_document_elements": 7505
+        },
+        {
+          "directory": "alpha_0009",
+          "elapsed_ms": 172.7,
+          "live_tree_elements": 8175,
+          "live_file_rows": 1000,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 10,
+          "live_document_elements": 8308
+        },
+        {
+          "directory": "alpha_0010",
+          "elapsed_ms": 281.49,
+          "live_tree_elements": 8978,
+          "live_file_rows": 1100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 11,
+          "live_document_elements": 9111
+        },
+        {
+          "directory": "alpha_0011",
+          "elapsed_ms": 231.89,
+          "live_tree_elements": 9781,
+          "live_file_rows": 1200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 12,
+          "live_document_elements": 9914
+        },
+        {
+          "directory": "alpha_0012",
+          "elapsed_ms": 215.89,
+          "live_tree_elements": 10584,
+          "live_file_rows": 1300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 13,
+          "live_document_elements": 10717
+        },
+        {
+          "directory": "alpha_0013",
+          "elapsed_ms": 365.25,
+          "live_tree_elements": 11387,
+          "live_file_rows": 1400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 14,
+          "live_document_elements": 11520
+        },
+        {
+          "directory": "alpha_0014",
+          "elapsed_ms": 664.53,
+          "live_tree_elements": 12190,
+          "live_file_rows": 1500,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 15,
+          "live_document_elements": 12323
+        },
+        {
+          "directory": "alpha_0015",
+          "elapsed_ms": 538.71,
+          "live_tree_elements": 12993,
+          "live_file_rows": 1600,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 16,
+          "live_document_elements": 13126
+        },
+        {
+          "directory": "alpha_0016",
+          "elapsed_ms": 548.51,
+          "live_tree_elements": 13796,
+          "live_file_rows": 1700,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 17,
+          "live_document_elements": 13929
+        },
+        {
+          "directory": "alpha_0017",
+          "elapsed_ms": 672.86,
+          "live_tree_elements": 14599,
+          "live_file_rows": 1800,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 18,
+          "live_document_elements": 14732
+        },
+        {
+          "directory": "alpha_0018",
+          "elapsed_ms": 721.73,
+          "live_tree_elements": 15402,
+          "live_file_rows": 1900,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 19,
+          "live_document_elements": 15535
+        },
+        {
+          "directory": "alpha_0019",
+          "elapsed_ms": 731.83,
+          "live_tree_elements": 16205,
+          "live_file_rows": 2000,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 20,
+          "live_document_elements": 16338
+        },
+        {
+          "directory": "alpha_0020",
+          "elapsed_ms": 902.38,
+          "live_tree_elements": 17008,
+          "live_file_rows": 2100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 21,
+          "live_document_elements": 17141
+        },
+        {
+          "directory": "alpha_0021",
+          "elapsed_ms": 846.9,
+          "live_tree_elements": 17811,
+          "live_file_rows": 2200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 22,
+          "live_document_elements": 17944
+        },
+        {
+          "directory": "alpha_0022",
+          "elapsed_ms": 963.77,
+          "live_tree_elements": 18614,
+          "live_file_rows": 2300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 23,
+          "live_document_elements": 18747
+        },
+        {
+          "directory": "alpha_0023",
+          "elapsed_ms": 987.56,
+          "live_tree_elements": 19417,
+          "live_file_rows": 2400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 24,
+          "live_document_elements": 19550
+        }
+      ],
+      "unique_loaded_root_items": 24,
+      "unique_loaded_file_records": 2400,
+      "loaded_dom": {
+        "live_tree_elements": 19417,
+        "live_file_rows": 2400,
+        "live_directory_rows": 24,
+        "expanded_directory_rows": 24,
+        "live_document_elements": 19550
+      },
+      "returned_dom": {
+        "live_tree_elements": 145,
+        "live_file_rows": 0,
+        "live_directory_rows": 24,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 278
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4855620,
+        "total_js_heap_bytes_after_forced_gc": 5726208
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 30830648,
+        "total_js_heap_bytes_after_forced_gc": 32608256
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5828528,
+        "total_js_heap_bytes_after_forced_gc": 6512640
+      },
+      "leave_menu_ms": 86.88,
+      "return_menu_ms": 89.15,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0001",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0001",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0002",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0002",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0003",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0003",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0004",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0004",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0005",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0005",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0006",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0006",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0007",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0007",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0008",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0008",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0009",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0009",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0010",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0010",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0011",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0011",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0012",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0012",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0013",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0013",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0014",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0014",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0015",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0015",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0016",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0016",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0017",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0017",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0018",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0018",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0019",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0019",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0020",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0020",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0021",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0021",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0022",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0022",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0023",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0023",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0001&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0002&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0003&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0004&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0005&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0006&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0007&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0008&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0009&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0010&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0011&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0012&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0013&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0014&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0015&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0016&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0017&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0018&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0019&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0020&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0021&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0022&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0023&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "many_expanded_directories",
+      "repetition": 3,
+      "expected_directory_count": 24,
+      "expected_file_count": 2400,
+      "root_ms": 94.48,
+      "actions": [
+        {
+          "directory": "alpha_0000",
+          "elapsed_ms": 82.62,
+          "live_tree_elements": 948,
+          "live_file_rows": 100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 1,
+          "live_document_elements": 1081
+        },
+        {
+          "directory": "alpha_0001",
+          "elapsed_ms": 73.8,
+          "live_tree_elements": 1751,
+          "live_file_rows": 200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 2,
+          "live_document_elements": 1884
+        },
+        {
+          "directory": "alpha_0002",
+          "elapsed_ms": 82.24,
+          "live_tree_elements": 2554,
+          "live_file_rows": 300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 3,
+          "live_document_elements": 2687
+        },
+        {
+          "directory": "alpha_0003",
+          "elapsed_ms": 103.95,
+          "live_tree_elements": 3357,
+          "live_file_rows": 400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 4,
+          "live_document_elements": 3490
+        },
+        {
+          "directory": "alpha_0004",
+          "elapsed_ms": 129.32,
+          "live_tree_elements": 4160,
+          "live_file_rows": 500,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 5,
+          "live_document_elements": 4293
+        },
+        {
+          "directory": "alpha_0005",
+          "elapsed_ms": 116.17,
+          "live_tree_elements": 4963,
+          "live_file_rows": 600,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 6,
+          "live_document_elements": 5096
+        },
+        {
+          "directory": "alpha_0006",
+          "elapsed_ms": 164.3,
+          "live_tree_elements": 5766,
+          "live_file_rows": 700,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 7,
+          "live_document_elements": 5899
+        },
+        {
+          "directory": "alpha_0007",
+          "elapsed_ms": 148.42,
+          "live_tree_elements": 6569,
+          "live_file_rows": 800,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 8,
+          "live_document_elements": 6702
+        },
+        {
+          "directory": "alpha_0008",
+          "elapsed_ms": 182.02,
+          "live_tree_elements": 7372,
+          "live_file_rows": 900,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 9,
+          "live_document_elements": 7505
+        },
+        {
+          "directory": "alpha_0009",
+          "elapsed_ms": 248.71,
+          "live_tree_elements": 8175,
+          "live_file_rows": 1000,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 10,
+          "live_document_elements": 8308
+        },
+        {
+          "directory": "alpha_0010",
+          "elapsed_ms": 182,
+          "live_tree_elements": 8978,
+          "live_file_rows": 1100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 11,
+          "live_document_elements": 9111
+        },
+        {
+          "directory": "alpha_0011",
+          "elapsed_ms": 273.68,
+          "live_tree_elements": 9781,
+          "live_file_rows": 1200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 12,
+          "live_document_elements": 9914
+        },
+        {
+          "directory": "alpha_0012",
+          "elapsed_ms": 351.58,
+          "live_tree_elements": 10584,
+          "live_file_rows": 1300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 13,
+          "live_document_elements": 10717
+        },
+        {
+          "directory": "alpha_0013",
+          "elapsed_ms": 412.63,
+          "live_tree_elements": 11387,
+          "live_file_rows": 1400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 14,
+          "live_document_elements": 11520
+        },
+        {
+          "directory": "alpha_0014",
+          "elapsed_ms": 671.61,
+          "live_tree_elements": 12190,
+          "live_file_rows": 1500,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 15,
+          "live_document_elements": 12323
+        },
+        {
+          "directory": "alpha_0015",
+          "elapsed_ms": 796.43,
+          "live_tree_elements": 12993,
+          "live_file_rows": 1600,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 16,
+          "live_document_elements": 13126
+        },
+        {
+          "directory": "alpha_0016",
+          "elapsed_ms": 566,
+          "live_tree_elements": 13796,
+          "live_file_rows": 1700,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 17,
+          "live_document_elements": 13929
+        },
+        {
+          "directory": "alpha_0017",
+          "elapsed_ms": 589.39,
+          "live_tree_elements": 14599,
+          "live_file_rows": 1800,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 18,
+          "live_document_elements": 14732
+        },
+        {
+          "directory": "alpha_0018",
+          "elapsed_ms": 621.84,
+          "live_tree_elements": 15402,
+          "live_file_rows": 1900,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 19,
+          "live_document_elements": 15535
+        },
+        {
+          "directory": "alpha_0019",
+          "elapsed_ms": 1173.53,
+          "live_tree_elements": 16205,
+          "live_file_rows": 2000,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 20,
+          "live_document_elements": 16338
+        },
+        {
+          "directory": "alpha_0020",
+          "elapsed_ms": 914.14,
+          "live_tree_elements": 17008,
+          "live_file_rows": 2100,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 21,
+          "live_document_elements": 17141
+        },
+        {
+          "directory": "alpha_0021",
+          "elapsed_ms": 988.79,
+          "live_tree_elements": 17811,
+          "live_file_rows": 2200,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 22,
+          "live_document_elements": 17944
+        },
+        {
+          "directory": "alpha_0022",
+          "elapsed_ms": 957.34,
+          "live_tree_elements": 18614,
+          "live_file_rows": 2300,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 23,
+          "live_document_elements": 18747
+        },
+        {
+          "directory": "alpha_0023",
+          "elapsed_ms": 986.62,
+          "live_tree_elements": 19417,
+          "live_file_rows": 2400,
+          "live_directory_rows": 24,
+          "expanded_directory_rows": 24,
+          "live_document_elements": 19550
+        }
+      ],
+      "unique_loaded_root_items": 24,
+      "unique_loaded_file_records": 2400,
+      "loaded_dom": {
+        "live_tree_elements": 19417,
+        "live_file_rows": 2400,
+        "live_directory_rows": 24,
+        "expanded_directory_rows": 24,
+        "live_document_elements": 19550
+      },
+      "returned_dom": {
+        "live_tree_elements": 145,
+        "live_file_rows": 0,
+        "live_directory_rows": 24,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 278
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4815612,
+        "total_js_heap_bytes_after_forced_gc": 5464064
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 30936504,
+        "total_js_heap_bytes_after_forced_gc": 33656832
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5839476,
+        "total_js_heap_bytes_after_forced_gc": 6250496
+      },
+      "leave_menu_ms": 72.09,
+      "return_menu_ms": 72.34,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0001",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0001",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0002",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0002",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0003",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0003",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0004",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0004",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0005",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0005",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0006",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0006",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0007",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0007",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0008",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0008",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0009",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0009",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0010",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0010",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0011",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0011",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0012",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0012",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0013",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0013",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0014",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0014",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0015",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0015",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0016",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0016",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0017",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0017",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0018",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0018",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0019",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0019",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0020",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0020",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0021",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0021",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0022",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0022",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0023",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0023",
+          "offset": 0,
+          "returned": 100,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 24,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0001&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0002&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0003&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0004&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0005&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0006&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0007&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0008&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0009&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0010&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0011&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0012&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0013&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0014&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0015&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0016&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0017&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0018&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0019&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0020&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0021&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0022&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0023&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "rapid_project_switch",
+      "repetition": 1,
+      "expected_directory_count": 1,
+      "expected_file_count": 1,
+      "root_ms": 60.01,
+      "actions": [
+        {
+          "switch_to": 2,
+          "elapsed_ms": 100.15,
+          "live_tree_elements": 7,
+          "live_file_rows": 0,
+          "live_directory_rows": 1,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 140
+        },
+        {
+          "switch_to": 1,
+          "elapsed_ms": 81.93,
+          "live_tree_elements": 7,
+          "live_file_rows": 0,
+          "live_directory_rows": 1,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 140
+        },
+        {
+          "stale_response_contamination": false,
+          "final_project": 1,
+          "current_file_verified": true
+        }
+      ],
+      "unique_loaded_root_items": 1,
+      "unique_loaded_file_records": 1,
+      "loaded_dom": {
+        "live_tree_elements": 18,
+        "live_file_rows": 1,
+        "live_directory_rows": 1,
+        "expanded_directory_rows": 1,
+        "live_document_elements": 151
+      },
+      "returned_dom": {
+        "live_tree_elements": 7,
+        "live_file_rows": 0,
+        "live_directory_rows": 1,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 140
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4823360,
+        "total_js_heap_bytes_after_forced_gc": 5726208
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5510264,
+        "total_js_heap_bytes_after_forced_gc": 5988352
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5435876,
+        "total_js_heap_bytes_after_forced_gc": 5988352
+      },
+      "leave_menu_ms": 40.07,
+      "return_menu_ms": 61.01,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": true
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": true
+        },
+        {
+          "project": 2,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 2,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/2/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "rapid_project_switch",
+      "repetition": 2,
+      "expected_directory_count": 1,
+      "expected_file_count": 1,
+      "root_ms": 58.96,
+      "actions": [
+        {
+          "switch_to": 2,
+          "elapsed_ms": 89.98,
+          "live_tree_elements": 7,
+          "live_file_rows": 0,
+          "live_directory_rows": 1,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 140
+        },
+        {
+          "switch_to": 1,
+          "elapsed_ms": 90.3,
+          "live_tree_elements": 7,
+          "live_file_rows": 0,
+          "live_directory_rows": 1,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 140
+        },
+        {
+          "stale_response_contamination": false,
+          "final_project": 1,
+          "current_file_verified": true
+        }
+      ],
+      "unique_loaded_root_items": 1,
+      "unique_loaded_file_records": 1,
+      "loaded_dom": {
+        "live_tree_elements": 18,
+        "live_file_rows": 1,
+        "live_directory_rows": 1,
+        "expanded_directory_rows": 1,
+        "live_document_elements": 151
+      },
+      "returned_dom": {
+        "live_tree_elements": 7,
+        "live_file_rows": 0,
+        "live_directory_rows": 1,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 140
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4816156,
+        "total_js_heap_bytes_after_forced_gc": 5201920
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5503760,
+        "total_js_heap_bytes_after_forced_gc": 6250496
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5424100,
+        "total_js_heap_bytes_after_forced_gc": 5988352
+      },
+      "leave_menu_ms": 41.8,
+      "return_menu_ms": 58.75,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": true
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": true
+        },
+        {
+          "project": 2,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 2,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/2/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    },
+    {
+      "scenario": "rapid_project_switch",
+      "repetition": 3,
+      "expected_directory_count": 1,
+      "expected_file_count": 1,
+      "root_ms": 106.67,
+      "actions": [
+        {
+          "switch_to": 2,
+          "elapsed_ms": 112.73,
+          "live_tree_elements": 7,
+          "live_file_rows": 0,
+          "live_directory_rows": 1,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 140
+        },
+        {
+          "switch_to": 1,
+          "elapsed_ms": 73.48,
+          "live_tree_elements": 7,
+          "live_file_rows": 0,
+          "live_directory_rows": 1,
+          "expanded_directory_rows": 0,
+          "live_document_elements": 140
+        },
+        {
+          "stale_response_contamination": false,
+          "final_project": 1,
+          "current_file_verified": true
+        }
+      ],
+      "unique_loaded_root_items": 1,
+      "unique_loaded_file_records": 1,
+      "loaded_dom": {
+        "live_tree_elements": 18,
+        "live_file_rows": 1,
+        "live_directory_rows": 1,
+        "expanded_directory_rows": 1,
+        "live_document_elements": 151
+      },
+      "returned_dom": {
+        "live_tree_elements": 7,
+        "live_file_rows": 0,
+        "live_directory_rows": 1,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 140
+      },
+      "hidden_dom": {
+        "live_tree_elements": 0,
+        "live_file_rows": 0,
+        "live_directory_rows": 0,
+        "expanded_directory_rows": 0,
+        "live_document_elements": 95
+      },
+      "shell_heap": {
+        "used_js_heap_bytes_after_forced_gc": 4838284,
+        "total_js_heap_bytes_after_forced_gc": 5726208
+      },
+      "loaded_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5510288,
+        "total_js_heap_bytes_after_forced_gc": 6250496
+      },
+      "hidden_heap": {
+        "used_js_heap_bytes_after_forced_gc": 5436888,
+        "total_js_heap_bytes_after_forced_gc": 5726208
+      },
+      "leave_menu_ms": 41.56,
+      "return_menu_ms": 92.6,
+      "menu_roundtrip_additional_requests": 2,
+      "requests": [
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": true
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": true
+        },
+        {
+          "project": 2,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 2,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "alpha_0000",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        },
+        {
+          "project": 1,
+          "path": "",
+          "offset": 0,
+          "returned": 1,
+          "delayed": false
+        }
+      ],
+      "failed_requests": [
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/2/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?path=alpha_0000&limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "http://127.0.0.1:5175/api/projects/1/files/tree?limit=200&offset=0",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "tree_request_abort_observed_including_strictmode": true,
+      "page_errors": []
+    }
+  ]
+}

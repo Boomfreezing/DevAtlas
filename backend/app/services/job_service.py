@@ -15,7 +15,7 @@ from app.models.analysis import (
     ParseIssue,
     SearchChunk,
 )
-from app.models.project import Project, ProjectFile, ProjectGitMetadata
+from app.models.project import Project, ProjectFile
 from app.services.analysis_cache import invalidate_project_analysis
 from app.services.git_metadata_service import save_git_metadata
 from app.services.github_service import (
@@ -58,6 +58,7 @@ def run_repository_job(
                 source_filename=source_filename,
                 project_name=project_name,
                 search_index_root=settings.search_index_root,
+                source_commit=git_metadata.head_commit if git_metadata else None,
                 progress_callback=lambda stage, progress, message: _update_job(
                     session_factory,
                     job_id,
@@ -107,7 +108,9 @@ def run_github_job(
         # rate-limited; users can retry metadata loading from the snapshot page.
         pass
     try:
-        repository_path = asyncio.run(download_github_repository(repository, settings))
+        repository_path = asyncio.run(download_github_repository(
+            repository, settings, commit_sha=git_metadata.head_commit if git_metadata else None
+        ))
     except Exception as error:
         _fail_job(session_factory, job_id, error)
         return
@@ -155,10 +158,8 @@ def run_github_sync_job(
             project = database.get(Project, project_id)
             if project is None:
                 raise LookupError("Project not found.")
-            stored = database.scalar(
-                select(ProjectGitMetadata).where(ProjectGitMetadata.project_id == project_id)
-            )
-            if stored is not None and stored.head_commit == metadata.head_commit:
+            if (project.source_commit == metadata.head_commit
+                    and resolve_project_storage_path(project.storage_path).is_dir()):
                 save_git_metadata(database, project, metadata)
                 _update_job(
                     session_factory,
@@ -179,7 +180,9 @@ def run_github_sync_job(
             progress=16,
             message="发现新提交，正在下载安全源码快照",
         )
-        downloaded_path = asyncio.run(download_github_repository(repository, settings))
+        downloaded_path = asyncio.run(download_github_repository(
+            repository, settings, commit_sha=metadata.head_commit
+        ))
         _update_job(
             session_factory,
             job_id,
@@ -198,6 +201,7 @@ def run_github_sync_job(
                 source_filename=repository.display_source,
                 project_name=current.name,
                 search_index_root=settings.search_index_root,
+                source_commit=metadata.head_commit,
                 progress_callback=lambda stage, progress, message: _update_job(
                     session_factory,
                     job_id,
@@ -287,6 +291,7 @@ def _promote_synchronized_project(
         )
 
     current.storage_path = staged.storage_path
+    current.source_commit = staged.source_commit
     current.source_filename = staged.source_filename
     current.status = "ready"
     current.primary_language = staged.primary_language
@@ -301,6 +306,8 @@ def _promote_synchronized_project(
         raise RuntimeError("Project promotion failed.")
     build_project_search_index(database, refreshed, search_index_root)
     database.commit()
+    invalidate_project_analysis(database, current_id)
+    invalidate_project_analysis(database, staged_id)
 
 
 def fail_interrupted_jobs(session_factory: sessionmaker[Session]) -> int:

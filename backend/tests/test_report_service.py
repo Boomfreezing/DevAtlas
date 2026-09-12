@@ -77,9 +77,12 @@ def test_report_baseline_and_recommendations_are_traceable() -> None:
         history_available=True,
         recent_commits_json="[]",
     )
+    assert "未绑定可验证的 Git Commit" in _analysis_baseline(project)
+    project.source_commit = "a" * 40
+    project.git_metadata.head_commit = "b" * 40
     baseline = _analysis_baseline(project)
-    assert "`main`" in baseline
     assert f"`{'a' * 40}`" in baseline
+    assert f"`{'b' * 40}`" not in baseline
 
     recommendations = _recommendations(
         {
