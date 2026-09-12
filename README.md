@@ -143,6 +143,8 @@ npm run dev
 
 后端从仓库根目录读取可选的 `.env`。如需覆盖默认配置，先将 `.env.example` 复制为 `.env`。
 
+拉取包含依赖声明变更的新提交后，请在后端虚拟环境中重新执行 `python -m pip install -e ".[dev]"`，不要仅复用旧环境判断项目是否可以启动或测试。
+
 ### Docker Compose
 
 ```bash
