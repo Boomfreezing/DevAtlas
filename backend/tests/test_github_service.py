@@ -12,6 +12,7 @@ from app.services.github_service import (
     GitHubComparison,
     GitHubDownloadError,
     GitHubMetadata,
+    GitHubMetadataError,
     GitHubValidationError,
     download_github_repository,
     fetch_github_comparison,
@@ -51,10 +52,18 @@ def make_zip() -> bytes:
 
 
 class FakeResponse:
-    def __init__(self, status_code: int, content: bytes = b"") -> None:
+    def __init__(
+        self,
+        status_code: int,
+        content: bytes = b"",
+        *,
+        url: str = "https://codeload.github.com/openai/example/zip/HEAD",
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.status_code = status_code
         self.content = content
-        self.url = httpx.URL("https://codeload.github.com/openai/example/zip/HEAD")
+        self.url = httpx.URL(url)
+        self.headers = httpx.Headers(headers)
 
     async def __aenter__(self) -> "FakeResponse":
         return self
@@ -64,10 +73,15 @@ class FakeResponse:
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
+            request = httpx.Request("GET", self.url)
             raise httpx.HTTPStatusError(
                 "download failed",
-                request=httpx.Request("GET", "https://github.com/openai/example"),
-                response=httpx.Response(self.status_code),
+                request=request,
+                response=httpx.Response(
+                    self.status_code,
+                    request=request,
+                    headers=self.headers,
+                ),
             )
 
     async def aiter_bytes(self, _: int):
@@ -76,9 +90,10 @@ class FakeResponse:
 
 class FakeClient:
     response = FakeResponse(200, make_zip())
+    options: dict[str, object] = {}
 
-    def __init__(self, **_: object) -> None:
-        pass
+    def __init__(self, **options: object) -> None:
+        type(self).options = options
 
     async def __aenter__(self) -> "FakeClient":
         return self
@@ -96,6 +111,23 @@ class ConnectionFailingClient(FakeClient):
             "[WinError 10013] socket access was denied",
             request=httpx.Request("GET", "https://github.com/openai/example"),
         )
+
+
+class ProxyFailingClient(FakeClient):
+    def stream(self, *_: object, **__: object) -> FakeResponse:
+        raise httpx.ProxyError(
+            "proxy tunnel failed at http://username:password@proxy.example:8080",
+            request=httpx.Request("GET", "https://github.com/openai/example"),
+        )
+
+
+class SequentialDownloadClient(FakeClient):
+    responses: list[FakeResponse] = []
+    requested_urls: list[str] = []
+
+    def stream(self, _method: str, url: str) -> FakeResponse:
+        type(self).requested_urls.append(str(url))
+        return type(self).responses.pop(0)
 
 
 class FakeMetadataClient:
@@ -139,7 +171,12 @@ class FakeMetadataClient:
                     }
                 ],
             )
-        return httpx.Response(200, request=request, json={"default_branch": "main"})
+        return httpx.Response(
+            200,
+            request=request,
+            headers={"X-RateLimit-Remaining": "0"},
+            json={"default_branch": "main"},
+        )
 
 
 def test_loads_bounded_github_commit_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -288,3 +325,242 @@ def test_reports_github_access_rejection(
 
     with pytest.raises(GitHubDownloadError, match="private"):
         asyncio.run(download_github_repository(repository, settings))
+
+
+def test_follows_only_prevalidated_github_download_redirects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        temporary_root=tmp_path / "temporary",
+    )
+    settings.ensure_directories()
+    SequentialDownloadClient.requested_urls = []
+    SequentialDownloadClient.responses = [
+        FakeResponse(
+            302,
+            url="https://github.com/openai/example/archive/HEAD.zip",
+            headers={"Location": "https://codeload.github.com/openai/example/zip/HEAD"},
+        ),
+        FakeResponse(200, make_zip()),
+    ]
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", SequentialDownloadClient)
+
+    extracted = asyncio.run(download_github_repository(
+        parse_github_repository("https://github.com/openai/example"), settings
+    ))
+
+    assert (extracted / "src" / "main.py").exists()
+    assert SequentialDownloadClient.requested_urls == [
+        "https://github.com/openai/example/archive/HEAD.zip",
+        "https://codeload.github.com/openai/example/zip/HEAD",
+    ]
+    assert SequentialDownloadClient.options["follow_redirects"] is False
+    assert SequentialDownloadClient.options["trust_env"] is True
+
+
+def test_rejects_external_redirect_before_sending_a_second_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        temporary_root=tmp_path / "temporary",
+    )
+    settings.ensure_directories()
+    SequentialDownloadClient.requested_urls = []
+    SequentialDownloadClient.responses = [
+        FakeResponse(
+            302,
+            url="https://github.com/openai/example/archive/HEAD.zip",
+            headers={"Location": "https://example.com/untrusted.zip"},
+        )
+    ]
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", SequentialDownloadClient)
+
+    with pytest.raises(GitHubDownloadError, match="unsafe host"):
+        asyncio.run(download_github_repository(
+            parse_github_repository("https://github.com/openai/example"), settings
+        ))
+
+    assert SequentialDownloadClient.requested_urls == [
+        "https://github.com/openai/example/archive/HEAD.zip"
+    ]
+    assert list(settings.temporary_root.iterdir()) == []
+
+
+def test_rejects_declared_oversized_archive_before_streaming(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        temporary_root=tmp_path / "temporary",
+        max_upload_mb=1,
+    )
+    settings.ensure_directories()
+    FakeClient.response = FakeResponse(
+        200,
+        make_zip(),
+        headers={"Content-Length": str(2 * 1024 * 1024)},
+    )
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", FakeClient)
+
+    with pytest.raises(GitHubDownloadError, match="1 MB limit"):
+        asyncio.run(download_github_repository(
+            parse_github_repository("https://github.com/openai/example"), settings
+        ))
+    assert list(settings.temporary_root.iterdir()) == []
+
+
+def test_retries_one_transient_download_failure_without_retrying_rate_limits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        temporary_root=tmp_path / "temporary",
+    )
+    settings.ensure_directories()
+    waits: list[float] = []
+
+    async def no_wait(delay: float) -> None:
+        waits.append(delay)
+
+    monkeypatch.setattr(github_service.asyncio, "sleep", no_wait)
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", SequentialDownloadClient)
+    SequentialDownloadClient.requested_urls = []
+    SequentialDownloadClient.responses = [
+        FakeResponse(503),
+        FakeResponse(200, make_zip()),
+    ]
+
+    extracted = asyncio.run(download_github_repository(
+        parse_github_repository("https://github.com/openai/example"), settings
+    ))
+    assert extracted.exists()
+    assert len(SequentialDownloadClient.requested_urls) == 2
+    assert waits == [github_service.GITHUB_RETRY_DELAY_SECONDS]
+
+    SequentialDownloadClient.requested_urls = []
+    SequentialDownloadClient.responses = [
+        FakeResponse(429, headers={"Retry-After": "17"}),
+    ]
+    with pytest.raises(GitHubDownloadError, match="Retry after 17 seconds"):
+        asyncio.run(download_github_repository(
+            parse_github_repository("https://github.com/openai/example"), settings
+        ))
+    assert len(SequentialDownloadClient.requested_urls) == 1
+
+
+def test_reports_configured_proxy_failure_without_exposing_proxy_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        temporary_root=tmp_path / "temporary",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", ProxyFailingClient)
+
+    with pytest.raises(GitHubDownloadError, match="configured proxy") as error:
+        asyncio.run(download_github_repository(
+            parse_github_repository("https://github.com/openai/example"), settings
+        ))
+    assert "proxy tunnel failed" not in str(error.value)
+    assert "password" not in str(error.value)
+
+
+@pytest.mark.parametrize(
+    ("error_type", "message"),
+    [
+        (httpx.ConnectTimeout, "before the download started"),
+        (httpx.ReadTimeout, "stalled while receiving data"),
+    ],
+)
+def test_distinguishes_connection_and_transfer_timeouts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[httpx.TimeoutException],
+    message: str,
+) -> None:
+    class TimeoutClient(FakeClient):
+        def stream(self, *_: object, **__: object) -> FakeResponse:
+            raise error_type(
+                "synthetic timeout",
+                request=httpx.Request("GET", "https://github.com/openai/example"),
+            )
+
+    settings = Settings(
+        repository_root=tmp_path / "repositories",
+        temporary_root=tmp_path / "temporary",
+    )
+    settings.ensure_directories()
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", TimeoutClient)
+
+    with pytest.raises(GitHubDownloadError, match=message):
+        asyncio.run(download_github_repository(
+            parse_github_repository("https://github.com/openai/example"), settings
+        ))
+
+
+def test_metadata_distinguishes_access_rejection_and_rate_limit_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MetadataFailureClient(FakeMetadataClient):
+        response = httpx.Response(
+            403,
+            request=httpx.Request("GET", "https://api.github.com/repos/openai/example"),
+        )
+
+        async def get(self, _url: str, **_: object) -> httpx.Response:
+            return type(self).response
+
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", MetadataFailureClient)
+    repository = parse_github_repository("https://github.com/openai/example")
+    with pytest.raises(GitHubMetadataError, match="visibility and access"):
+        asyncio.run(fetch_github_metadata(repository))
+
+    MetadataFailureClient.response = httpx.Response(
+        403,
+        headers={"X-RateLimit-Remaining": "0", "Retry-After": "23"},
+        request=httpx.Request("GET", "https://api.github.com/repos/openai/example"),
+    )
+    with pytest.raises(GitHubMetadataError, match="Retry after 23 seconds"):
+        asyncio.run(fetch_github_metadata(repository))
+
+
+def test_retries_one_transient_metadata_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class RetryingMetadataClient(FakeMetadataClient):
+        responses = [
+            httpx.Response(
+                503,
+                request=httpx.Request("GET", "https://api.github.com/repos/openai/example"),
+            ),
+            httpx.Response(
+                200,
+                request=httpx.Request("GET", "https://api.github.com/repos/openai/example"),
+                json={"default_branch": "main"},
+            ),
+            httpx.Response(
+                200,
+                request=httpx.Request("GET", "https://api.github.com/repos/openai/example/commits"),
+                json=[{"sha": "d" * 40, "commit": {"message": "retry ok"}}],
+            ),
+        ]
+
+        async def get(self, _url: str, **_: object) -> httpx.Response:
+            return type(self).responses.pop(0)
+
+    waits: list[float] = []
+
+    async def no_wait(delay: float) -> None:
+        waits.append(delay)
+
+    monkeypatch.setattr(github_service.asyncio, "sleep", no_wait)
+    monkeypatch.setattr(github_service.httpx, "AsyncClient", RetryingMetadataClient)
+    metadata = asyncio.run(fetch_github_metadata(
+        parse_github_repository("https://github.com/openai/example")
+    ))
+
+    assert metadata.head_commit == "d" * 40
+    assert waits == [github_service.GITHUB_RETRY_DELAY_SECONDS]

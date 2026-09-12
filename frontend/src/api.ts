@@ -75,8 +75,17 @@ const DETAIL_GUIDANCE: Array<{ pattern: RegExp; summary: string; action: string 
   { pattern: /archive contains a symbolic link/i, summary: "仓库压缩包包含符号链接", action: "更新后端后重试；系统应安全跳过链接而不是创建它" },
   { pattern: /not a valid ZIP archive/i, summary: "文件内容不是有效的 ZIP 压缩包", action: "检查文件是否损坏并重新压缩" },
   { pattern: /public GitHub repository was not found/i, summary: "没有找到这个公开 GitHub 仓库", action: "检查仓库地址、拼写和公开权限" },
+  { pattern: /Cannot connect to GitHub through the configured proxy/i, summary: "后端无法通过当前代理连接 GitHub", action: "检查 HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY 后重试" },
   { pattern: /Cannot connect to GitHub/i, summary: "后端无法连接 GitHub", action: "检查网络、代理和后端外网权限后重试" },
+  { pattern: /GitHub connection timed out before the download started/i, summary: "连接 GitHub 时超时", action: "检查网络或代理；确认连接恢复后重试" },
+  { pattern: /GitHub download stalled while receiving data/i, summary: "GitHub 下载过程中长时间没有收到数据", action: "检查网络后重试；大型仓库也可先下载 ZIP 再导入" },
+  { pattern: /GitHub download connection was interrupted/i, summary: "GitHub 下载连接在完成前中断", action: "检查网络或代理后重试；大型仓库也可先下载 ZIP 再导入" },
   { pattern: /GitHub download timed out/i, summary: "下载 GitHub 仓库超时", action: "检查网络后重试，或改用 ZIP 导入" },
+  { pattern: /GitHub redirected the download to an unexpected or unsafe host/i, summary: "GitHub 下载被重定向到非受信任地址", action: "停止重试并检查代理、网关或网络劫持设置" },
+  { pattern: /GitHub download exceeded the safe redirect limit/i, summary: "GitHub 下载重定向次数异常", action: "检查代理或网关设置后重试" },
+  { pattern: /GitHub is temporarily unavailable/i, summary: "GitHub 下载服务暂时不可用", action: "稍后重试；系统只会自动重试一次短暂故障" },
+  { pattern: /GitHub metadata service is temporarily unavailable/i, summary: "GitHub 提交信息服务暂时不可用", action: "稍后刷新；源码分析与已有快照不受影响" },
+  { pattern: /GitHub rejected the metadata request/i, summary: "GitHub 拒绝读取提交信息", action: "检查仓库是否公开；源码分析与已有快照仍可使用" },
   { pattern: /Unable to load GitHub metadata/i, summary: "后端无法读取 GitHub 提交信息", action: "检查网络、代理和后端外网权限；源码分析与已有快照仍可正常使用" },
   { pattern: /Unable to compare GitHub commits/i, summary: "后端无法读取 GitHub 提交差异", action: "检查网络、代理和后端外网权限；稍后重新对比" },
   { pattern: /Choose two different commits to compare/i, summary: "基准和目标是同一个提交", action: "选择两个不同提交后再对比" },
@@ -120,6 +129,10 @@ function extractDetail(body: unknown): string | null {
 }
 
 export function formatOperationError(operation: string, status: number, detail: string | null): string {
+  const rateLimitWait = detail?.match(/GitHub (?:download|metadata) rate limit reached\. Retry after (\d+) seconds/i);
+  if (rateLimitWait) {
+    return `${operation}失败：GitHub 已触发访问限流。建议：等待 ${rateLimitWait[1]} 秒后重试，期间不要连续提交请求。`;
+  }
   const matched = detail ? DETAIL_GUIDANCE.find((item) => item.pattern.test(detail)) : undefined;
   if (matched) return `${operation}失败：${matched.summary}。建议：${matched.action}。`;
 

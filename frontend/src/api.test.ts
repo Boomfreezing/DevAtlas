@@ -63,6 +63,29 @@ describe("API error guidance", () => {
     );
   });
 
+  it("shows the GitHub rate-limit wait without encouraging repeated retries", () => {
+    expect(formatOperationError(
+      "分析仓库",
+      500,
+      "GitHub download rate limit reached. Retry after 23 seconds.",
+    )).toBe(
+      "分析仓库失败：GitHub 已触发访问限流。建议：等待 23 秒后重试，期间不要连续提交请求。",
+    );
+  });
+
+  it("distinguishes proxy and stalled-download failures", () => {
+    expect(formatOperationError(
+      "分析仓库",
+      500,
+      "Cannot connect to GitHub through the configured proxy.",
+    )).toContain("HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY");
+    expect(formatOperationError(
+      "分析仓库",
+      500,
+      "GitHub download stalled while receiving data.",
+    )).toContain("先下载 ZIP 再导入");
+  });
+
   it("keeps a Chinese service detail and adds status-specific advice", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       Response.json({ detail: "图谱服务暂时不可用" }, { status: 503 }),
