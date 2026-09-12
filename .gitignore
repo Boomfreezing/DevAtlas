@@ -38,6 +38,9 @@ data/reports/*
 backend/data/
 backend/*.log
 
+# Local interview preparation notes (not part of the public project)
+docs/interview/
+
 .idea/
 .vscode/
 .DS_Store
